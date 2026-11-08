@@ -1,0 +1,328 @@
+use super::*;
+use crate::{
+    app::Panel,
+    domain::{
+        jobs::{Job, JobAction, Stage},
+        repository::{Provider, Remote, Repository},
+    },
+    i18n::{I18n, Key, Language},
+    ui::theme,
+};
+use iced::{
+    Theme,
+    widget::{Id, pane_grid},
+};
+use std::{path::PathBuf, rc::Rc};
+
+fn run(id: u64) -> Pipeline {
+    Pipeline {
+        id,
+        number: Some(7),
+        title: "Build application and publish preview".into(),
+        branch: "main".into(),
+        commit: None,
+        status: "running".into(),
+        date: "2026-11-09".into(),
+        url: format!("https://gitlab.example.test/team/app/-/pipelines/{id}"),
+    }
+}
+
+fn details() -> Details {
+    Details {
+        stages: [
+            ("build", "compile", "success", JobAction::Retry),
+            ("test", "unit-tests", "running", JobAction::Cancel),
+            ("deploy", "deploy-preview", "manual", JobAction::Play),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, (stage, name, status, action))| Stage {
+            name: Some(stage.into()),
+            jobs: vec![Job {
+                id: index as u64 + 1,
+                name: name.into(),
+                status: status.into(),
+                url: format!("https://gitlab.example.test/team/app/-/jobs/{}", index + 1),
+                actions: vec![action],
+            }],
+        })
+        .collect(),
+        cancelable: true,
+    }
+}
+
+fn app(language: Language) -> App {
+    let mut app = App::new(Rc::new(I18n::new(language)));
+    app.loaded = true;
+    app.workspace
+        .create_space("Work".into(), vec![PathBuf::from("/project")]);
+    app.project_directory = app.workspace.directory().cloned();
+    app.repository = Some(Repository {
+        root: "/project".into(),
+        branches: Vec::new(),
+        commits: Vec::new(),
+        next_history: None,
+        remote: Remote::parse("https://gitlab.example.test/team/app.git"),
+        head: "main".into(),
+    });
+    app.pipelines = PipelineState::Ready(vec![run(500), run(501)]);
+    app.workspace.preferences.show_git = false;
+    app.workspace.preferences.show_pipelines = true;
+    app.panes = pane_grid::State::new(Panel::Pipelines).0;
+    app.account_username = Some("developer".into());
+    app
+}
+
+fn loaded(app: &mut App) {
+    let id = app.jobs.selected.as_ref().unwrap().id;
+    let _ = app.update_jobs(Event::Loaded(
+        app.jobs.epoch,
+        app.jobs.request,
+        id,
+        Ok(details()),
+    ));
+}
+
+fn selected() -> App {
+    let mut app = app(Language::English);
+    let _ = app.update_jobs(Event::Select(500));
+    loaded(&mut app);
+    app
+}
+
+#[test]
+fn job_refresh_keeps_details_and_collapse_state_and_rejects_old_selection_results() {
+    let mut app = selected();
+    let _ = app.update_jobs(Event::ToggleStage("build".into()));
+    let _ = app.update_jobs(Event::Refresh);
+    assert!(app.jobs.loading);
+    assert_eq!(app.jobs.details.as_ref().unwrap().stages.len(), 3);
+    let request = app.jobs.request;
+    let _ = app.update_jobs(Event::Tick);
+    assert_eq!(app.jobs.request, request);
+    let _ = app.update_jobs(Event::Loaded(
+        app.jobs.epoch,
+        request,
+        500,
+        Err(Failure::Unavailable),
+    ));
+    assert!(app.jobs.details.is_some());
+    assert!(!app.jobs.loading);
+    assert!(app.jobs.collapsed.contains("build"));
+    let _ = app.update_jobs(Event::Tick);
+    assert_eq!(app.jobs.request, request);
+    let _ = app.update_jobs(Event::Select(501));
+    let _ = app.update_jobs(Event::Loaded(app.jobs.epoch, request, 500, Ok(details())));
+    assert!(app.jobs.details.is_none());
+    assert!(app.jobs.loading);
+    loaded(&mut app);
+    assert!(app.jobs.details.is_some());
+    let epoch = app.jobs.epoch;
+    let request = app.jobs.request;
+    app.reset_jobs();
+    let _ = app.update_jobs(Event::Select(501));
+    let _ = app.update_jobs(Event::Loaded(epoch, request, 501, Ok(details())));
+    assert!(app.jobs.details.is_none());
+}
+
+#[test]
+fn job_actions_require_current_capabilities_and_block_duplicate_submissions() {
+    let mut app = selected();
+    for (id, action) in [
+        (501, Action::Job(3, JobAction::Play)),
+        (500, Action::Job(99, JobAction::Play)),
+        (500, Action::Job(3, JobAction::Cancel)),
+    ] {
+        let _ = app.update_jobs(Event::Control(id, action));
+        assert!(app.jobs.pending.is_none());
+    }
+    let action = Action::Job(3, JobAction::Play);
+    let _ = app.update_jobs(Event::Refresh);
+    let reading = app.jobs.request;
+    let _ = app.update_jobs(Event::Control(500, action));
+    let request = app.jobs.action_request;
+    assert_eq!(app.jobs.pending, Some((500, action)));
+    let _ = app.update_jobs(Event::Loaded(
+        app.jobs.epoch,
+        reading,
+        500,
+        Ok(Details::default()),
+    ));
+    assert_eq!(app.jobs.details.as_ref().unwrap().stages.len(), 3);
+    assert!(!app.jobs.loading);
+    let _ = app.update_jobs(Event::Control(500, Action::CancelPipeline));
+    let _ = app.update_jobs(Event::Tick);
+    assert_eq!(app.jobs.action_request, request);
+    let _ = app.update_jobs(Event::Controlled(app.jobs.epoch, request, 501, Ok(())));
+    assert!(app.jobs.pending.is_some());
+    let _ = app.update_jobs(Event::Controlled(app.jobs.epoch, request, 500, Ok(())));
+    assert!(app.jobs.pending.is_none());
+    assert!(app.jobs.loading);
+    assert!(app.jobs.details.is_some());
+    loaded(&mut app);
+    let _ = app.update_jobs(Event::Control(500, Action::Job(2, JobAction::Cancel)));
+    let _ = app.update_jobs(Event::Controlled(
+        app.jobs.epoch,
+        app.jobs.action_request,
+        500,
+        Err(Failure::PermissionDenied),
+    ));
+    assert!(app.jobs.pending.is_none());
+    assert_eq!(app.jobs.action_error, Some(Failure::PermissionDenied));
+    let request = app.jobs.action_request;
+    let _ = app.update_jobs(Event::Control(500, action));
+    let _ = app.update_jobs(Event::Tick);
+    assert_eq!(app.jobs.action_request, request);
+    assert!(!app.jobs.loading);
+    assert!(app.jobs.details.is_some());
+}
+
+#[test]
+fn action_results_do_not_replace_a_different_pipeline_or_project() {
+    let mut app = selected();
+    let _ = app.update_jobs(Event::Control(500, Action::Job(3, JobAction::Play)));
+    let epoch = app.jobs.epoch;
+    let request = app.jobs.action_request;
+    let _ = app.update_jobs(Event::Back);
+    let _ = app.update_jobs(Event::Select(501));
+    assert!(!app.jobs.loading);
+    let _ = app.update_jobs(Event::Controlled(
+        epoch,
+        request,
+        500,
+        Err(Failure::Unavailable),
+    ));
+    assert_eq!(app.jobs.selected.as_ref().unwrap().id, 501);
+    assert!(app.jobs.loading);
+    assert!(app.jobs.action_error.is_none());
+    assert!(app.notice.is_some());
+    app.reset_jobs();
+    let _ = app.update_jobs(Event::Controlled(epoch, request, 500, Ok(())));
+    assert!(app.jobs.selected.is_none());
+    assert!(!app.jobs.loading);
+}
+
+#[test]
+fn signing_in_refreshes_permissions_and_invalidates_anonymous_job_responses() {
+    let mut app = selected();
+    app.jobs.action_error = Some(Failure::PermissionDenied);
+    let _ = app.refresh_jobs();
+    let previous = app.jobs.request;
+    let _ = app.update(Message::Auth(crate::app::auth::Message::Finished(
+        app.auth_request,
+        Ok("new-user".into()),
+    )));
+    assert!(app.jobs.action_error.is_none());
+    assert!(app.jobs.loading);
+    assert!(app.jobs.request > previous);
+    let _ = app.update_jobs(Event::Loaded(
+        app.jobs.epoch,
+        previous,
+        500,
+        Err(Failure::Access),
+    ));
+    assert!(app.jobs.error.is_none());
+    assert!(app.jobs.loading);
+    let epoch = app.jobs.epoch;
+    let _ = app.update(Message::Auth(crate::app::auth::Message::Disconnect));
+    assert!(app.jobs.selected.is_none());
+    assert!(app.jobs.epoch > epoch);
+}
+
+fn settings() -> iced::Settings {
+    iced::Settings {
+        default_font: theme::font(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn pipeline_jobs_interface_supports_selection_stages_actions_and_three_languages() {
+    for (language, suffix) in [
+        (Language::English, "en"),
+        (Language::Russian, "ru"),
+        (Language::Spanish, "es"),
+    ] {
+        let mut app = app(language);
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        ui.click(Id::new("pipeline-500")).unwrap();
+        for message in ui.into_messages() {
+            assert!(matches!(message, Message::Jobs(Event::Select(500))));
+            let _ = app.update(message);
+        }
+        loaded(&mut app);
+        for (width, height) in [(1080., 720.), (1440., 920.)] {
+            let mut ui = iced_test::Simulator::with_size(settings(), (width, height), app.view());
+            for id in [
+                "job-stage-0",
+                "job-action-1-Retry",
+                "job-action-2-Cancel",
+                "job-action-3-Play",
+                "cancel-pipeline",
+                "jobs-back",
+            ] {
+                let bounds = ui.find(Id::new(id)).unwrap().visible_bounds().unwrap();
+                assert!(bounds.width > 10. && bounds.height > 10.);
+                assert!(bounds.x + bounds.width <= width && bounds.y + bounds.height <= height);
+            }
+            if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+                ui.snapshot(&Theme::Dark)
+                    .unwrap()
+                    .matches_image(output.join(format!("jobs-{suffix}-{width}")))
+                    .unwrap();
+            }
+        }
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        ui.click(Id::new("job-stage-0")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        assert!(ui.find(Id::new("job-1")).is_err());
+        ui.click(Id::new("job-action-3-Play")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert_eq!(
+            app.jobs.pending,
+            Some((500, Action::Job(3, JobAction::Play)))
+        );
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        assert!(ui.find(app.i18n.text(Key::JobActionPending)).is_ok());
+        ui.click(Id::new("job-action-3-Play")).unwrap();
+        assert!(ui.into_messages().next().is_none());
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        ui.click(Id::new("jobs-back")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert!(app.jobs.selected.is_none());
+    }
+}
+
+#[test]
+fn github_retry_labels_include_dependents_and_errors_keep_job_rows_visible() {
+    let mut app = selected();
+    app.repository
+        .as_mut()
+        .unwrap()
+        .remote
+        .as_mut()
+        .unwrap()
+        .provider = Some(Provider::GitHub);
+    let mut details = details();
+    details.stages.truncate(1);
+    details.stages[0].name = None;
+    app.jobs.details = Some(details);
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+    assert!(ui.find(app.i18n.text(Key::RetryJobWithDependents)).is_ok());
+    assert!(ui.find(app.i18n.text(Key::CancelJob)).is_err());
+    assert!(ui.find(app.i18n.text(Key::CancelPipeline)).is_ok());
+    drop(ui);
+    app.jobs.action_error = Some(Failure::PermissionDenied);
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+    assert!(ui.find(app.i18n.text(Key::JobActionAccess)).is_ok());
+    assert!(ui.find(Id::new("job-1")).is_ok());
+    ui.click(Id::new("job-action-1-Retry")).unwrap();
+    assert!(ui.into_messages().next().is_none());
+}

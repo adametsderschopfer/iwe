@@ -1,28 +1,60 @@
 [package]
 name = "iwe"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
 rust-version = "1.90"
-description = "A minimal native desktop application built with Rust and Iced"
+description = "A native workspace for projects, source code, Git history, and pipelines"
 repository = "https://github.com/adametsderschopfer/iwe"
 publish = false
 
 [dependencies]
+base64 = "0.22"
+getrandom = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+sha2 = "0.10"
+zeroize = "1"
 fluent-bundle = "0.16.0"
-iced = { version = "0.14.0", features = ["fira-sans"] }
+iced = { version = "0.14.0", features = ["advanced", "fira-sans", "canvas", "tokio"] }
+directories = "6"
+open = "5"
+png = "0.18"
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["fs", "io-util", "process", "time", "sync", "macros", "net"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+two-face = { version = "0.4.5", default-features = false, features = ["syntect-default-fancy"] }
+url = "2"
 sys-locale = "0.3.2"
 unic-langid = { version = "0.9.6", features = ["macros"] }
+similar = { version = "3.2.1", default-features = false, features = ["text", "std"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6", features = ["apple-native"] }
 # Enable the optional macOS fallback backends in Iced's wgpu dependency.
 wgpu = { version = "27.0.1", default-features = false, features = ["vulkan-portability", "angle"] }
 objc2 = "0.6.5"
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSButton", "NSControl", "NSGlassEffectView", "NSGraphics", "NSResponder", "NSView", "NSWindow"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSButton", "NSControl", "NSGlassEffectView", "NSGraphics", "NSResponder", "NSView", "NSWindow", "objc2-quartz-core"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSKeyValueCoding", "NSString"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std", "CALayer", "objc2-core-foundation"] }
 raw-window-handle = "0.6.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3.6", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6", features = ["sync-secret-service", "crypto-rust", "vendored"] }
 
 [dev-dependencies]
 fluent-syntax = "0.12.0"
 iced_test = "0.14.0"
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1.31"
+
+[patch.crates-io]
+iced_widget = { path = "vendor/iced_widget" }
 
 [lints.rust]
 unsafe_code = "forbid"

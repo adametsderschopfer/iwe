@@ -45,6 +45,10 @@ fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
         for &key in Key::ALL {
             let mut args = FluentArgs::new();
             match key {
+                Key::UnchangedLines => {
+                    args.set("start", 1);
+                    args.set("end", 42);
+                }
                 Key::GraphicsTrying => {
                     args.set("backend", "Metal");
                 }
@@ -80,7 +84,7 @@ fn missing_or_invalid_translations_fall_back_to_english() {
             selected: bundle(Language::Spanish, source),
             english: bundle(Language::English, Language::English.source()),
         };
-        assert_eq!(i18n.text(Key::Greeting), "Hello World!");
+        assert_eq!(i18n.text(Key::Greeting), "What are you working on?");
     }
 }
 
@@ -118,7 +122,7 @@ fn missing_message_uses_nontechnical_text_in_the_selected_language() {
 fn separate_localizers_do_not_change_each_others_language() {
     let russian = I18n::new(Language::Russian);
     let spanish = I18n::new(Language::Spanish);
-    assert_eq!(russian.text(Key::Greeting), "Привет, мир!");
-    assert_eq!(spanish.text(Key::Greeting), "¡Hola, mundo!");
-    assert_eq!(russian.text(Key::Greeting), "Привет, мир!");
+    assert_eq!(russian.text(Key::Greeting), "С чего начнём?");
+    assert_eq!(spanish.text(Key::Greeting), "¿En qué vas a trabajar?");
+    assert_eq!(russian.text(Key::Greeting), "С чего начнём?");
 }

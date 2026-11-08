@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Iwe
+Comment=Projects, source code, Git history, and pipelines
+Exec=iwe %f
+Icon=iwe
+Terminal=false
+Categories=Development;IDE;
+StartupWMClass=iwe

@@ -1,10 +1,16 @@
 //! Keep AppKit material and Iced rendering in separate sibling views.
 
-use objc2::{MainThreadMarker, MainThreadOnly, rc::Retained, runtime::AnyClass};
-use objc2_app_kit::{
-    NSApplication, NSGlassEffectView, NSGlassEffectViewStyle, NSView, NSWindowButton,
-    NSWindowOrderingMode,
+use objc2::{
+    MainThreadMarker, MainThreadOnly,
+    rc::Retained,
+    runtime::{AnyClass, AnyObject},
 };
+use objc2_app_kit::{
+    NSApplication, NSGlassEffectView, NSGlassEffectViewStyle, NSView, NSViewLayerContentsPlacement,
+    NSViewLayerContentsRedrawPolicy, NSWindowButton, NSWindowOrderingMode,
+};
+use objc2_foundation::{NSArray, NSObjectNSKeyValueCoding, ns_string};
+use objc2_quartz_core::CALayer;
 use raw_window_handle::RawWindowHandle;
 
 pub(crate) fn apply(window: &dyn iced::window::Window) -> bool {
@@ -13,7 +19,6 @@ pub(crate) fn apply(window: &dyn iced::window::Window) -> bool {
 
 fn configure(window: &dyn iced::window::Window) -> Option<()> {
     let mtm = MainThreadMarker::new()?;
-    AnyClass::get(c"NSGlassEffectView")?;
     let handle = window.window_handle().ok()?;
     let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
         return None;
@@ -30,6 +35,16 @@ fn configure(window: &dyn iced::window::Window) -> Option<()> {
                 (Retained::as_ptr(&content).cast() == handle.ns_view.as_ptr())
                     .then_some((native_window, content))
             })?;
+
+    // Preserve pixel size while the renderer prepares a frame for the new window bounds.
+    content.setLayerContentsPlacement(NSViewLayerContentsPlacement::TopLeft);
+    content.setLayerContentsRedrawPolicy(NSViewLayerContentsRedrawPolicy::DuringViewResize);
+    if let Some(layer) = content.layer() {
+        anchor_renderer_layers(&layer);
+    }
+
+    // Resize behavior also applies on macOS versions without Liquid Glass.
+    AnyClass::get(c"NSGlassEffectView")?;
 
     // Find the shared parent through retained views, without dereferencing the raw window handle.
     let close_button = native_window.standardWindowButton(NSWindowButton::CloseButton)?;
@@ -61,3 +76,30 @@ fn configure(window: &dyn iced::window::Window) -> Option<()> {
 
     Some(())
 }
+
+fn anchor_renderer_layers(layer: &CALayer) {
+    // Core Animation's default "resize" gravity stretches the previous drawable between frames.
+    layer.setContentsGravity(if layer.contentsAreFlipped() {
+        ns_string!("bottomLeft")
+    } else {
+        ns_string!("topLeft")
+    });
+    for child in child_layers(layer) {
+        anchor_renderer_layers(&child);
+    }
+}
+
+fn child_layers(layer: &CALayer) -> Vec<Retained<CALayer>> {
+    // Check dynamic collection types instead of using the unchecked native sublayers binding.
+    layer
+        .valueForKey(ns_string!("sublayers"))
+        .and_then(|value| value.downcast::<NSArray<AnyObject>>().ok())
+        .map(|children| children.to_vec())
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|child| child.downcast::<CALayer>().ok())
+        .collect()
+}
+
+#[cfg(test)]
+mod tests;
