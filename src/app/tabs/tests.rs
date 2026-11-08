@@ -229,7 +229,9 @@ async fn footer_copies_the_complete_active_file_path_and_falls_back_to_project()
     use iced::futures::StreamExt;
     use iced_test::runtime::{Action, clipboard, task};
     let mut app = app();
-    let id = open(&mut app, "src/main.rs");
+    let path = PathBuf::from("project").join("src").join("main.rs");
+    let _ = app.open_file(path.clone());
+    let id = app.preview().id;
     loaded(&mut app, id, "source");
     let mut ui =
         iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
@@ -238,10 +240,7 @@ async fn footer_copies_the_complete_active_file_path_and_falls_back_to_project()
         ui.into_messages().collect::<Vec<_>>().as_slice(),
         [Message::CopyPath]
     ));
-    for expected in [
-        PathBuf::from("project/src/main.rs"),
-        PathBuf::from("project"),
-    ] {
+    for expected in [path, PathBuf::from("project")] {
         let mut stream = task::into_stream(app.update(Message::CopyPath)).unwrap();
         match stream.next().await.unwrap() {
             Action::Clipboard(clipboard::Action::Write { contents, .. }) => {
