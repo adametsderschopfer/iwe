@@ -1,28 +1,63 @@
 # Development rules for iwe
 
-Build a native Rust application with Iced. Maintain macOS, Windows, and Linux support.
+Build a native Rust workspace with Iced.
 
-- Read [the architecture](docs/architecture.md) before changing source dependencies.
-- Keep window composition in `src/app`, screens in `src/ui/screens`, and styles in `src/ui/theme`.
-- Keep operating-system access in `src/infrastructure` and translation logic in `src/i18n`.
-- Add application and domain layers only when behavior requires them. Do not create empty modules.
-- Keep views free of blocking operations and infrastructure dependencies.
-- Store application text in English, Russian, and Spanish Fluent catalogs. Update all catalogs
-  together.
-- Keep technical diagnostics outside the interface.
-- Preserve native window controls, Liquid Glass, and the opaque gray fallback.
-- Preserve the platform graphics priorities documented in [the architecture](docs/architecture.md).
-- Keep unit tests in adjacent `tests.rs` files. Add root `tests/` only for integration tests.
-- Test changed behavior, catalog completeness, translated layouts, and failure paths when relevant.
-- Run `make check` and `make build` after all edits, before completion, commits, or pushes.
-- Investigate failed checks. Do not weaken tests or ignore security advisories to pass checks.
+## Essential requirements
+
+- Maintain macOS, Windows, and Linux support.
+- Organize code by layers. Follow [architecture rules](docs/rules/architecture.md).
+- Preserve the graphics priorities in [platform rules](docs/rules/platforms.md).
+- Use native Liquid Glass when available. Follow the gray fallback policy in
+  [platform rules](docs/rules/platforms.md).
+- Keep unit tests in adjacent `tests.rs` files. Reserve root `tests/` for integration tests.
+- Add meaningful tests for behavior changes and regression tests for bug fixes.
+- Run `make check` and `make build` after all edits and before completion, commits, or pushes.
+- Fix failed checks. Do not weaken tests or skip checks.
+- Investigate security advisories. Do not ignore advisories merely to pass checks.
 - Verify interface changes with a local application run. Report unavailable platform checks
   explicitly.
-- Use Make, Cargo, and dprint. Do not introduce Node.js or npm for application development.
+- Use Make, Cargo, and dprint. Do not introduce Node.js or npm.
+- Keep documentation current in the same change.
+- Keep technical details out of the interface. Follow
+  [user-facing content rules](docs/rules/user-facing-content.md).
+- Store every application text in i18n catalogs. Maintain English, Russian, and Spanish translations
+  together.
+- Write documentation and comments in English first. Use Russian as a secondary language when
+  useful.
+- Apply the five writing rules in [documentation rules](docs/rules/documentation.md) to prose.
 - Do not add unsafe code.
-- Update affected documentation with the implementation.
-- Write documentation and comments primarily in English.
-- Use active voice, one idea per sentence, consistent terms, and plain language.
-- Limit prose sentences to 20 words.
 
-See [the CI guide](docs/ci.md) for verification stages and supported platforms.
+## Read before working
+
+The files below contain mandatory project rules. Open the required files explicitly before starting
+relevant work. Do not treat links as loaded instructions. Read each applicable file once, then
+reread it when its contents change. All rule files apply from the repository root. Read paths inside
+them as repository-relative unless a link specifies otherwise.
+
+Always read:
+
+- [Development workflow](docs/rules/workflow.md)
+- [Rust quality, test organization, and checks](docs/rules/quality.md)
+- [Supported platforms and graphics priorities](docs/rules/platforms.md)
+- [Documentation and writing](docs/rules/documentation.md)
+- [User-facing content](docs/rules/user-facing-content.md)
+
+Read additional rules for the task:
+
+| Task                                                               | Required rules                                     |
+| ------------------------------------------------------------------ | -------------------------------------------------- |
+| Change code, modules, dependencies, or architecture                | [Architecture](docs/rules/architecture.md)         |
+| Change Iced state, messages, views, styling, or animation          | [Iced and interface design](docs/rules/iced-ui.md) |
+| Add or change application text or language behavior                | [Internationalization](docs/rules/i18n.md)         |
+| Work on graph visualization, editing, audio, or AI                 | [Subsystem rules](docs/rules/subsystems.md)        |
+| Change entities, storage, queries, search indexes, or file formats | [Entities and data access](docs/rules/data.md)     |
+
+Read [the current architecture](docs/architecture.md) and affected feature documents before
+implementation. Subsystem rules guide future development within the layers. Do not create empty
+modules.
+
+## Maintain the rules
+
+Keep this file short. Store detailed requirements in `docs/rules/`. Update this reading guide when
+adding, moving, or removing a rule file. Keep each detailed rule in one authoritative file. Keep
+summaries consistent with that file.
