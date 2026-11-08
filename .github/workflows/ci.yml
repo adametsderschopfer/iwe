@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Checks / Formatter
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.90.0
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+      - uses: dprint/check@371a959e3c77f34a76a03d2c50df2e3f2302d016 # v2.6
+        with:
+          dprint-version: 0.64.3
+
+  security:
+    name: Checks / Dependency security
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.90.0
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit dependency lockfile
+        run: cargo audit --file Cargo.lock
+
+  lint:
+    name: Checks / Linter (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: clippy
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+  typecheck:
+    name: Checks / Type checker (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-rust
+      - run: cargo check --locked --all-targets --all-features
+
+  unit_tests:
+    name: Tests / Unit (${{ matrix.os }})
+    needs: [format, lint, security, typecheck]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-rust
+      - run: cargo test --locked --all-features --bin iwe
+
+  integration_tests:
+    name: Tests / Integration (${{ matrix.os }})
+    needs: [format, lint, security, typecheck]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-rust
+      - name: Discover integration tests
+        id: integration
+        shell: pwsh
+        run: |
+          $metadataJson = cargo metadata --locked --no-deps --format-version 1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $metadata = $metadataJson | ConvertFrom-Json
+          $targets = @($metadata.packages |
+            Where-Object { $metadata.workspace_members -contains $_.id } |
+            ForEach-Object { $_.targets } |
+            Where-Object { $_.kind -contains 'test' })
+          if ($targets.Count -eq 0) {
+            'available=false' >> $env:GITHUB_OUTPUT
+            'No integration test targets exist. No integration tests were run.' >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            'available=true' >> $env:GITHUB_OUTPUT
+          }
+      - name: Run integration tests
+        if: steps.integration.outputs.available == 'true'
+        run: cargo test --locked --workspace --all-features --test '*'
+
+  build:
+    name: Build / Release (${{ matrix.os }})
+    needs: [unit_tests, integration_tests]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-rust
+      - run: cargo build --locked --release

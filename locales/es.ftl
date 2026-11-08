@@ -1,0 +1,9 @@
+app-title = IWE
+greeting = ¡Hola, mundo!
+message-unavailable = Este texto no está disponible.
+graphics-unavailable = iwe: no se pudo iniciar ningún motor gráfico
+start-failed = iwe: no se pudo iniciar la aplicación: { $error }
+graphics-trying = iwe: probando { $backend }
+unsupported-os = La aplicación no admite este sistema operativo.
+graphics-initialization-failed = iwe: falló la inicialización de los gráficos: { $error }
+application-failed = iwe: falló la aplicación: { $error }

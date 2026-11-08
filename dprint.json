@@ -1,0 +1,14 @@
+{
+  "lineWidth": 100,
+  "indentWidth": 2,
+  "newLineKind": "lf",
+  "markdown": {
+    "textWrap": "always"
+  },
+  "excludes": ["target/**", "Cargo.lock"],
+  "plugins": [
+    "https://github.com/dprint/dprint-plugin-json/releases/download/0.26.0/plugin.wasm",
+    "https://github.com/dprint/dprint-plugin-markdown/releases/download/0.29.0/plugin.wasm",
+    "https://github.com/g-plane/pretty_yaml/releases/download/v0.6.0/plugin.wasm"
+  ]
+}

@@ -1,0 +1,9 @@
+app-title = IWE
+greeting = Привет, мир!
+message-unavailable = Этот текст недоступен.
+graphics-unavailable = iwe: не удалось запустить ни один графический бэкенд
+start-failed = iwe: не удалось запустить приложение: { $error }
+graphics-trying = iwe: пробуем { $backend }
+unsupported-os = Приложение не поддерживает эту операционную систему.
+graphics-initialization-failed = iwe: ошибка инициализации графики: { $error }
+application-failed = iwe: ошибка приложения: { $error }
