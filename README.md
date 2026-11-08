@@ -14,6 +14,11 @@ Iwe caches project trees locally and refreshes folder listings in the background
 contents when files open. Repository files remain unchanged, and source contents stay local. See
 [workspace behavior](docs/workspace.md) for limits, authentication, and keyboard shortcuts.
 
+Version tags publish application packages through GitHub Actions after checks and all six builds
+pass. Packages cover macOS Apple Silicon and Intel, Windows x86 and x64, and Linux x86 and x64. See
+[release packages and publishing](docs/ci.md#release-packages) for installation requirements and the
+tag workflow.
+
 ## Requirements
 
 - Rust 1.90.0, installed through rustup.

@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   format:
@@ -67,17 +67,37 @@ jobs:
       - run: cargo check --locked --all-targets --all-features
 
   unit_tests:
-    name: Tests / Unit (${{ matrix.os }})
+    name: Tests / Unit (${{ matrix.target }})
     needs: [format, lint, security, typecheck]
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-24.04]
+        include: &release-platforms
+          - os: macos-15
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            platform: macos-x64
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            platform: windows-x64
+          - os: windows-2022
+            target: i686-pc-windows-msvc
+            platform: windows-x86
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x64
+          - os: ubuntu-22.04
+            target: i686-unknown-linux-gnu
+            platform: linux-x86
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-rust
-      - run: cargo test --locked --all-features --bin iwe
+        with:
+          target: ${{ matrix.target }}
+      - run: cargo test --locked --all-features --target ${{ matrix.target }} --bin iwe
 
   integration_tests:
     name: Tests / Integration (${{ matrix.os }})
@@ -112,14 +132,71 @@ jobs:
         run: cargo test --locked --workspace --all-features --test '*'
 
   build:
-    name: Build / Release (${{ matrix.os }})
+    name: Build / Release (${{ matrix.platform }})
     needs: [unit_tests, integration_tests]
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-24.04]
+        include: *release-platforms
     runs-on: ${{ matrix.os }}
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      ASSET_PLATFORM: ${{ matrix.platform }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      IWE_GITHUB_CLIENT_ID: ${{ vars.IWE_GITHUB_CLIENT_ID }}
+      IWE_GITLAB_CLIENT_ID: ${{ vars.IWE_GITLAB_CLIENT_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-rust
-      - run: cargo build --locked --release
+        with:
+          target: ${{ matrix.target }}
+      - name: Set macOS deployment target
+        if: runner.os == 'macOS'
+        shell: bash
+        run: echo 'MACOSX_DEPLOYMENT_TARGET=11.0' >> "$GITHUB_ENV"
+      - name: Link the Windows C runtime statically
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo 'RUSTFLAGS=-C target-feature=+crt-static' >> "$GITHUB_ENV"
+      - name: Verify release version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: bash .github/scripts/release-version.sh
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Package application
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: bash .github/scripts/package-release.sh
+      - name: Upload release package
+        if: github.ref_type == 'tag'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish / GitHub Release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Publish all six packages
+        shell: bash
+        run: bash .github/scripts/publish-release.sh
