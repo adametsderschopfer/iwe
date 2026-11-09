@@ -550,7 +550,7 @@ fn selecting_projects_immediately_opens_the_file_panel_without_reloading_on_repe
             .unwrap()
             .visible_bounds()
             .unwrap();
-        assert_eq!(panel.x, theme::SIDEBAR_WIDTH + 48.);
+        assert_eq!(panel.x, theme::SIDEBAR_WIDTH + 1. + 48.);
         assert_eq!(panel.width, theme::PROJECT_FILES_WIDTH);
         assert!(ui.find(Id::new("space-project-0-0")).is_ok());
         ui.click(Id::new("space-project-0-0")).unwrap();
@@ -585,7 +585,7 @@ fn selecting_projects_immediately_opens_the_file_panel_without_reloading_on_repe
         assert!(empty.y > title.y + title.height);
         assert!((title.center_y() - first.center_y()).abs() < 0.1);
         assert_eq!(first.center_x(), second.center_x());
-        assert_eq!(first.center_x(), (theme::SIDEBAR_WIDTH + panel.x) / 2.);
+        assert_eq!(first.center_x(), (theme::SIDEBAR_WIDTH + 1. + panel.x) / 2.);
         if language == Language::Russian
             && let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from)
         {
@@ -887,11 +887,11 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
         let sidebar = sidebar.visible_bounds().unwrap();
         assert_eq!(
             source.x,
-            theme::SIDEBAR_WIDTH + 48. + theme::PROJECT_FILES_WIDTH
+            theme::SIDEBAR_WIDTH + 48. + theme::PROJECT_FILES_WIDTH + 2.
         );
         assert_eq!(
             source.width,
-            width - theme::SIDEBAR_WIDTH - 48. - theme::PROJECT_FILES_WIDTH
+            width - theme::SIDEBAR_WIDTH - 48. - theme::PROJECT_FILES_WIDTH - 2.
         );
         assert_eq!(number.y, source.y);
         assert_eq!(number.x - source.x, 13.);

@@ -48,6 +48,10 @@ The panel heading aligns with the first toolbar button. Panel content and status
 heading's left inset. The scroll area fills the file panel. Scrollbars stay at its edges, regardless
 of filename length.
 
+A thin divider separates the workspace heading from its content. Another divider separates the file
+panel from the source preview. A full-height divider separates the spaces sidebar from the
+workspace. All dividers follow the current appearance.
+
 The vertical toolbar switches between **Project files** and **Uncommitted files**. The latter
 includes staged, unstaged, and untracked files. Drag these icons to change their order. Iwe saves
 the order and opens the first panel after reordering, restarting, or selecting another project.
@@ -240,8 +244,8 @@ jobs with identical names. GitHub icons retain the provider's order and do not d
 dependencies. Long chains scroll horizontally.
 
 Click an icon to open its stage or job. The popup shows job names, statuses, and available actions.
-Click a job name to open its provider page. Choose **View pipeline** to open the complete job list.
-Click outside the popup or press Escape to close it. Long job lists scroll within the popup.
+Click a job name to open its provider page. Choose **All jobs** to open the complete job list. Click
+outside the popup or press Escape to close it. Long job lists scroll within the popup.
 
 Status symbols distinguish success, failure, running, waiting, manual, cancelling, cancelled,
 skipped, and unknown states. Colors follow the current appearance. GitLab supplies each stage's
@@ -253,7 +257,9 @@ simultaneously. Completed summaries remain cached until the pipeline status chan
 refreshes them. Active visible summaries refresh every ten seconds. Failed summary reads preserve
 cached icons and offer an explicit retry. Switching projects or signing out clears these summaries.
 
-Select a run's title to display its complete stages and jobs.
+Click a run's title to open its GitHub or GitLab page. Each row shows its branch and abbreviated
+commit identifier. Hover over the identifier to see the full value. Missing identifiers remain
+hidden.
 
 GitLab stages retain the provider's order. Click a stage heading to collapse its jobs. Each job
 shows its name, status, and available actions. Manual jobs offer **Run**. Retryable jobs offer **Run

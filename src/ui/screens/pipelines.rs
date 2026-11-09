@@ -204,20 +204,36 @@ fn pipeline_row<'a>(app: &'a App, run: &'a Pipeline) -> Element<'a, Message> {
     } else {
         run.title.clone()
     };
-    let info = column![
-        ellipsis::text(title, 13.),
-        row![
-            icon(Icon::Branch, theme::MUTED),
-            container(ellipsis::text(&run.branch, 11.)).width(Length::Fill),
-            text(short(&run.date.replace('T', " "), 16))
-                .size(11)
-                .style(theme::FAINT.text()),
-        ]
-        .spacing(6)
-        .align_y(Alignment::Center),
+    let mut metadata = row![
+        icon(Icon::Branch, theme::MUTED),
+        container(ellipsis::text(&run.branch, 11.)).width(Length::Fill),
     ]
-    .spacing(4)
-    .width(Length::Fill);
+    .spacing(8)
+    .align_y(Alignment::Center);
+    if let Some(commit) = &run.commit {
+        metadata = metadata.push(
+            tooltip(
+                container(
+                    text(commit.chars().take(8).collect::<String>())
+                        .size(11)
+                        .font(iced::Font::MONOSPACE)
+                        .style(theme::MUTED.text()),
+                )
+                .id(format!("pipeline-commit-{}", run.id)),
+                text(commit).size(12),
+                tooltip::Position::Top,
+            )
+            .style(theme::tooltip),
+        );
+    }
+    metadata = metadata.push(
+        text(short(&run.date.replace('T', " "), 16))
+            .size(11)
+            .style(theme::FAINT.text()),
+    );
+    let info = column![ellipsis::text(title, 13.), metadata]
+        .spacing(4)
+        .width(Length::Fill);
     let summary = row![
         tooltip(
             status::badge(Status::from_provider(&run.status), false),
@@ -236,7 +252,7 @@ fn pipeline_row<'a>(app: &'a App, run: &'a Pipeline) -> Element<'a, Message> {
                     .width(Length::Fill)
                     .padding([8, 12])
                     .style(theme::action(false))
-                    .on_press(Message::Jobs(crate::app::jobs::Event::Select(run.id)))
+                    .on_press(Message::OpenUrl(run.url.clone()))
             )
             .id(format!("pipeline-{}", run.id))
             .width(Length::FillPortion(5)),

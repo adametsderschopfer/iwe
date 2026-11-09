@@ -276,7 +276,7 @@ pub(in crate::ui::screens) fn overlay<'a>(
             }
             body = body.push(divider()).push(
                 container(
-                    button(text(app.i18n.text(Key::ViewPipeline)).size(12))
+                    button(text(app.i18n.text(Key::ViewPipelineJobs)).size(12))
                         .on_press(Message::Jobs(JobsEvent::Select(popup.pipeline)))
                         .padding([6, 10])
                         .style(theme::action(false)),

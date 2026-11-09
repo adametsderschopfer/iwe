@@ -66,7 +66,8 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         column![sidebar_header(), sidebar(app)]
             .width(theme::SIDEBAR_WIDTH)
             .height(Length::Fill),
-        column![header(app), main]
+        vertical_divider(),
+        column![header(app), divider(), main]
             .width(Length::Fill)
             .height(Length::Fill),
     ])
@@ -592,7 +593,9 @@ fn project_content(app: &App) -> Element<'_, Message> {
     .width(theme::PROJECT_FILES_WIDTH)
     .height(Length::Fill)
     .style(theme::surface);
-    row![tools, files, preview(app)].height(Length::Fill).into()
+    row![tools, files, vertical_divider(), preview(app)]
+        .height(Length::Fill)
+        .into()
 }
 
 fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element<'_, Message> {
@@ -1363,6 +1366,14 @@ pub(super) fn divider<'a>() -> Element<'a, Message> {
     container(space())
         .height(1)
         .width(Length::Fill)
+        .style(theme::separator)
+        .into()
+}
+
+fn vertical_divider<'a>() -> Element<'a, Message> {
+    container(space())
+        .width(1)
+        .height(Length::Fill)
         .style(theme::separator)
         .into()
 }

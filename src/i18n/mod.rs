@@ -161,7 +161,7 @@ message_keys! {
     PipelineStageTitle => "pipeline-stage-title",
     PipelineJobTitle => "pipeline-job-title",
     NoStageJobs => "no-stage-jobs",
-    ViewPipeline => "view-pipeline",
+    ViewPipelineJobs => "view-pipeline-jobs",
     RunJob => "run-job",
     RetryJob => "retry-job",
     RetryJobWithDependents => "retry-job-with-dependents",

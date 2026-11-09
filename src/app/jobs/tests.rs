@@ -239,6 +239,51 @@ fn settings() -> iced::Settings {
 }
 
 #[test]
+fn pipeline_rows_show_commits_and_open_the_provider_page() {
+    for (provider, url) in [
+        (
+            Provider::GitHub,
+            "https://github.com/team/app/actions/runs/500",
+        ),
+        (
+            Provider::GitLab,
+            "https://gitlab.example.test/team/app/-/pipelines/500",
+        ),
+    ] {
+        let mut app = app(Language::Russian);
+        app.repository
+            .as_mut()
+            .unwrap()
+            .remote
+            .as_mut()
+            .unwrap()
+            .provider = Some(provider);
+        let PipelineState::Ready(runs) = &mut app.pipelines else {
+            panic!("fixture pipelines must be ready");
+        };
+        runs[0].commit = Some("1234567890abcdef1234567890abcdef12345678".into());
+        runs[0].url = url.into();
+        app.jobs.overview.remember(500, "running", &details());
+        for (visual_theme, suffix) in [(Theme::Dark, "dark"), (Theme::Light, "light")] {
+            let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+            assert!(ui.find("12345678").unwrap().visible_bounds().is_some());
+            assert!(ui.find(Id::new("pipeline-commit-501")).is_err());
+            if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+                ui.snapshot(&visual_theme)
+                    .unwrap()
+                    .matches_image(output.join(format!("pipeline-commits-{provider:?}-{suffix}")))
+                    .unwrap();
+            }
+            ui.click(Id::new("pipeline-500")).unwrap();
+            assert!(matches!(
+                ui.into_messages().collect::<Vec<_>>().as_slice(),
+                [Message::OpenUrl(target)] if target == url
+            ));
+        }
+    }
+}
+
+#[test]
 fn pipeline_jobs_interface_supports_selection_stages_actions_and_three_languages() {
     for (language, suffix) in [
         (Language::English, "en"),
@@ -246,8 +291,14 @@ fn pipeline_jobs_interface_supports_selection_stages_actions_and_three_languages
         (Language::Spanish, "es"),
     ] {
         let mut app = app(language);
+        app.jobs.overview.remember(500, "running", &details());
         let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
-        ui.click(Id::new("pipeline-500")).unwrap();
+        ui.click(Id::new("pipeline-node-500-stage-0")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        ui.click(Id::new("pipeline-popup-details")).unwrap();
         for message in ui.into_messages() {
             assert!(matches!(message, Message::Jobs(Event::Select(500))));
             let _ = app.update(message);
