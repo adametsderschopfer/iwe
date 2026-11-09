@@ -270,8 +270,9 @@ operations, pipeline actions, sign-in, and sign-out report their results. Backgr
 not announce successful reads. Errors opening links or saving workspace data also appear here.
 
 The application shows up to three notifications. Repeated identical results replace their previous
-notification. Successful results disappear after five seconds. Hovering pauses their timers. Errors
-remain until dismissed or replaced by newer notifications. Each notification has a close button.
+notification. All notifications disappear after five seconds. A shrinking bar shows their remaining
+time. Hovering pauses only that notification and its bar. Moving away resumes its remaining time.
+Other notifications continue counting down. Each notification also has a close button.
 Pipeline confirmations describe accepted requests, not completed jobs.
 
 For one repository, opening or refreshing a project selects the checked-out branch and shows its

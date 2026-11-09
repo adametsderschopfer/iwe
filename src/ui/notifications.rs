@@ -12,7 +12,7 @@ use crate::{
 };
 use iced::{
     Alignment, Element, Length,
-    widget::{Column, button, column, container, mouse_area, opaque, row, stack, text},
+    widget::{button, column, container, keyed_column, mouse_area, opaque, progress_bar, row, stack, text},
 };
 
 pub(crate) fn overlay<'a, Message: Clone + 'a>(
@@ -24,7 +24,7 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
     if state.items.is_empty() {
         return base;
     }
-    let mut items = Column::new().spacing(theme::NOTIFICATION_GAP);
+    let mut items = Vec::new();
     for item in &state.items {
         let (symbol, tone) = match item.kind {
             Kind::Success => (Icon::Check, theme::GREEN),
@@ -52,23 +52,26 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
             text(i18n.text(Key::Dismiss)).size(12),
             tooltip::Position::Top,
         );
-        items = items.push(
-            container(
+        items.push((item.id,
+            mouse_area(container(
+                column![
                 row![icon(symbol, tone), content.width(Length::Fill), close]
                     .spacing(10)
                     .align_y(Alignment::Start),
+                progress_bar(0.0..=1.0, state.remaining(item))
+                    .girth(3)
+                    .style(move |theme| theme::notification_progress(theme, tone)),
+                ].spacing(10),
             )
             .id(format!("notification-{}", item.id))
             .padding(theme::NOTIFICATION_PADDING)
             .width(Length::Fill)
-            .style(theme::notification),
-        );
+            .style(theme::notification))
+            .on_enter(on_event(Event::Hover(item.id, true)))
+            .on_exit(on_event(Event::Hover(item.id, false))).into(),
+        ));
     }
-    let items = container(
-        mouse_area(opaque(items))
-            .on_enter(on_event(Event::Hover(true)))
-            .on_exit(on_event(Event::Hover(false))),
-    )
+    let items = container(opaque(keyed_column(items).spacing(theme::NOTIFICATION_GAP)))
     .id("notifications")
     .width(theme::NOTIFICATION_WIDTH);
     stack![

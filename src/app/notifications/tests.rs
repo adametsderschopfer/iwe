@@ -1,38 +1,41 @@
 use super::*;
 
 #[test]
-fn successful_results_expire_but_errors_remain_until_dismissed() {
+fn all_results_expire_after_five_seconds() {
     let now = Instant::now();
     let mut state = State::default();
     state.push(Kind::Success, Key::GitUpdateDone, Some("main".into()), now);
     state.push(Kind::Error, Key::StorageSaveFailed, None, now);
-    state.update_at(Event::Tick(now + Duration::from_secs(6)), now);
-    assert_eq!(state.items.len(), 1);
-    assert_eq!(state.items[0].message, Key::StorageSaveFailed);
-    let id = state.items[0].id;
-    state.update_at(Event::Dismiss(id), now);
+    state.update_at(Event::Tick(now + Duration::from_secs(4)), now);
+    assert_eq!(state.items.len(), 2);
+    assert!((state.remaining(&state.items[0]) - 0.2).abs() < 0.001);
+    state.update_at(Event::Tick(now + Duration::from_secs(5)), now);
     assert!(state.items.is_empty());
 }
 
 #[test]
-fn hovering_pauses_timeouts_and_handles_new_notifications_during_the_pause() {
+fn hovering_pauses_only_the_hovered_notification_and_its_progress() {
     let now = Instant::now();
     let mut state = State::default();
     state.push(Kind::Success, Key::GitFetchDone, None, now);
-    state.update_at(Event::Hover(true), now + Duration::from_secs(4));
+    let id = state.items[0].id;
+    state.update_at(Event::Hover(id, true), now + Duration::from_secs(4));
     state.update_at(Event::Tick(now + Duration::from_secs(10)), now);
     assert_eq!(state.items.len(), 1);
+    assert!((state.remaining(&state.items[0]) - 0.2).abs() < 0.001);
     state.push(
         Kind::Success,
         Key::GitUpdateDone,
         None,
         now + Duration::from_secs(15),
     );
-    state.update_at(Event::Hover(false), now + Duration::from_secs(34));
-    state.update_at(Event::Tick(now + Duration::from_secs(35)), now);
+    state.update_at(Event::Tick(now + Duration::from_secs(20)), now);
     assert_eq!(state.items.len(), 1);
-    assert_eq!(state.items[0].message, Key::GitUpdateDone);
-    state.update_at(Event::Tick(now + Duration::from_secs(39)), now);
+    assert_eq!(state.items[0].id, id);
+    assert!((state.remaining(&state.items[0]) - 0.2).abs() < 0.001);
+    state.update_at(Event::Hover(id, false), now + Duration::from_secs(34));
+    assert!((state.remaining(&state.items[0]) - 0.2).abs() < 0.001);
+    state.update_at(Event::Tick(now + Duration::from_secs(35)), now);
     assert!(state.items.is_empty());
 }
 
@@ -50,12 +53,12 @@ fn repeated_errors_coalesce_and_old_dismissals_cannot_close_new_results() {
     assert_eq!(state.items.len(), 3);
     state.update_at(Event::Dismiss(old_id), now);
     assert_eq!(state.items.len(), 3);
-    state.update_at(Event::Hover(true), now);
+    state.update_at(Event::Hover(state.items[0].id, true), now);
     let ids: Vec<_> = state.items.iter().map(|item| item.id).collect();
     for id in ids {
         state.update_at(Event::Dismiss(id), now);
     }
-    assert!(state.hovered.is_none());
+    assert!(state.items.is_empty());
 }
 
 #[test]
@@ -140,12 +143,12 @@ fn notification_cards_fit_all_languages_and_preserve_workspace_interactions() {
             assert!(
                 messages
                     .iter()
-                    .all(|message| matches!(message, Message::Notification(Event::Hover(_))))
+                    .all(|message| matches!(message, Message::Notification(Event::Hover(_, _))))
             );
             assert!(
                 messages
                     .iter()
-                    .any(|message| matches!(message, Message::Notification(Event::Hover(true))))
+                    .any(|message| matches!(message, Message::Notification(Event::Hover(_, true))))
             );
         }
         let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());

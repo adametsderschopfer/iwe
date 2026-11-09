@@ -76,10 +76,12 @@ Git or change the environment.
 
 Notifications keep typed message keys and optional user context in application memory. They never
 persist with workspace settings. Successful action responses enqueue notifications after request and
-project checks. Error messages use existing localized mappings. Timers run only while unpaused
-successful notifications remain visible. Hovering pauses all notification timers, including new
-arrivals. The notification stack captures clicks inside its cards and preserves workspace clicks
-outside them. Modal dialogs keep their existing error messages.
+project checks. Error messages use existing localized mappings. Success and error notifications
+expire after five seconds. Each card has its own hover pause and remaining-time bar. Active timers
+update every 33 milliseconds and stop when all remaining cards are paused. Stable notification keys
+preserve each card's hover state when its neighbors change. The notification stack captures clicks
+inside its cards and preserves workspace clicks outside them. Modal dialogs keep their existing
+error messages.
 
 Git status uses NUL-delimited records and preserves renamed paths. Application state aggregates file
 status into folder decorations. Background polling refreshes status, affected directories, and the

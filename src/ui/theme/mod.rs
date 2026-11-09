@@ -278,6 +278,14 @@ pub(crate) fn separator(theme: &Theme) -> container::Style {
     }
 }
 
+pub(crate) fn notification_progress(theme: &Theme, tone: Tone) -> iced::widget::progress_bar::Style {
+    iced::widget::progress_bar::Style {
+        background: HOVER.resolve(theme).into(),
+        bar: tone.resolve(theme).into(),
+        border: Border { radius: 2.0.into(), ..Default::default() },
+    }
+}
+
 pub(crate) fn source_progress(theme: &Theme) -> iced::widget::progress_bar::Style {
     iced::widget::progress_bar::Style {
         background: Color::TRANSPARENT.into(),

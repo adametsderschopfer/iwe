@@ -5,7 +5,7 @@ use iced::{Subscription, time::Instant};
 use std::{collections::VecDeque, time::Duration};
 
 const MAX_VISIBLE: usize = 3;
-const SUCCESS_LIFETIME: Duration = Duration::from_secs(5);
+const LIFETIME: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -18,22 +18,22 @@ pub(crate) struct Notification {
     pub kind: Kind,
     pub message: Key,
     pub context: Option<String>,
-    created: Instant,
-    expires: Option<Instant>,
+    expires: Instant,
+    paused: Option<Instant>,
 }
 
 #[derive(Default)]
 pub(crate) struct State {
     pub items: VecDeque<Notification>,
     next_id: u64,
-    hovered: Option<Instant>,
+    now: Option<Instant>,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
     Tick(Instant),
     Dismiss(u64),
-    Hover(bool),
+    Hover(u64, bool),
 }
 
 impl State {
@@ -46,6 +46,7 @@ impl State {
     }
 
     fn push(&mut self, kind: Kind, message: Key, context: Option<String>, now: Instant) {
+        self.now = Some(now);
         self.items
             .retain(|item| item.kind != kind || item.message != message || item.context != context);
         while self.items.len() >= MAX_VISIBLE {
@@ -57,14 +58,14 @@ impl State {
             kind,
             message,
             context,
-            created: now,
-            expires: (kind == Kind::Success).then_some(now + SUCCESS_LIFETIME),
+            expires: now + LIFETIME,
+            paused: None,
         });
     }
 
     pub(crate) fn subscription(&self) -> Subscription<Event> {
-        if self.hovered.is_none() && self.items.iter().any(|item| item.expires.is_some()) {
-            iced::time::every(Duration::from_millis(500)).map(Event::Tick)
+        if self.items.iter().any(|item| item.paused.is_none()) {
+            iced::time::every(Duration::from_millis(33)).map(Event::Tick)
         } else {
             Subscription::none()
         }
@@ -74,29 +75,29 @@ impl State {
         self.update_at(event, Instant::now());
     }
 
+    pub(crate) fn remaining(&self, item: &Notification) -> f32 {
+        let now = item.paused.or(self.now).unwrap_or_else(Instant::now);
+        (item.expires.saturating_duration_since(now).as_secs_f32() / LIFETIME.as_secs_f32())
+            .clamp(0., 1.)
+    }
+
     fn update_at(&mut self, event: Event, now: Instant) {
+        self.now = Some(match &event { Event::Tick(instant) => *instant, _ => now });
         match event {
-            Event::Tick(now) if self.hovered.is_none() => {
+            Event::Tick(now) => {
                 self.items
-                    .retain(|item| item.expires.is_none_or(|end| now < end));
+                    .retain(|item| item.paused.is_some() || now < item.expires);
             }
             Event::Dismiss(id) => self.items.retain(|item| item.id != id),
-            Event::Hover(true) => {
-                self.hovered.get_or_insert(now);
-            }
-            Event::Hover(false) => {
-                if let Some(start) = self.hovered.take() {
-                    for item in &mut self.items {
-                        if let Some(end) = &mut item.expires {
-                            *end += now.saturating_duration_since(start.max(item.created));
-                        }
+            Event::Hover(id, hovered) => {
+                if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
+                    if hovered {
+                        item.paused.get_or_insert(now);
+                    } else if let Some(start) = item.paused.take() {
+                        item.expires += now.saturating_duration_since(start);
                     }
                 }
             }
-            _ => {}
-        }
-        if self.items.is_empty() {
-            self.hovered = None;
         }
     }
 }
