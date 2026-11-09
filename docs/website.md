@@ -55,8 +55,8 @@ Catalogs live in `website/app/i18n/`. The root route uses English. `/ru/` and `/
 and Spanish pages. Each page includes its language, canonical address, and alternate-language links.
 
 The screenshots come from existing Iced rendering tests with fictional fixture projects. They show
-the actual application interface. Their labels may use English or Russian, independently from the
-website language. Regenerate them when the illustrated interface changes.
+the actual application interface in English. The website opens in English by default. Regenerate the
+screenshots when the illustrated interface changes.
 
 `DownloadSection.vue` links to verified packages from release `0.1.11`. Update its version when
 selecting a newer release. The release-notes link always opens the latest release.

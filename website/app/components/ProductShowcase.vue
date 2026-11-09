@@ -57,7 +57,7 @@ const tabs = computed(() => [
       <template v-for="tab in tabs" :key="tab.id">
         <img
           v-show="selected === tab.id"
-          :src="`${base}images/${tab.id}.png`"
+          :src="`${base}images/${tab.id}-en.png`"
           :alt="tab.alt"
           :width="tab.width"
           :height="tab.height"

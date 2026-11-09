@@ -35,7 +35,7 @@ useSeoMeta({
   ogDescription: () => messages.value.meta.description,
   ogType: 'website',
   ogUrl: () => canonical.value,
-  ogImage: `${siteURL}images/workspace.png`,
+  ogImage: `${siteURL}images/workspace-en.png`,
   twitterCard: 'summary_large_image',
 })
 </script>
@@ -89,7 +89,7 @@ useSeoMeta({
         <div class="workflow-content">
           <figure class="comparison-figure">
             <img
-              :src="`${base}images/comparison.png`"
+              :src="`${base}images/comparison-en.png`"
               :alt="messages.preview.altComparison"
               width="2880"
               height="1840"
