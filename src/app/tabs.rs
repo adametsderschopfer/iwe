@@ -99,6 +99,7 @@ pub(crate) enum PageDirection { Previous, Next, Refresh }
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Preview {
+    pub selection: crate::ui::code::selection::Selection,
     pub id: u64,
     pub title: String,
     pub path: Option<PathBuf>,

@@ -134,6 +134,15 @@ The preview cannot edit files. Only visible lines and nearby lines become widget
 follows the panel height. Stable line identities preserve text layout while scrolling. Long lines
 stay unwrapped and use horizontal scrolling.
 
+Drag across source text to select characters or multiple lines. Copy with Command+C on macOS or
+Ctrl+C on Windows and Linux. Click the code before using Command+A or Ctrl+A to select its full text.
+Escape clears the selection. Selection works in ordinary previews, unified comparisons, and both
+columns of side-by-side comparisons. Each comparison column selects and copies only its own source.
+Copied text excludes line numbers and change markers, preserves source tabs, and uses LF line endings.
+Empty lines remain empty. Selection spans folded lines between its endpoints, including their hidden
+text. For paged files, selection covers only the current part. Changing the source clears its selection.
+Settings lists the copy and select-all shortcuts.
+
 Files first display plain text. Syntax colors and Git changes follow on background workers. A thin
 progress bar remains above the code until preparation finishes. Scrolling remains available during
 preparation. Unchanged row blocks reuse their layout during scrolling. Closing a loading tab rejects

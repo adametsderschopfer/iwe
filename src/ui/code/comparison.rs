@@ -185,6 +185,7 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
         ..Default::default()
     };
     let mut lines = Vec::new();
+    let mut source_lines = Vec::new();
     let mut line_info = Vec::new();
     // One shared deadline bounds word highlighting across the whole document.
     let word_deadline = Instant::now() + Duration::from_millis(150);
@@ -195,6 +196,7 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
         if matches!(op.tag(), DiffTag::Delete | DiffTag::Replace) {
             for index in old.clone() {
                 lines.push(before.lines[index].clone());
+                source_lines.push(before.source_lines[index].clone());
                 line_info.push(LineInfo {
                     number: index + 1,
                     change: Some(LineChange::Removed),
@@ -210,6 +212,7 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
                 _ => None,
             };
             lines.push(document.lines[index].clone());
+            source_lines.push(document.source_lines[index].clone());
             line_info.push(LineInfo {
                 number: index + 1,
                 change,
@@ -265,6 +268,7 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
     }
     document.columns = document.columns.max(before.columns);
     document.lines = lines;
+    document.source_lines = source_lines;
     document.line_info = line_info;
     for info in &document.line_info {
         if let Some(change) = info.change {

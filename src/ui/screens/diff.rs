@@ -18,7 +18,7 @@ use iced::{
     widget::{
         Row, button,
         canvas::{self, Frame, Geometry, Path, Stroke},
-        column, container, responsive, rich_text, row, scrollable, space, text,
+        column, container, responsive, row, scrollable, space, text,
     },
 };
 
@@ -143,6 +143,7 @@ fn pane<'a>(
                         preview.id,
                         document.fingerprint,
                         preview.folding.revision,
+                        preview.selection.revision,
                         app.workspace.preferences.code_size,
                         app.workspace.preferences.line_numbers,
                         app.workspace.preferences.appearance,
@@ -216,11 +217,9 @@ fn line<'a>(
             .unwrap_or(Color::TRANSPARENT),
         &app.theme(),
     );
-    let code = rich_text::<(), Message, _, _>(spans)
-        .font(Font::MONOSPACE)
-        .size(size)
-        .line_height(1.65)
-        .wrapping(text::Wrapping::None);
+    let code = code::selection::line(
+        app, document, cell.index, side.into(), cell.number.saturating_sub(1), spans, size,
+    );
     let mut row = Row::new()
         .spacing(8)
         .height(height)

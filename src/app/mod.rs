@@ -279,6 +279,7 @@ pub(crate) enum Message {
     Files(files::Event),
     Worktree(changes::Event),
     OpenFile(PathBuf),
+    CodeSelection(u64, crate::ui::code::selection::Action),
     ReadFilePart(u64, tabs::PageDirection),
     OpenCommitFile(usize),
     FileLoaded(u64, u64, Result<Document, Failure>),
@@ -752,6 +753,14 @@ impl App {
             Message::Files(event) => return self.update_files(event),
             Message::Worktree(event) => return self.update_changes(event),
             Message::ReadFilePart(id, direction) => return self.read_file_part(id, direction),
+            Message::CodeSelection(id, action) => {
+                if self.preview().id == id
+                    && let Some(preview) = self.preview_for_request(id)
+                    && let Some(document) = &preview.document
+                {
+                    preview.selection.update(action, document);
+                }
+            }
             Message::OpenFile(path) => return self.open_file(path),
             Message::OpenCommitFile(index) => return self.open_commit_file(index),
             Message::FilePrepared(generation, request, stage, result)

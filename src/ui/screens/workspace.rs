@@ -13,7 +13,7 @@ use crate::{
 use iced::{
     Alignment, Element, Font, Length,
     widget::{
-        self, Column, Row, button, column, container, mouse_area, pane_grid, responsive, rich_text,
+        self, Column, Row, button, column, container, mouse_area, pane_grid, responsive,
         row, scrollable, space, text,
     },
 };
@@ -1185,18 +1185,16 @@ fn preview(app: &App) -> Element<'_, Message> {
                         return unified::line(app, document, line, index, height);
                     }
                     let spans = &document.lines[index];
-                    let code = rich_text::<(), Message, _, _>(
+                    let code = code::selection::line(
+                        app, document, index, code::selection::Lane::Unified, index,
                         spans
                             .iter()
                             .map(|(content, color)| {
                                 widget::span(content.as_str()).color(color.resolve(&app.theme()))
                             })
                             .collect::<Vec<_>>(),
-                    )
-                    .font(Font::MONOSPACE)
-                    .size(size)
-                    .line_height(1.65)
-                    .wrapping(text::Wrapping::None);
+                        size,
+                    );
                     let info = document.line_info[index];
                     let color = info
                         .change
@@ -1253,6 +1251,7 @@ fn preview(app: &App) -> Element<'_, Message> {
                                 document.fingerprint,
                                 app.preview().preparation,
                                 app.preview().folding.revision,
+                                app.preview().selection.revision,
                                 app.workspace.preferences.code_size,
                                 app.workspace.preferences.line_numbers,
                                 app.workspace.preferences.appearance,

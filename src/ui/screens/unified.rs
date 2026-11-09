@@ -14,7 +14,7 @@ use iced::{
     widget::{
         Row, button,
         canvas::{self, Frame, Geometry, Path, Stroke},
-        container, rich_text, row, space, text,
+        container, row, space, text,
     },
 };
 use std::ops::Range;
@@ -91,18 +91,15 @@ pub(super) fn line<'a>(
         ))
         .height(height)
         .style(theme::unified_gutter(line.change));
-    let source = rich_text::<(), Message, _, _>(code::emphasized_spans(
+    let source = code::selection::line(
+        app, document, index, code::selection::Lane::Unified, index, code::emphasized_spans(
         &document.lines[index],
         line.emphasis,
         line.change
             .map(|change| theme::change_fill(theme::unified_color(change), &app.theme(), 0.30))
             .unwrap_or(Color::TRANSPARENT),
         &app.theme(),
-    ))
-    .font(Font::MONOSPACE)
-    .size(size)
-    .line_height(1.65)
-    .wrapping(text::Wrapping::None);
+    ), size);
     container(row![gutter, source].spacing(8).height(height))
         .id(format!("unified-line-{index}"))
         .width(Length::Fill)

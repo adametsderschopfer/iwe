@@ -4,6 +4,7 @@ pub(crate) mod comparison;
 pub(crate) mod folding;
 pub(crate) mod overview;
 mod rows;
+pub(crate) mod selection;
 
 pub(crate) use rows::view as rows;
 
@@ -22,6 +23,7 @@ static PALETTE: LazyLock<Theme> = LazyLock::new(syntax::palette);
 #[derive(Debug, Clone)]
 pub(crate) struct Document {
     pub text: String,
+    pub source_lines: Vec<String>,
     pub lines: Vec<Vec<(String, Tone)>>,
     pub columns: usize,
     pub line_info: Vec<LineInfo>,
@@ -74,6 +76,7 @@ impl Document {
                     change: None,
                 })
                 .collect(),
+            source_lines: text.lines().map(str::to_owned).collect(),
             text,
             lines,
             columns,
@@ -132,6 +135,7 @@ impl Document {
                     change: None,
                 })
                 .collect(),
+            source_lines: text.lines().map(str::to_owned).collect(),
             text,
             lines,
             columns,

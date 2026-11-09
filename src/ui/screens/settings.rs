@@ -126,6 +126,16 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .into(),
         SettingsTab::Shortcuts => column![
             setting(
+                t(Key::CopyCodeSelection),
+                t(Key::CopyCodeSelectionDescription),
+                shortcut_badge("Command + C", "Ctrl + C"),
+            ),
+            setting(
+                t(Key::SelectAllCode),
+                t(Key::SelectAllCodeDescription),
+                shortcut_badge("Command + A", "Ctrl + A"),
+            ),
+            setting(
                 t(Key::CloseTab),
                 t(Key::CloseActiveTabDescription),
                 shortcut_badge("Command + W", "Ctrl + W"),

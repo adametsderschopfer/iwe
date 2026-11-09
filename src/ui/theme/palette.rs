@@ -40,6 +40,7 @@ pub(super) const ELEVATED: Tone = Tone::new(0x2f2f2f, 0xe8e8e8);
 pub(super) const HOVER: Tone = Tone::new(0x2a2a2a, 0xe5e5e5);
 pub(super) const SELECTED: Tone = Tone::new(0x303030, 0xdedede);
 pub(super) const TREE_SELECTED: Tone = Tone::new(0x414448, 0xd8e5f4);
+pub(crate) const CODE_SELECTION: Tone = Tone::new(0x36516b, 0xc5def5);
 pub(super) const DIALOG: Tone = Tone::new(0x282828, 0xf5f5f5);
 pub(super) const FOLD: Tone = Tone::new(0x262626, 0xf1f1f1);
 pub(super) const INPUT_BORDER: Tone = Tone::new(0x484848, 0xbcbcbc);

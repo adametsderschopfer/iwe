@@ -62,6 +62,13 @@ Tabs retain cursor history, and request identifiers reject obsolete page respons
 page receives syntax preparation. Paged documents skip comparison and automatic content polling.
 Syntax state restarts on each page, and lines over 16 KiB remain plain text.
 
+`ui/code/selection.rs` shares tab selection state across virtual source rows. Iced paragraph hit
+testing maps pointer positions to UTF-8 boundaries. Syntax spans keep their colors while selected
+ranges receive the current theme's selection background. Comparison columns use separate source
+coordinates. Documents retain original lines alongside displayed spans so clipboard copies preserve
+tabs and empty lines. Selection revisions invalidate visible row layouts. Document fingerprints
+invalidate stale selections after refresh, and page requests use existing tab identifiers.
+
 The shared process launcher resolves Git for repository reads and explicit Git operations. On
 Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
 directories. Custom installations still require `PATH` configuration. The launcher does not install
