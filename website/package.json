@@ -1,0 +1,36 @@
+{
+  "name": "iwe-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "postinstall": "nuxt prepare",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "nuxt typecheck",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run format:check && npm run lint && npm run typecheck",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "nuxt": "4.6.4"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "1.17.0",
+    "@playwright/test": "1.65.0",
+    "eslint": "10.14.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.1.5"
+  },
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "overrides": {
+    "minimatch@>=7 <11.0.1": "11.0.5",
+    "glob@>=9 <=14.0.1": "14.0.4"
+  }
+}

@@ -5,7 +5,7 @@
   "markdown": {
     "textWrap": "always"
   },
-  "excludes": ["target/**", "Cargo.lock"],
+  "excludes": ["target/**", "Cargo.lock", "website/**"],
   "plugins": [
     "https://github.com/dprint/dprint-plugin-json/releases/download/0.26.0/plugin.wasm",
     "https://github.com/dprint/dprint-plugin-markdown/releases/download/0.29.0/plugin.wasm",

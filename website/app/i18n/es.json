@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "IWE Code — Una vista más clara de tu código",
+    "description": "Reúne proyectos locales, archivos, historial de Git y ejecuciones en un espacio de trabajo nativo. Para macOS, Windows y Linux."
+  },
+  "nav": {
+    "features": "Funciones",
+    "workflow": "Flujo de trabajo",
+    "download": "Descargar",
+    "language": "Idioma",
+    "skip": "Saltar al contenido",
+    "home": "Inicio de IWE Code"
+  },
+  "hero": {
+    "release": "Conoce IWE Code",
+    "title": "Tus proyectos.\nTodo a la vista.",
+    "description": "Un lugar tranquilo para tu código. Reúne proyectos locales, historial de Git y ejecuciones sin perder la concentración.",
+    "download": "Obtener IWE Code",
+    "source": "Explorar en GitHub",
+    "platforms": "Para macOS, Windows y Linux."
+  },
+  "preview": {
+    "label": "Explorar el espacio de trabajo",
+    "workspace": "Proyectos",
+    "history": "Historial de Git",
+    "comparison": "Cambios",
+    "pipelines": "Ejecuciones",
+    "caption": "Un espacio de trabajo real. Un poco más de claridad.",
+    "altWorkspace": "Espacio de IWE Code con árbol del proyecto, archivo abierto y cambios resaltados.",
+    "altHistory": "Historial de Git en IWE Code con ramas y commits.",
+    "altComparison": "IWE Code compara las versiones anterior y actual de un archivo en dos columnas.",
+    "altPipelines": "Lista de ejecuciones en IWE Code con el estado de cada tarea."
+  },
+  "features": {
+    "title": "Todo lo que rodea al código.\nPor fin, junto.",
+    "description": "Mantén la información que necesitas cerca de tu trabajo actual.",
+    "items": [
+      {
+        "title": "Organiza tus proyectos",
+        "description": "Agrupa proyectos locales en espacios con nombre. Fija los que más usas y conserva los demás a mano.",
+        "icon": "spaces"
+      },
+      {
+        "title": "Sigue toda la historia",
+        "description": "Explora ramas y commits de varios repositorios. Pasa de un cambio al archivo que lo contiene.",
+        "icon": "branch"
+      },
+      {
+        "title": "Consulta el estado",
+        "description": "Conecta GitHub Actions o GitLab. Consulta ejecuciones y tareas junto al código del proyecto.",
+        "icon": "pipeline"
+      }
+    ]
+  },
+  "workflow": {
+    "title": "Busca menos.\nComprende más.",
+    "description": "Abre un archivo. Consulta sus cambios. Sigue su historial. Conserva toda la información en un espacio de trabajo.",
+    "items": [
+      {
+        "title": "Lee con contexto",
+        "description": "El resaltado de sintaxis y las pestañas te ayudan a explorar un proyecto."
+      },
+      {
+        "title": "Elige tu vista",
+        "description": "Compara cambios en dos columnas o léelos en una. Pliega las líneas sin cambios para concentrarte."
+      },
+      {
+        "title": "Conecta los repositorios",
+        "description": "Consulta el historial del proyecto y de los repositorios en sus carpetas secundarias directas."
+      }
+    ],
+    "caption": "Dos versiones. Una comparación clara."
+  },
+  "local": {
+    "title": "Tus archivos siguen\nen su lugar.",
+    "description": "Empieza con las carpetas de tu ordenador. IWE Code lee los archivos cuando los abres y mantiene su contenido local.",
+    "points": [
+      "Consulta el código fuente sin editarlo",
+      "Conserva tu estructura de carpetas",
+      "Elige un espacio claro u oscuro"
+    ],
+    "note": "Una aplicación de escritorio para tus proyectos locales.",
+    "folderLabel": "Tu ordenador",
+    "spaceLabel": "Tu espacio de trabajo",
+    "projectLabel": "Proyectos",
+    "codeLabel": "Código fuente",
+    "historyLabel": "Historial de Git"
+  },
+  "download": {
+    "title": "Un espacio más claro\nempieza aquí.",
+    "description": "Descarga IWE Code para tu ordenador. Explora el código fuente, sigue las versiones y propone mejoras.",
+    "mac": "Apple Silicon e Intel",
+    "windows": "64 y 32 bits",
+    "linux": "64 y 32 bits",
+    "download": "Descargar",
+    "release": "Notas de las versiones",
+    "early": "Versiones iniciales. Desarrollo activo.",
+    "architecture": "Elige tu plataforma",
+    "detected": "Tu sistema",
+    "siliconHint": "Apple Silicon aparece primero. Elige Intel si tu Mac utiliza un procesador Intel.",
+    "armUnavailable": "Estos paquetes admiten procesadores Intel y AMD. Consulta las versiones para otras opciones."
+  },
+  "faq": {
+    "title": "Lo que conviene saber.",
+    "items": [
+      {
+        "question": "¿IWE Code es un editor de código?",
+        "answer": "IWE Code permite explorar proyectos, leer código fuente, consultar el historial de Git y seguir ejecuciones. Las vistas son de solo lectura."
+      },
+      {
+        "question": "¿Necesito mover mis proyectos?",
+        "answer": "No. Añade carpetas locales existentes al espacio de trabajo. IWE Code conserva su estructura."
+      },
+      {
+        "question": "¿Puedo usarlo sin una cuenta de GitHub?",
+        "answer": "Sí. Explora proyectos locales e historial de Git sin iniciar sesión. Las ejecuciones privadas y acciones requieren una cuenta conectada."
+      },
+      {
+        "question": "¿Qué idiomas están disponibles?",
+        "answer": "La aplicación y este sitio web admiten inglés, ruso y español."
+      }
+    ]
+  },
+  "footer": {
+    "description": "Una vista más clara de tu código.",
+    "developer": "Desarrollado por",
+    "source": "Código fuente",
+    "releases": "Versiones"
+  },
+  "error": {
+    "title": "Esta página no está disponible.",
+    "description": "Vuelve al sitio web de IWE Code para continuar.",
+    "back": "Ir al inicio"
+  }
+}

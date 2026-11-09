@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "IWE Code — A clearer view of your code",
+    "description": "Bring your local projects, source files, Git history, and pipelines into one native workspace. Available for macOS, Windows, and Linux."
+  },
+  "nav": {
+    "features": "Features",
+    "workflow": "Workflow",
+    "download": "Download",
+    "language": "Language",
+    "skip": "Skip to content",
+    "home": "IWE Code home"
+  },
+  "hero": {
+    "release": "Meet IWE Code",
+    "title": "Your projects.\nOne clear view.",
+    "description": "A quiet place for your code. Bring local projects, Git history, and pipelines together, without losing your focus.",
+    "download": "Get IWE Code",
+    "source": "Explore on GitHub",
+    "platforms": "Made for macOS, Windows, and Linux."
+  },
+  "preview": {
+    "label": "Explore the workspace",
+    "workspace": "Workspace",
+    "history": "Git history",
+    "comparison": "Changes",
+    "pipelines": "Pipelines",
+    "caption": "A real workspace. A little more clarity.",
+    "altWorkspace": "IWE Code workspace with a project tree, open source file, and highlighted changes.",
+    "altHistory": "IWE Code Git history with branches and commits.",
+    "altComparison": "IWE Code compares previous and current source files in two columns.",
+    "altPipelines": "IWE Code pipeline list with the status of individual jobs."
+  },
+  "features": {
+    "title": "Everything around your code.\nFinally, together.",
+    "description": "Keep the context that matters close to the work in front of you.",
+    "items": [
+      {
+        "title": "Make space for your projects",
+        "description": "Group local projects into named spaces. Pin the ones you use most, and keep the rest within reach.",
+        "icon": "spaces"
+      },
+      {
+        "title": "Follow the whole story",
+        "description": "Explore branches and commits across repositories. Move from a change to the file behind it.",
+        "icon": "branch"
+      },
+      {
+        "title": "See where things stand",
+        "description": "Connect GitHub Actions or GitLab pipelines. Check runs and jobs alongside the code they belong to.",
+        "icon": "pipeline"
+      }
+    ]
+  },
+  "workflow": {
+    "title": "Less searching.\nMore understanding.",
+    "description": "Open a file. See what changed. Follow its history. Stay in one workspace while the context stays with you.",
+    "items": [
+      {
+        "title": "Read with context",
+        "description": "Syntax highlighting and file tabs help you move through a project."
+      },
+      {
+        "title": "Choose your view",
+        "description": "Compare changes side by side, or read them in one column. Fold unchanged lines when you need focus."
+      },
+      {
+        "title": "Keep repositories connected",
+        "description": "See history from a project and its direct child repositories in one place."
+      }
+    ],
+    "caption": "Two versions. One clear comparison."
+  },
+  "local": {
+    "title": "Your files live\nwhere you left them.",
+    "description": "Start with folders already on your computer. IWE Code reads source files when you open them and keeps their contents local.",
+    "points": [
+      "Preview source files without editing them",
+      "Keep your existing folder structure",
+      "Choose a light or dark workspace"
+    ],
+    "note": "A native desktop workspace, built around your local projects.",
+    "folderLabel": "Your computer",
+    "spaceLabel": "Your workspace",
+    "projectLabel": "Projects",
+    "codeLabel": "Source files",
+    "historyLabel": "Git history"
+  },
+  "download": {
+    "title": "A clearer workspace\nstarts here.",
+    "description": "Get IWE Code for your computer. Explore the source, follow releases, and help shape what comes next.",
+    "mac": "Apple Silicon & Intel",
+    "windows": "64-bit & 32-bit",
+    "linux": "64-bit & 32-bit",
+    "download": "Download",
+    "release": "Release notes",
+    "early": "Early releases. Active development.",
+    "architecture": "Choose your platform",
+    "detected": "Your system",
+    "siliconHint": "Apple Silicon comes first. Choose Intel if your Mac uses an Intel processor.",
+    "armUnavailable": "These packages support Intel and AMD processors. Check releases for other options."
+  },
+  "faq": {
+    "title": "A few things to know.",
+    "items": [
+      {
+        "question": "Is IWE Code a code editor?",
+        "answer": "IWE Code focuses on browsing projects, reading source files, inspecting Git history, and following pipelines. Source previews are read-only."
+      },
+      {
+        "question": "Do I need to move my projects?",
+        "answer": "No. Add existing local folders to your workspace. IWE Code keeps their folder structure."
+      },
+      {
+        "question": "Can I use it without a GitHub account?",
+        "answer": "Yes. Browse local projects and Git history without signing in. Private pipelines and job actions require a connected provider account."
+      },
+      {
+        "question": "Which languages can I use?",
+        "answer": "The application and this website support English, Russian, and Spanish."
+      }
+    ]
+  },
+  "footer": {
+    "description": "A clearer view of your code.",
+    "developer": "Developed by",
+    "source": "Source code",
+    "releases": "Releases"
+  },
+  "error": {
+    "title": "This page is unavailable.",
+    "description": "Return to the IWE Code website to continue.",
+    "back": "Go to the homepage"
+  }
+}
