@@ -1885,7 +1885,8 @@ fn welcome_and_settings_fit_supported_window_sizes_in_every_language() {
         let app = application(Rc::new(I18n::new(language)));
         let (mut state, _) = app.boot();
         let settings = Program::window(&app).unwrap();
-        assert!(settings.decorations && settings.exit_on_close_request);
+        assert_eq!(settings.decorations, !cfg!(target_os = "windows"));
+        assert!(settings.exit_on_close_request);
         assert_eq!(settings.transparent, cfg!(target_os = "macos"));
         for size in [settings.size, settings.min_size.unwrap()] {
             for (navigation, key) in [

@@ -60,6 +60,7 @@ fn application(
         position: window::Position::Centered,
         icon: crate::ui::branding::window_icon(),
         transparent: cfg!(target_os = "macos"),
+        decorations: !cfg!(target_os = "windows"),
         #[cfg(target_os = "macos")]
         platform_specific: window::settings::PlatformSpecific {
             title_hidden: true,
@@ -77,12 +78,24 @@ fn application(
             app.jobs_subscription(),
             app.notifications.subscription().map(Message::Notification),
             window::open_events().map(Message::WindowOpened),
+            window_state_subscription(),
             iced::event::listen_with(|event, _, _| shortcut(event)),
         ])
     })
     .theme(App::theme)
     .default_font(theme::font())
     .style(|state, theme| theme::application_style(state.glass_ready, theme))
+}
+
+fn window_state_subscription() -> Subscription<Message> {
+    #[cfg(target_os = "windows")]
+    {
+        window::resize_events().map(|(id, _)| Message::WindowResized(id))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Subscription::none()
+    }
 }
 
 fn shortcut(event: iced::Event) -> Option<Message> {
@@ -200,6 +213,7 @@ pub(crate) struct App {
     pub picking: bool,
     pub loaded: bool,
     window_id: Option<window::Id>,
+    pub window_maximized: bool,
     glass_ready: bool,
     generation: u64,
     project_directory: Option<PathBuf>,
@@ -226,6 +240,15 @@ pub(crate) enum Message {
     Update(updates::Event),
     DragWindow,
     ToggleWindowMaximized,
+    WindowMaximized(bool),
+    #[cfg(target_os = "windows")]
+    WindowResized(window::Id),
+    #[cfg(target_os = "windows")]
+    MinimizeWindow,
+    #[cfg(target_os = "windows")]
+    CloseWindow,
+    #[cfg(target_os = "windows")]
+    ResizeWindow(window::Direction),
     GlassConfigured(bool),
     Loaded(Result<(Workspace, Option<PathBuf>), Failure>),
     Saved(Result<(), Failure>),
@@ -361,6 +384,7 @@ impl App {
             picking: false,
             loaded: false,
             window_id: None,
+            window_maximized: false,
             glass_ready: false,
             generation: 0,
             project_directory: None,
@@ -457,15 +481,40 @@ impl App {
             }
             Message::WindowOpened(id) => {
                 self.window_id = Some(id);
-                return window::run(id, window_effect::apply).map(Message::GlassConfigured);
+                return Task::batch([
+                    window::run(id, window_effect::apply).map(Message::GlassConfigured),
+                    window::is_maximized(id).map(Message::WindowMaximized),
+                ]);
             }
             Message::DragWindow => {
                 return self.window_id.map_or_else(Task::none, window::drag);
             }
             Message::ToggleWindowMaximized => {
+                return self.window_id.map_or_else(Task::none, |id| {
+                    window::toggle_maximize::<Message>(id)
+                        .chain(window::is_maximized(id).map(Message::WindowMaximized))
+                });
+            }
+            Message::WindowMaximized(maximized) => self.window_maximized = maximized,
+            #[cfg(target_os = "windows")]
+            Message::WindowResized(id) if self.window_id == Some(id) => {
+                return window::is_maximized(id).map(Message::WindowMaximized);
+            }
+            #[cfg(target_os = "windows")]
+            Message::MinimizeWindow => {
                 return self
                     .window_id
-                    .map_or_else(Task::none, window::toggle_maximize);
+                    .map_or_else(Task::none, |id| window::minimize(id, true));
+            }
+            #[cfg(target_os = "windows")]
+            Message::CloseWindow => {
+                return self.window_id.map_or_else(Task::none, window::close);
+            }
+            #[cfg(target_os = "windows")]
+            Message::ResizeWindow(direction) if !self.window_maximized => {
+                return self
+                    .window_id
+                    .map_or_else(Task::none, |id| window::drag_resize(id, direction));
             }
             Message::GlassConfigured(ready) => self.glass_ready = ready,
             Message::Loaded(result) => {

@@ -16,3 +16,5 @@ pub(crate) mod theme;
 pub(crate) mod tooltip;
 
 pub(crate) mod updates;
+#[cfg(target_os = "windows")]
+pub(crate) mod window_chrome;

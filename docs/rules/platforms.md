@@ -18,7 +18,9 @@ Follow these rules when [AGENTS.md](../../AGENTS.md) directs you here.
 - Keep the Iced background transparent only after native material initialization succeeds.
 - Keep native material below the renderer. Never blur application content with the background
   material.
-- Preserve native window controls and system window corners.
+- Preserve native window controls on macOS and Linux, and preserve system window corners.
+- On Windows, use application caption controls without a native title bar. Preserve dragging,
+  resizing, minimizing, maximizing, restoring, and closing through safe window APIs.
 - Do not simulate window glass with inset panels, gradients, outlines, shadows, or custom corner
   radii.
 

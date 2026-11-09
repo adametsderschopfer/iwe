@@ -97,6 +97,12 @@ pub(crate) const FILE_TABS_HEIGHT: f32 = FILE_PANEL_HEADER_HEIGHT + 1.0;
 pub(crate) const SOURCE_MIN_WIDTH: f32 = 320.0;
 pub(crate) const FILE_PANEL_RESIZE_GRAB: f32 = 5.0;
 pub(crate) const FILE_PANEL_CONTENT_INSET: f32 = 8.0;
+#[cfg(target_os = "windows")]
+pub(crate) const WINDOW_CONTROL_WIDTH: f32 = 46.0;
+#[cfg(target_os = "windows")]
+pub(crate) const WINDOW_CONTROL_HEIGHT: f32 = 40.0;
+#[cfg(target_os = "windows")]
+pub(crate) const WINDOW_RESIZE_GRIP: f32 = 5.0;
 pub(crate) const COMMIT_DATE_WIDTH: f32 = 120.0;
 pub(crate) const CODE_SCROLLBAR_WIDTH: f32 = 20.0;
 pub(crate) const CODE_SCROLLBAR_THUMB_WIDTH: f32 = 10.0;
@@ -391,6 +397,13 @@ pub(crate) fn icon_action(selected: bool) -> impl Fn(&Theme, button::Status) -> 
         style.border.radius = 999.0.into();
         style
     }
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn window_control(theme: &Theme, status: button::Status) -> button::Style {
+    let mut style = action(false)(theme, status);
+    style.border.radius = 0.0.into();
+    style
 }
 
 pub(crate) fn tree_item(selected: bool) -> impl Fn(&Theme, button::Status) -> button::Style {

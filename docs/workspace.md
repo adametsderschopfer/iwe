@@ -14,6 +14,11 @@ add project folders, or remove projects, then choose **Save changes**. Cancel ke
 unchanged. Removing a project only detaches its folder. The application never deletes the folder.
 The header shows the selected space. The files view shows **Space • Project**.
 
+On Windows, the application header replaces the system title bar. Its right-hand buttons minimize,
+maximize or restore, and close the window. Drag empty header space to move the window. Double-click
+empty header space to maximize or restore it. Drag any edge or corner to resize a restored window.
+Window controls remain available while a dialog is open.
+
 Drag project rows to change their order. The form shows five complete rows and half the sixth row
 when more projects exist. Scroll to reach the remaining projects. A line marks the drop position.
 Holding a dragged row near the list edge scrolls the list. Dropping outside the list cancels the

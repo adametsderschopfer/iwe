@@ -241,12 +241,17 @@ include the PNG icon and desktop entry. The repository keeps the generated sourc
 `assets/`. The `png` crate decodes the embedded window icon without filesystem access.
 
 The window opens at 1440 × 920 pixels. Its minimum size is 1080 × 720 pixels. It preserves native
-window controls and closes through the standard close button.
+window controls on macOS and Linux. Windows uses application-drawn caption controls.
 
 On macOS, content extends into the native title bar. The sidebar reserves 32 pixels above its
 heading for native window controls. The main header remains 56 pixels high, including in settings.
 Drag either header's empty area to move the window. Double-click its empty area to maximize or
-restore the window. Windows and Linux keep their native title bars.
+restore the window. Linux keeps its native title bar.
+
+Windows disables the native title bar and places minimize, maximize, restore, and close controls in
+the application header. `ui/window_chrome.rs` keeps these controls above dialogs and provides edge
+and corner resize handles. Window tasks use safe Iced APIs. Resize events update the maximize icon.
+Maximized windows disable resize handles without replacing the content widget tree.
 
 On macOS, renderer layers anchor their contents at the top left instead of stretching the previous
 frame during resizing. AppKit requests redraws during live resizing. This policy preserves display

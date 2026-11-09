@@ -45,9 +45,9 @@ impl Language {
 }
 
 macro_rules! message_keys {
-    ($($variant:ident => $id:literal),+ $(,)?) => {
+    ($($(#[$attribute:meta])* $variant:ident => $id:literal),+ $(,)?) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        pub(crate) enum Key { $($variant),+ }
+        pub(crate) enum Key { $($(#[$attribute])* $variant),+ }
 
         impl Key {
             #[cfg(test)]
@@ -118,6 +118,14 @@ message_keys! {
     ProjectFiles => "project-files",
     WorkingChanges => "working-changes",
     RefreshWorkingChanges => "refresh-working-changes",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    MinimizeWindow => "minimize-window",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    MaximizeWindow => "maximize-window",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    RestoreWindow => "restore-window",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    CloseWindow => "close-window",
     NoWorkingChanges => "no-working-changes",
     FileCount => "file-count",
     Projects => "projects",

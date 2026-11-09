@@ -71,7 +71,15 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
             git_actions::overlay(app, project_menu(app, pipelines::overlay(app, base))),
         ),
     );
-    crate::ui::notifications::overlay(&app.notifications, &app.i18n, base, Message::Notification)
+    let base = crate::ui::notifications::overlay(
+        &app.notifications,
+        &app.i18n,
+        base,
+        Message::Notification,
+    );
+    #[cfg(target_os = "windows")]
+    let base = crate::ui::window_chrome::overlay(app, base);
+    base
 }
 
 fn header(app: &App) -> Element<'_, Message> {
@@ -153,6 +161,10 @@ fn header(app: &App) -> Element<'_, Message> {
         icon_button(app, Icon::Refresh, Key::Refresh, Message::Refresh, false)
     };
     heading = heading.push(container(action).id("window-header-action"));
+    #[cfg(target_os = "windows")]
+    {
+        heading = heading.push(space().width(3. * theme::WINDOW_CONTROL_WIDTH));
+    }
 
     mouse_area(
         container(heading)

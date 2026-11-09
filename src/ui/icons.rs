@@ -31,6 +31,12 @@ pub(crate) enum Icon {
     Pin,
     Refresh,
     Close,
+    #[cfg(target_os = "windows")]
+    Minimize,
+    #[cfg(target_os = "windows")]
+    Maximize,
+    #[cfg(target_os = "windows")]
+    Restore,
     Folder,
     External,
 }
@@ -180,6 +186,17 @@ impl<Message> canvas::Program<Message> for Drawing {
             Icon::Close => {
                 line(&[(5., 5.), (15., 15.)]);
                 line(&[(5., 15.), (15., 5.)]);
+            }
+            #[cfg(target_os = "windows")]
+            Icon::Minimize => line(&[(4., 10.), (16., 10.)]),
+            #[cfg(target_os = "windows")]
+            Icon::Maximize => {
+                line(&[(4., 4.), (16., 4.), (16., 16.), (4., 16.), (4., 4.)]);
+            }
+            #[cfg(target_os = "windows")]
+            Icon::Restore => {
+                line(&[(7., 5.), (7., 3.), (17., 3.), (17., 13.), (15., 13.)]);
+                line(&[(3., 7.), (13., 7.), (13., 17.), (3., 17.), (3., 7.)]);
             }
             Icon::External => {
                 line(&[(11., 3.), (17., 3.), (17., 9.)]);
