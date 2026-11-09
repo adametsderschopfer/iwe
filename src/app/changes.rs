@@ -23,6 +23,7 @@ pub(crate) struct State {
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
     Refresh,
+    RefreshManually,
     Loaded(u64, u64, Result<Worktree, Failure>),
     PreviewLoaded(u64, u64, Result<Option<Document>, Failure>),
 }
@@ -54,6 +55,10 @@ impl App {
     pub(super) fn update_changes(&mut self, event: Event) -> Task<Message> {
         match event {
             Event::Refresh => return self.refresh_changes(),
+            Event::RefreshManually => {
+                self.changes.disabled = false;
+                return self.refresh_changes();
+            }
             Event::Loaded(generation, request, result)
                 if generation == self.generation && request == self.changes.request =>
             {

@@ -160,6 +160,10 @@ files and uncommitted files share the same tree style. Their folders compact con
 directories and show file counts. File tooltips describe each status. Ignored files keep their
 normal appearance. Status and the open working file refresh in the background every three seconds.
 
+The uncommitted files panel has a toolbar below its heading separator. Its refresh button manually
+reloads working-file status and the open working file. Existing rows remain visible during refresh.
+Manual refresh also retries repositories after automatic status polling stops.
+
 Working-file comparisons use the current branch's `HEAD`, including both staged and unstaged
 changes. Two-column comparisons use green for additions, blue for replacements, and red for
 deletions. Removed lines retain their original line numbers. Opening a file outside Git shows a

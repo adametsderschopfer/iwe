@@ -543,7 +543,7 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
         FilePanel::Project => Key::ProjectFiles,
         FilePanel::Changes => Key::WorkingChanges,
     });
-    let files = container(column![
+    let mut files = column![
         container(
             container(
                 text(title)
@@ -560,16 +560,39 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
         .clip(true)
         .align_y(Alignment::Center),
         divider(),
-        scrollable(container(content).padding(theme::FILE_PANEL_CONTENT_INSET))
-            .id("project-files-browser")
-            .width(Length::Fill)
-            .direction(scrollable::Direction::Both {
-                vertical: scrollable::Scrollbar::default(),
-                horizontal: scrollable::Scrollbar::default()
-            })
-            .style(theme::scroll)
-            .height(Length::Fill),
-    ])
+    ];
+    if app.file_panel == FilePanel::Changes {
+        files = files
+            .push(
+                container(row![icon_button(
+                    app,
+                    Icon::Refresh,
+                    Key::RefreshWorkingChanges,
+                    Message::Worktree(crate::app::changes::Event::RefreshManually),
+                    false,
+                )])
+                .id("working-changes-toolbar")
+                .padding([
+                    theme::FILE_PANEL_TOOL_INSET,
+                    theme::FILE_PANEL_CONTENT_INSET,
+                ])
+                .width(Length::Fill),
+            )
+            .push(divider());
+    }
+    let files = container(
+        files.push(
+            scrollable(container(content).padding(theme::FILE_PANEL_CONTENT_INSET))
+                .id("project-files-browser")
+                .width(Length::Fill)
+                .direction(scrollable::Direction::Both {
+                    vertical: scrollable::Scrollbar::default(),
+                    horizontal: scrollable::Scrollbar::default(),
+                })
+                .style(theme::scroll)
+                .height(Length::Fill),
+        ),
+    )
     .id("project-files-panel")
     .width(Length::Fill)
     .height(Length::Fill)

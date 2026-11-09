@@ -150,6 +150,7 @@ about-description = Локальное пространство для прое�
 settings-saved = Изменения сохраняются автоматически на этом устройстве.
 back-to-workspace = Вернуться к проектам
 refresh = Обновить
+refresh-working-changes = Обновить незакоммиченные файлы
 hide-panel = Скрыть панель
 dismiss = Закрыть
 loading = Загрузка…

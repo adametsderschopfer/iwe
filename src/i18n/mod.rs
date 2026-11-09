@@ -117,6 +117,7 @@ message_keys! {
     Workspace => "workspace",
     ProjectFiles => "project-files",
     WorkingChanges => "working-changes",
+    RefreshWorkingChanges => "refresh-working-changes",
     NoWorkingChanges => "no-working-changes",
     FileCount => "file-count",
     Projects => "projects",

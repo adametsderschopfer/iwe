@@ -150,6 +150,7 @@ about-description = Un espacio local para proyectos, código e historial.
 settings-saved = Los cambios se guardan automáticamente en este dispositivo.
 back-to-workspace = Volver al espacio
 refresh = Actualizar
+refresh-working-changes = Actualizar archivos sin confirmar
 hide-panel = Ocultar panel
 dismiss = Cerrar
 loading = Cargando…

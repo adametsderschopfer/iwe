@@ -150,6 +150,7 @@ about-description = A local workspace for your projects, code, and history.
 settings-saved = Changes are saved automatically on this device.
 back-to-workspace = Back to workspace
 refresh = Refresh
+refresh-working-changes = Refresh uncommitted files
 hide-panel = Hide panel
 dismiss = Dismiss
 loading = Loading…
