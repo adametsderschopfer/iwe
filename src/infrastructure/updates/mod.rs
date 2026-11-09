@@ -115,15 +115,22 @@ pub(crate) async fn check() -> Result<Option<Release>, Error> {
         let mut releases = Vec::new();
         for page in 1..=3 {
             let url = format!("{RELEASES}?per_page=100&page={page}");
-            let mut batch: Vec<Latest> = serde_json::from_slice(&small(&client, &url, 4 * 1024 * 1024).await?)
-                .map_err(|_| Error::Invalid)?;
-            if batch.len() > 100 { return Err(Error::Invalid); }
+            let mut batch: Vec<Latest> =
+                serde_json::from_slice(&small(&client, &url, 4 * 1024 * 1024).await?)
+                    .map_err(|_| Error::Invalid)?;
+            if batch.len() > 100 {
+                return Err(Error::Invalid);
+            }
             let complete = batch.len() < 100;
             releases.append(&mut batch);
-            if complete { break; }
+            if complete {
+                break;
+            }
         }
         let platform = platform()?;
-        let Some(latest) = select_latest(&releases, platform, env!("CARGO_PKG_VERSION"))? else { return Ok(None); };
+        let Some(latest) = select_latest(&releases, platform, env!("CARGO_PKG_VERSION"))? else {
+            return Ok(None);
+        };
         let manifest = small(
             &client,
             &asset_url(&latest.tag_name, "updates.json"),
@@ -160,30 +167,50 @@ fn newer(tag: &str, current: &str) -> Result<bool, Error> {
 }
 
 fn tag_parts(tag: &str) -> Result<(Option<&str>, &str), Error> {
-    if !tag.bytes().all(|byte| byte.is_ascii_alphanumeric() || b".-+".contains(&byte)) {
+    if !tag
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || b".-+".contains(&byte))
+    {
         return Err(Error::Invalid);
     }
     for family in ["macos", "windows", "linux"] {
-        if let Some(value) = tag.strip_prefix(family).and_then(|value| value.strip_prefix('-')) {
+        if let Some(value) = tag
+            .strip_prefix(family)
+            .and_then(|value| value.strip_prefix('-'))
+        {
             return Ok((Some(family), value.strip_prefix('v').unwrap_or(value)));
         }
     }
     Ok((None, tag.strip_prefix('v').unwrap_or(tag)))
 }
 
-fn select_latest<'a>(releases: &'a [Latest], platform: &str, current: &str) -> Result<Option<&'a Latest>, Error> {
+fn select_latest<'a>(
+    releases: &'a [Latest],
+    platform: &str,
+    current: &str,
+) -> Result<Option<&'a Latest>, Error> {
     let family = platform.split_once('-').ok_or(Error::Unsupported)?.0;
     let mut best: Option<(&Latest, Version, bool)> = None;
     for release in releases {
-        if release.draft || release.prerelease { continue; }
-        let Ok((channel, value)) = tag_parts(&release.tag_name) else { continue; };
+        if release.draft || release.prerelease {
+            continue;
+        }
+        let Ok((channel, value)) = tag_parts(&release.tag_name) else {
+            continue;
+        };
         if channel.is_some_and(|channel| channel != family)
-            || !newer(&release.tag_name, current).unwrap_or(false) { continue; }
+            || !newer(&release.tag_name, current).unwrap_or(false)
+        {
+            continue;
+        }
         let version = Version::parse(value).map_err(|_| Error::Invalid)?;
         let specific = channel.is_some();
-        if best.as_ref().is_none_or(|(_, previous, platform_specific)| {
-            version > *previous || (version == *previous && specific && !*platform_specific)
-        }) {
+        if best
+            .as_ref()
+            .is_none_or(|(_, previous, platform_specific)| {
+                version > *previous || (version == *previous && specific && !*platform_specific)
+            })
+        {
             best = Some((release, version, specific));
         }
     }
@@ -208,16 +235,31 @@ fn verified_release(
     let (channel, version) = tag_parts(tag)?;
     let family = platform.split_once('-').ok_or(Error::Invalid)?.0;
     let expected: &[&str] = match channel {
-        None => &["macos-arm64", "macos-x64", "windows-x64", "windows-x86", "linux-x64", "linux-x86"],
+        None => &[
+            "macos-arm64",
+            "macos-x64",
+            "windows-x64",
+            "windows-x86",
+            "linux-x64",
+            "linux-x86",
+        ],
         Some("macos") if family == "macos" => &["macos-arm64", "macos-x64"],
         Some("windows") if family == "windows" => &["windows-x64", "windows-x86"],
         Some("linux") if family == "linux" => &["linux-x64", "linux-x86"],
         _ => return Err(Error::Invalid),
     };
-    let names: std::collections::BTreeSet<_> = manifest.assets.iter().map(|asset| asset.name.as_str()).collect();
-    if manifest.version != version || manifest.assets.len() != expected.len()
+    let names: std::collections::BTreeSet<_> = manifest
+        .assets
+        .iter()
+        .map(|asset| asset.name.as_str())
+        .collect();
+    if manifest.version != version
+        || manifest.assets.len() != expected.len()
         || names.len() != expected.len()
-        || expected.iter().any(|platform| !names.contains(format!("iwe-{version}-{platform}-update.tar.gz").as_str())) {
+        || expected.iter().any(|platform| {
+            !names.contains(format!("iwe-{version}-{platform}-update.tar.gz").as_str())
+        })
+    {
         return Err(Error::Invalid);
     }
     let name = format!("iwe-{version}-{platform}-update.tar.gz");

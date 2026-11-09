@@ -135,13 +135,16 @@ impl<Message> canvas::Program<Message> for Drawing {
                     builder.move_to(Point::new(15., 3.));
                     builder.line_to(Point::new(15., 7.));
                     builder.bezier_curve_to(
-                        Point::new(15., 11.), Point::new(5., 8.), Point::new(5., 12.),
+                        Point::new(15., 11.),
+                        Point::new(5., 8.),
+                        Point::new(5., 12.),
                     );
                     builder.move_to(Point::new(2., 9.));
                     builder.line_to(Point::new(5., 12.));
                     builder.line_to(Point::new(8., 9.));
                 });
-                let rounded = stroke.with_line_cap(canvas::LineCap::Round)
+                let rounded = stroke
+                    .with_line_cap(canvas::LineCap::Round)
                     .with_line_join(canvas::LineJoin::Round);
                 frame.stroke(&path, rounded);
                 for y in [3., 17.] {
@@ -250,19 +253,28 @@ impl<Message> canvas::Program<Message> for Drawing {
                 let arc = Path::new(|builder| {
                     builder.move_to(Point::new(16., 7.));
                     builder.bezier_curve_to(
-                        Point::new(14.9, 4.7), Point::new(12.6, 3.2), Point::new(10., 3.2),
+                        Point::new(14.9, 4.7),
+                        Point::new(12.6, 3.2),
+                        Point::new(10., 3.2),
                     );
                     builder.bezier_curve_to(
-                        Point::new(6.2, 3.2), Point::new(3.2, 6.2), Point::new(3.2, 10.),
+                        Point::new(6.2, 3.2),
+                        Point::new(3.2, 6.2),
+                        Point::new(3.2, 10.),
                     );
                     builder.bezier_curve_to(
-                        Point::new(3.2, 13.8), Point::new(6.2, 16.8), Point::new(10., 16.8),
+                        Point::new(3.2, 13.8),
+                        Point::new(6.2, 16.8),
+                        Point::new(10., 16.8),
                     );
                     builder.bezier_curve_to(
-                        Point::new(12.6, 16.8), Point::new(14.8, 15.4), Point::new(16., 13.2),
+                        Point::new(12.6, 16.8),
+                        Point::new(14.8, 15.4),
+                        Point::new(16., 13.2),
                     );
                 });
-                let rounded = stroke.with_line_cap(canvas::LineCap::Round)
+                let rounded = stroke
+                    .with_line_cap(canvas::LineCap::Round)
                     .with_line_join(canvas::LineJoin::Round);
                 frame.stroke(&arc, rounded);
                 let arrow = Path::new(|builder| {

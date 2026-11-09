@@ -30,7 +30,10 @@ pub(crate) struct Menu {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum PathFormat { Absolute, Relative }
+pub(crate) enum PathFormat {
+    Absolute,
+    Relative,
+}
 
 struct Cached {
     root: PathBuf,
@@ -149,29 +152,46 @@ impl App {
 
     pub(super) fn update_files(&mut self, event: Event) -> Task<Message> {
         match event {
-            Event::OpenMenu(path, point) if self.space_draft.is_none()
-                && self.auth_dialog.is_none() && self.git_actions.dialog.is_none() => {
-                if self.workspace.directory().is_some_and(|root| path.is_absolute() && path.starts_with(root)) {
+            Event::OpenMenu(path, point)
+                if self.space_draft.is_none()
+                    && self.auth_dialog.is_none()
+                    && self.git_actions.dialog.is_none() =>
+            {
+                if self
+                    .workspace
+                    .directory()
+                    .is_some_and(|root| path.is_absolute() && path.starts_with(root))
+                {
                     self.project_menu = None;
                     self.git_actions.menu = None;
                     self.files.selected_path = Some(path.clone());
-                    self.files.menu = Some(Menu { path, point, copy_open: false });
+                    self.files.menu = Some(Menu {
+                        path,
+                        point,
+                        copy_open: false,
+                    });
                 }
             }
             Event::CopyOptions => {
-                if let Some(menu) = &mut self.files.menu { menu.copy_open = true; }
+                if let Some(menu) = &mut self.files.menu {
+                    menu.copy_open = true;
+                }
             }
             Event::DismissMenu => self.files.menu = None,
             Event::CopyPath(format) => {
                 if let Some(menu) = self.files.menu.take() {
                     let value = match format {
                         PathFormat::Absolute => Some(menu.path.as_path()),
-                        PathFormat::Relative => self.path_copy_root(&menu.path)
+                        PathFormat::Relative => self
+                            .path_copy_root(&menu.path)
                             .and_then(|root| menu.path.strip_prefix(root).ok()),
                     };
                     if let Some(value) = value {
-                        let value = if value.as_os_str().is_empty() { ".".to_owned() }
-                            else { value.to_string_lossy().into_owned() };
+                        let value = if value.as_os_str().is_empty() {
+                            ".".to_owned()
+                        } else {
+                            value.to_string_lossy().into_owned()
+                        };
                         return iced::clipboard::write(value);
                     }
                 }
@@ -248,15 +268,27 @@ impl App {
         Task::none()
     }
 
-    pub(crate) fn path_repository_root<'a>(&'a self, path: &std::path::Path) -> Option<&'a std::path::Path> {
-        self.changes.status.roots.iter().map(PathBuf::as_path)
-            .chain(self.repository.iter().flat_map(|set| set.repositories.iter().map(|repo| repo.root.as_path())))
+    pub(crate) fn path_repository_root<'a>(
+        &'a self,
+        path: &std::path::Path,
+    ) -> Option<&'a std::path::Path> {
+        self.changes
+            .status
+            .roots
+            .iter()
+            .map(PathBuf::as_path)
+            .chain(
+                self.repository
+                    .iter()
+                    .flat_map(|set| set.repositories.iter().map(|repo| repo.root.as_path())),
+            )
             .filter(|root| path.starts_with(root))
             .max_by_key(|root| root.components().count())
     }
 
     fn path_copy_root<'a>(&'a self, path: &std::path::Path) -> Option<&'a std::path::Path> {
-        self.path_repository_root(path).or_else(|| self.workspace.directory().map(PathBuf::as_path))
+        self.path_repository_root(path)
+            .or_else(|| self.workspace.directory().map(PathBuf::as_path))
     }
 }
 

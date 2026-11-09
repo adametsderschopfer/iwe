@@ -53,14 +53,14 @@ metadata uses Serde and atomic temporary-file replacement. Native directory sele
 Syntect highlights source with bundled `two-face` grammars and the Gerry Darcula palette. `open`
 delegates approved links to the system browser.
 
-Oversized source reads switch to bounded pages through `infrastructure/workspace/pages.rs`.
-Page boundaries preserve UTF-8 and CRLF, with limits of 512 KiB and 4,096 newline characters.
-Local pages seek directly and compare file metadata before and after reading. Changed snapshots
-restart at the first page. Git pages stream `cat-file` output, discard the preceding bytes, and stop
-the child after reading the requested range. Git page reads retain the 25-second process deadline.
-Tabs retain cursor history, and request identifiers reject obsolete page responses. Only the current
-page receives syntax preparation. Paged documents skip comparison and automatic content polling.
-Syntax state restarts on each page, and lines over 16 KiB remain plain text.
+Oversized source reads switch to bounded pages through `infrastructure/workspace/pages.rs`. Page
+boundaries preserve UTF-8 and CRLF, with limits of 512 KiB and 4,096 newline characters. Local pages
+seek directly and compare file metadata before and after reading. Changed snapshots restart at the
+first page. Git pages stream `cat-file` output, discard the preceding bytes, and stop the child
+after reading the requested range. Git page reads retain the 25-second process deadline. Tabs retain
+cursor history, and request identifiers reject obsolete page responses. Only the current page
+receives syntax preparation. Paged documents skip comparison and automatic content polling. Syntax
+state restarts on each page, and lines over 16 KiB remain plain text.
 
 `ui/code/selection.rs` shares tab selection state across virtual source rows. Iced paragraph hit
 testing maps pointer positions to UTF-8 boundaries. Syntax spans keep their colors while selected
@@ -69,11 +69,11 @@ coordinates. Documents retain original lines alongside displayed spans so clipbo
 tabs and empty lines. Selection revisions invalidate visible row layouts. Document fingerprints
 invalidate stale selections after refresh, and page requests use existing tab identifiers.
 
-`app/line_navigation.rs` coordinates numbered-line navigation and its localized modal dialog.
-It reveals folded targets through the existing folding projection and restores source scroll offsets.
+`app/line_navigation.rs` coordinates numbered-line navigation and its localized modal dialog. It
+reveals folded targets through the existing folding projection and restores source scroll offsets.
 Large-file searches reuse bounded page reads with a 45-second overall deadline. Search identifiers,
-tab identifiers, and project generations reject stale results after cancellation or navigation.
-The dialog uses Command+L on macOS and Ctrl+G on Windows and Linux.
+tab identifiers, and project generations reject stale results after cancellation or navigation. The
+dialog uses Command+L on macOS and Ctrl+G on Windows and Linux.
 
 The shared process launcher resolves Git for repository reads and explicit Git operations. On
 Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
@@ -328,14 +328,14 @@ not bundle those runtimes. Normal macOS startup uses Metal.
 
 `app/updates` coordinates release checks, downloads, workspace persistence, and restart requests.
 Its session schedule checks hourly and allows focus-triggered checks after a 15-minute cooldown.
-Failed checks use the same 15-minute retry delay. A minute subscription evaluates wall-clock deadlines
-locally, including after suspension. Manual checks bypass cooldowns but retain in-flight guards.
-Automatic checks preserve available updates and never interrupt download, save, or installation states.
-`domain/update` carries verified release metadata without operating-system access.
-`infrastructure/updates` verifies signed manifests, stages packages, and installs updates after
-shutdown. `ui/updates` presents localized actions in the sidebar and About settings. The startup
-entry point handles installer and cleanup processes before starting the graphics launcher. See
-[application updates](updates.md) for trust boundaries, package limits, and recovery behavior.
+Failed checks use the same 15-minute retry delay. A minute subscription evaluates wall-clock
+deadlines locally, including after suspension. Manual checks bypass cooldowns but retain in-flight
+guards. Automatic checks preserve available updates and never interrupt download, save, or
+installation states. `domain/update` carries verified release metadata without operating-system
+access. `infrastructure/updates` verifies signed manifests, stages packages, and installs updates
+after shutdown. `ui/updates` presents localized actions in the sidebar and About settings. The
+startup entry point handles installer and cleanup processes before starting the graphics launcher.
+See [application updates](updates.md) for trust boundaries, package limits, and recovery behavior.
 
 ## Localization
 

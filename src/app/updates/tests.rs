@@ -27,11 +27,19 @@ fn manual_checks_bypass_cooldown_and_automatic_checks_preserve_available_updates
     let mut app = app();
     assert!(app.update_release(Event::Check).units() > 0);
     let _ = app.update_release(Event::Checked(Ok(None)));
-    assert_eq!(app.update_release(Event::Automatic(Trigger::Focused)).units(), 0);
+    assert_eq!(
+        app.update_release(Event::Automatic(Trigger::Focused))
+            .units(),
+        0
+    );
     assert!(app.update_release(Event::Check).units() > 0);
     let _ = app.update_release(Event::Checked(Ok(Some(release()))));
     app.update_schedule.last_attempt = None;
-    assert_eq!(app.update_release(Event::Automatic(Trigger::Periodic)).units(), 0);
+    assert_eq!(
+        app.update_release(Event::Automatic(Trigger::Periodic))
+            .units(),
+        0
+    );
     assert!(matches!(app.updates, State::Available(_)));
 }
 fn release() -> Release {

@@ -18,9 +18,9 @@ IWE Code caches project trees locally and refreshes folder listings in the backg
 source contents when files open. Repository files remain unchanged, and source contents stay local.
 See [workspace behavior](docs/workspace.md) for limits, authentication, and keyboard shortcuts.
 
-Platform tags publish separate macOS, Windows, and Linux releases with one shared application version.
-Each release requires checks and both architecture builds for its platform. Packages cover macOS
-Apple Silicon and Intel, Windows x86 and x64, and Linux x86 and x64. See
+Platform tags publish separate macOS, Windows, and Linux releases with one shared application
+version. Each release requires checks and both architecture builds for its platform. Packages cover
+macOS Apple Silicon and Intel, Windows x86 and x64, and Linux x86 and x64. See
 [release packages and publishing](docs/ci.md#release-packages) for installation requirements and the
 tag workflow. Windows releases include a per-user installer and a portable ZIP.
 

@@ -278,11 +278,17 @@ pub(crate) fn separator(theme: &Theme) -> container::Style {
     }
 }
 
-pub(crate) fn notification_progress(theme: &Theme, tone: Tone) -> iced::widget::progress_bar::Style {
+pub(crate) fn notification_progress(
+    theme: &Theme,
+    tone: Tone,
+) -> iced::widget::progress_bar::Style {
     iced::widget::progress_bar::Style {
         background: HOVER.resolve(theme).into(),
         bar: tone.resolve(theme).into(),
-        border: Border { radius: 2.0.into(), ..Default::default() },
+        border: Border {
+            radius: 2.0.into(),
+            ..Default::default()
+        },
     }
 }
 
@@ -354,9 +360,16 @@ pub(crate) fn badge(theme: &Theme) -> container::Style {
 pub(crate) fn branch_badge(theme: &Theme, status: button::Status) -> button::Style {
     let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
     button::Style {
-        background: Some(if hovered { SELECTED } else { ELEVATED }.resolve(theme).into()),
+        background: Some(
+            if hovered { SELECTED } else { ELEVATED }
+                .resolve(theme)
+                .into(),
+        ),
         text_color: if hovered { TEXT } else { MUTED }.resolve(theme),
-        border: Border { radius: 999.0.into(), ..Default::default() },
+        border: Border {
+            radius: 999.0.into(),
+            ..Default::default()
+        },
         ..Default::default()
     }
 }

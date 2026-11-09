@@ -104,8 +104,8 @@ fn kind(path: &FilePath) -> Kind {
         "vue" => Kind::Vue,
         "svelte" => Kind::Svelte,
         "rs" => Kind::Rust,
-        "cpp" | "cc" | "cxx" | "c++" | "h" | "hpp" | "hh" | "hxx" | "h++" | "ipp"
-        | "tpp" | "inl" | "ixx" | "cppm" | "cxxm" => Kind::Cpp,
+        "cpp" | "cc" | "cxx" | "c++" | "h" | "hpp" | "hh" | "hxx" | "h++" | "ipp" | "tpp"
+        | "inl" | "ixx" | "cppm" | "cxxm" => Kind::Cpp,
         "cs" | "csx" => Kind::CSharp,
         "go" => Kind::Go,
         "html" | "htm" | "xml" => Kind::Html,

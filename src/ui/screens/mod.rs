@@ -1,9 +1,9 @@
 mod auth;
 mod diff;
 mod file_menu;
-mod line_navigation;
 mod git;
 mod git_actions;
+mod line_navigation;
 mod modal;
 mod pipelines;
 pub(crate) mod settings;

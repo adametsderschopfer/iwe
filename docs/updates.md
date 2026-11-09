@@ -1,17 +1,18 @@
 # Application updates
 
 IWE Code checks GitHub Releases at startup and once per hour while running. Returning to the window
-also checks when at least 15 minutes have passed since the last attempt. Failed checks become eligible
-for another automatic attempt after 15 minutes. A lightweight local timer evaluates eligibility once
-per minute. It does not send a network request every minute. Wall-clock timestamps account for time
-spent suspended. Clock changes can trigger one early attempt before the cooldown starts again.
+also checks when at least 15 minutes have passed since the last attempt. Failed checks become
+eligible for another automatic attempt after 15 minutes. A lightweight local timer evaluates
+eligibility once per minute. It does not send a network request every minute. Wall-clock timestamps
+account for time spent suspended. Clock changes can trigger one early attempt before the cooldown
+starts again.
 
 Checks never use repository accounts or tokens. The updater selects stable releases for the current
 operating system, with shared releases as a compatibility fallback. Only newer versions qualify.
-Automatic checks stop while an update is available, downloading, downloaded, or installing.
-This keeps a discovered update visible until the user acts. Open **Settings → About** to check
-manually without the automatic cooldown. Duplicate checks cannot overlap, including during startup
-and focus events. Downloading and installation still require explicit actions.
+Automatic checks stop while an update is available, downloading, downloaded, or installing. This
+keeps a discovered update visible until the user acts. Open **Settings → About** to check manually
+without the automatic cooldown. Duplicate checks cannot overlap, including during startup and focus
+events. Downloading and installation still require explicit actions.
 
 A download row with a dark blue icon appears near the sidebar settings button when an update becomes
 available. Choose **Download update** to download the package for the current operating system and
@@ -35,12 +36,11 @@ have a five-minute deadline and a 512 MiB maximum.
 
 Each platform release includes `updates.json`, its Ed25519 signature `updates.sig`, and two update
 archives for that operating system. Shared migration releases contain six archives. The embedded
-public key verifies the manifest before version or package data becomes
-trusted. The signed manifest identifies each package's version, platform, byte size, and SHA-256
-digest. The updater verifies package bytes before extraction and repeats verification immediately
-before installation. Archives may contain only regular files and directories beneath the expected
-application root. Extraction rejects links, path traversal, duplicate paths, excess entries, and
-oversized expanded content.
+public key verifies the manifest before version or package data becomes trusted. The signed manifest
+identifies each package's version, platform, byte size, and SHA-256 digest. The updater verifies
+package bytes before extraction and repeats verification immediately before installation. Archives
+may contain only regular files and directories beneath the expected application root. Extraction
+rejects links, path traversal, duplicate paths, excess entries, and oversized expanded content.
 
 ## Installation and recovery
 
@@ -67,18 +67,18 @@ highest eligible version. Equal versions prefer a platform release over a shared
 prereleases, unrelated tags, and other operating systems do not qualify. List responses are bounded
 to 4 MiB per page and share the existing 45-second metadata deadline.
 
-Older updater versions only understand the shared Latest release and six-archive manifests.
-Publish one shared migration release containing this updater before relying on platform-only tags.
-Platform releases do not replace that shared Latest release. Older installations can receive the
-migration release, then discover subsequent platform releases. Existing published releases remain unchanged.
+Older updater versions only understand the shared Latest release and six-archive manifests. Publish
+one shared migration release containing this updater before relying on platform-only tags. Platform
+releases do not replace that shared Latest release. Older installations can receive the migration
+release, then discover subsequent platform releases. Existing published releases remain unchanged.
 
 The publication job signs the manifest only after its selected platform packages pass their CI
 prerequisites. Shared release tags still require every platform. Only the publication step receives
-the repository secret `IWE_UPDATE_SIGNING_KEY`.
-That secret contains an Ed25519 private key in PEM format. Keep its backup outside the repository.
-`assets/update-public-key.bin` contains the matching 32-byte public key. The signing script rejects
-a private key that does not match the embedded public key. Missing or invalid signing configuration
-prevents publication. Unsigned updates are never accepted.
+the repository secret `IWE_UPDATE_SIGNING_KEY`. That secret contains an Ed25519 private key in PEM
+format. Keep its backup outside the repository. `assets/update-public-key.bin` contains the matching
+32-byte public key. The signing script rejects a private key that does not match the embedded public
+key. Missing or invalid signing configuration prevents publication. Unsigned updates are never
+accepted.
 
 The signing script requires Python 3.11 or newer and OpenSSL with Ed25519 support. Run
 `.github/scripts/sign-updates.py` with `RELEASE_TAG` and `IWE_UPDATE_SIGNING_KEY` after generating

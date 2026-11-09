@@ -13,23 +13,23 @@ discards its name, folder choices, and project order.
 Use the settings button beside a space name to edit that space in the same form. Change its name,
 add project folders, or remove projects, then choose **Save changes**. Cancel keeps the saved space
 unchanged. Removing a project only detaches its folder. The application never deletes the folder.
-The header shows **Space • Project** whenever a project is selected. Without a selected project,
-it shows only the space name. Settings keeps its own heading.
+The header shows **Space • Project** whenever a project is selected. Without a selected project, it
+shows only the space name. Settings keeps its own heading.
 
-Click the branch badge in the header to open Git history when its panel is closed.
-If Git history is already open, the branches block shows a blue outline for 700 milliseconds.
-Clicking again restarts that interval. The action preserves the selected branch and history filter.
+Click the branch badge in the header to open Git history when its panel is closed. If Git history is
+already open, the branches block shows a blue outline for 700 milliseconds. Clicking again restarts
+that interval. The action preserves the selected branch and history filter.
 
 Right-click a file or directory in the project tree to open its context menu. Click **Copy** to copy
 its absolute path. Hover **Copy** to choose an absolute path or a path relative to its repository
 root. Nested repositories use their own root. Paths outside detected repositories use the project
 root instead. Copying does not open files or change directory expansion.
 
-Right-click a project and choose the red **Remove project from space** action to detach it immediately.
-The action appears below **Pin project** or **Unpin project** and also works in the pinned list.
-It removes only that space's project entry and saves the change. Project files remain on disk.
-Other spaces retain their entries for the same directory. Removing the active project selects another
-available project or returns to the empty workspace.
+Right-click a project and choose the red **Remove project from space** action to detach it
+immediately. The action appears below **Pin project** or **Unpin project** and also works in the
+pinned list. It removes only that space's project entry and saves the change. Project files remain
+on disk. Other spaces retain their entries for the same directory. Removing the active project
+selects another available project or returns to the empty workspace.
 
 On Windows, the application header replaces the system title bar. Its right-hand buttons minimize,
 maximize or restore, and close the window. Drag empty header space to move the window. Double-click
@@ -140,36 +140,36 @@ Binary content displays an explanation when encountered.
 
 Large working files and historical Git versions use the same part controls. Deleted working files
 can show their last committed contents in parts. Part navigation retains offsets rather than source
-contents. Working files reopen at the first part when their size or modification time changes.
-Large files refresh only through their part controls, not through automatic working-file polling.
-Git comparisons remain unavailable for files opened in parts. Syntax highlighting restarts at each
-part, so multiline constructs can lose their preceding context. Lines longer than 16 KiB use plain
-text to bound syntax work.
+contents. Working files reopen at the first part when their size or modification time changes. Large
+files refresh only through their part controls, not through automatic working-file polling. Git
+comparisons remain unavailable for files opened in parts. Syntax highlighting restarts at each part,
+so multiline constructs can lose their preceding context. Lines longer than 16 KiB use plain text to
+bound syntax work.
 
 The preview cannot edit files. Only visible lines and nearby lines become widgets. The visible range
 follows the panel height. Stable line identities preserve text layout while scrolling. Long lines
 stay unwrapped and use horizontal scrolling.
 
-Press Command+L on macOS or Ctrl+G on Windows and Linux to open **Go to Line**.
-These shortcuts match [JetBrains defaults](https://blog.jetbrains.com/idea/2022/10/top-underrated-shortcuts/).
-Enter a positive line number and press Enter. The viewer reveals hidden lines, scrolls to the target,
-and selects its text. Invalid or missing numbers keep the dialog open with an explanation.
-Escape or **Cancel** closes the dialog. Settings lists the shortcut.
+Press Command+L on macOS or Ctrl+G on Windows and Linux to open **Go to Line**. These shortcuts
+match [JetBrains defaults](https://blog.jetbrains.com/idea/2022/10/top-underrated-shortcuts/). Enter
+a positive line number and press Enter. The viewer reveals hidden lines, scrolls to the target, and
+selects its text. Invalid or missing numbers keep the dialog open with an explanation. Escape or
+**Cancel** closes the dialog. Settings lists the shortcut.
 
 Side-by-side comparisons use the selected source column, defaulting to the current version when it
 exists. Deleted files default to their previous version. Unified comparisons prefer current source
-line numbers. Large files load preceding parts in the background until the target is found.
-Only one part remains in memory during scanning. Line searches have a 45-second deadline.
-Cancelled searches cannot replace another file or a newer search result.
+line numbers. Large files load preceding parts in the background until the target is found. Only one
+part remains in memory during scanning. Line searches have a 45-second deadline. Cancelled searches
+cannot replace another file or a newer search result.
 
 Drag across source text to select characters or multiple lines. Copy with Command+C on macOS or
-Ctrl+C on Windows and Linux. Click the code before using Command+A or Ctrl+A to select its full text.
-Escape clears the selection. Selection works in ordinary previews, unified comparisons, and both
-columns of side-by-side comparisons. Each comparison column selects and copies only its own source.
-Copied text excludes line numbers and change markers, preserves source tabs, and uses LF line endings.
-Empty lines remain empty. Selection spans folded lines between its endpoints, including their hidden
-text. For paged files, selection covers only the current part. Changing the source clears its selection.
-Settings lists the copy and select-all shortcuts.
+Ctrl+C on Windows and Linux. Click the code before using Command+A or Ctrl+A to select its full
+text. Escape clears the selection. Selection works in ordinary previews, unified comparisons, and
+both columns of side-by-side comparisons. Each comparison column selects and copies only its own
+source. Copied text excludes line numbers and change markers, preserves source tabs, and uses LF
+line endings. Empty lines remain empty. Selection spans folded lines between its endpoints,
+including their hidden text. For paged files, selection covers only the current part. Changing the
+source clears its selection. Settings lists the copy and select-all shortcuts.
 
 Files first display plain text. Syntax colors and Git changes follow on background workers. A thin
 progress bar remains above the code until preparation finishes. Scrolling remains available during
@@ -205,11 +205,11 @@ grammar. Unknown formats remain readable as plain text. Supported grammars inclu
 JavaScript, TypeScript, TSX, Vue, Svelte, Python, Java, Kotlin, Swift, and C-family languages. They
 also include SQL, JSON, YAML, TOML, Dockerfile, Makefile, Terraform, Bash, and Markdown.
 
-C++ and C# files have dedicated icons in project trees, changed-file lists, and source tabs.
-C++ highlighting covers `.cpp`, `.cc`, `.cxx`, `.c++`, `.C`, `.h`, `.hpp`, `.hh`, `.hxx`, and `.h++`.
-It also covers `.ipp`, `.tpp`, `.inl`, `.ixx`, `.cppm`, and `.cxxm`. Headers with `.h` use the C++
-grammar, which also handles C declarations. C# highlighting covers `.cs` and `.csx`.
-These extensions also work in uppercase, with `.C` specifically selecting C++ instead of C.
+C++ and C# files have dedicated icons in project trees, changed-file lists, and source tabs. C++
+highlighting covers `.cpp`, `.cc`, `.cxx`, `.c++`, `.C`, `.h`, `.hpp`, `.hh`, `.hxx`, and `.h++`. It
+also covers `.ipp`, `.tpp`, `.inl`, `.ixx`, `.cppm`, and `.cxxm`. Headers with `.h` use the C++
+grammar, which also handles C declarations. C# highlighting covers `.cs` and `.csx`. These
+extensions also work in uppercase, with `.C` specifically selecting C++ instead of C.
 
 The project tree uses 24-pixel rows, 14-pixel text, 16-pixel icons, and 20-pixel nesting steps,
 following the supplied JetBrains reference. Each row centers its name and icon. Folders show
@@ -293,8 +293,8 @@ not announce successful reads. Errors opening links or saving workspace data als
 The application shows up to three notifications. Repeated identical results replace their previous
 notification. All notifications disappear after five seconds. A shrinking bar shows their remaining
 time. Hovering pauses only that notification and its bar. Moving away resumes its remaining time.
-Other notifications continue counting down. Each notification also has a close button.
-Pipeline confirmations describe accepted requests, not completed jobs.
+Other notifications continue counting down. Each notification also has a close button. Pipeline
+confirmations describe accepted requests, not completed jobs.
 
 For one repository, opening or refreshing a project selects the checked-out branch and shows its
 history. Detached checkouts show history from HEAD.

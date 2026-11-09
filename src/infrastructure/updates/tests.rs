@@ -27,11 +27,39 @@ fn releases_require_new_stable_versions_and_safe_tags() {
 
 #[test]
 fn platform_selection_ignores_other_systems_and_prefers_specific_tags() {
-    let releases: Vec<_> = ["windows-v9.0.0", "linux-v8.0.0", "v0.1.12", "macos-v0.1.12", "garbage"]
-        .into_iter().map(|tag| Latest { tag_name: tag.into(), draft: false, prerelease: false }).collect();
-    assert_eq!(select_latest(&releases, "macos-arm64", "0.1.10").unwrap().unwrap().tag_name, "macos-v0.1.12");
-    assert!(select_latest(&releases, "macos-arm64", "0.1.12").unwrap().is_none());
-    assert_eq!(select_latest(&releases, "windows-x64", "0.1.10").unwrap().unwrap().tag_name, "windows-v9.0.0");
+    let releases: Vec<_> = [
+        "windows-v9.0.0",
+        "linux-v8.0.0",
+        "v0.1.12",
+        "macos-v0.1.12",
+        "garbage",
+    ]
+    .into_iter()
+    .map(|tag| Latest {
+        tag_name: tag.into(),
+        draft: false,
+        prerelease: false,
+    })
+    .collect();
+    assert_eq!(
+        select_latest(&releases, "macos-arm64", "0.1.10")
+            .unwrap()
+            .unwrap()
+            .tag_name,
+        "macos-v0.1.12"
+    );
+    assert!(
+        select_latest(&releases, "macos-arm64", "0.1.12")
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        select_latest(&releases, "windows-x64", "0.1.10")
+            .unwrap()
+            .unwrap()
+            .tag_name,
+        "windows-v9.0.0"
+    );
 }
 
 #[test]
@@ -40,11 +68,21 @@ fn platform_manifests_accept_only_their_own_two_architectures() {
     let assets: Vec<_> = ["linux-x64", "linux-x86"].into_iter().map(|platform| serde_json::json!({
         "name": format!("iwe-0.1.12-{platform}-update.tar.gz"), "size": 3, "sha256": "ab".repeat(32)
     })).collect();
-    let bytes = serde_json::to_vec(&serde_json::json!({"version": "0.1.12", "assets": assets})).unwrap();
+    let bytes =
+        serde_json::to_vec(&serde_json::json!({"version": "0.1.12", "assets": assets})).unwrap();
     let signature = key.sign(&bytes).to_bytes();
     let public = key.verifying_key().to_bytes();
     assert!(verified_release(&bytes, &signature, "linux-v0.1.12", "linux-x64", &public).is_ok());
-    assert!(verified_release(&bytes, &signature, "windows-v0.1.12", "windows-x64", &public).is_err());
+    assert!(
+        verified_release(
+            &bytes,
+            &signature,
+            "windows-v0.1.12",
+            "windows-x64",
+            &public
+        )
+        .is_err()
+    );
     assert!(verified_release(&bytes, &signature, "linux-v0.1.12", "windows-x64", &public).is_err());
     assert!(verified_release(&bytes, &signature, "v0.1.12", "linux-x64", &public).is_err());
 }

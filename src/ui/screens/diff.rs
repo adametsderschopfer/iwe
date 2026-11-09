@@ -218,7 +218,13 @@ fn line<'a>(
         &app.theme(),
     );
     let code = code::selection::line(
-        app, document, cell.index, side.into(), cell.number.saturating_sub(1), spans, size,
+        app,
+        document,
+        cell.index,
+        side.into(),
+        cell.number.saturating_sub(1),
+        spans,
+        size,
     );
     let mut row = Row::new()
         .spacing(8)

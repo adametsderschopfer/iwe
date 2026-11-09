@@ -182,7 +182,8 @@ impl Document {
 }
 
 pub(crate) fn syntax_for(path: &std::path::Path) -> String {
-    let token = path.extension()
+    let token = path
+        .extension()
         .or_else(|| path.file_name())
         .and_then(|value| value.to_str())
         .unwrap_or("txt");
@@ -190,8 +191,8 @@ pub(crate) fn syntax_for(path: &std::path::Path) -> String {
         return "cpp".to_owned();
     }
     match token.to_ascii_lowercase().as_str() {
-        "cpp" | "cc" | "cxx" | "c++" | "h" | "hpp" | "hh" | "hxx" | "h++" | "ipp"
-        | "tpp" | "inl" | "ixx" | "cppm" | "cxxm" => "cpp".to_owned(),
+        "cpp" | "cc" | "cxx" | "c++" | "h" | "hpp" | "hh" | "hxx" | "h++" | "ipp" | "tpp"
+        | "inl" | "ixx" | "cppm" | "cxxm" => "cpp".to_owned(),
         "cs" | "csx" => "cs".to_owned(),
         _ => token.to_owned(),
     }

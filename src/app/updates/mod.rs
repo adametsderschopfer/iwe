@@ -6,7 +6,10 @@ use crate::{
     infrastructure::updates::{self, Error, Prepared},
 };
 use iced::Task;
-use std::{sync::Arc, time::{Duration, SystemTime}};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
 const RETRY_INTERVAL: Duration = Duration::from_secs(15 * 60);
@@ -18,14 +21,22 @@ pub(super) struct Schedule {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Trigger { Periodic, Focused }
+pub(crate) enum Trigger {
+    Periodic,
+    Focused,
+}
 
 impl Schedule {
     fn due(&self, trigger: Trigger, now: SystemTime) -> bool {
         let interval = if self.retry || matches!(trigger, Trigger::Focused) {
             RETRY_INTERVAL
-        } else { CHECK_INTERVAL };
-        self.last_attempt.is_none_or(|last| now.duration_since(last).map_or(true, |elapsed| elapsed >= interval))
+        } else {
+            CHECK_INTERVAL
+        };
+        self.last_attempt.is_none_or(|last| {
+            now.duration_since(last)
+                .map_or(true, |elapsed| elapsed >= interval)
+        })
     }
 }
 
@@ -57,8 +68,10 @@ impl App {
     pub(super) fn update_release(&mut self, event: Event) -> Task<Message> {
         match event {
             Event::Automatic(trigger) => {
-                if matches!(self.updates, State::Idle | State::Current | State::Failed(Error::Network | Error::Invalid))
-                    && self.update_schedule.due(trigger, SystemTime::now())
+                if matches!(
+                    self.updates,
+                    State::Idle | State::Current | State::Failed(Error::Network | Error::Invalid)
+                ) && self.update_schedule.due(trigger, SystemTime::now())
                 {
                     return self.update_release(Event::Check);
                 }

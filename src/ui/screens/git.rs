@@ -451,9 +451,12 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
         .style(theme::surface);
     iced::widget::stack![
         content,
-        container(space()).width(Length::Fill).height(Length::Fill)
+        container(space())
+            .width(Length::Fill)
+            .height(Length::Fill)
             .style(theme::branch_attention(app.branch_attention.is_some())),
-    ].into()
+    ]
+    .into()
 }
 
 fn branch_order(branch: &Branch) -> (bool, Vec<(bool, u8, &str)>) {
@@ -468,10 +471,14 @@ fn branch_order(branch: &Branch) -> (bool, Vec<(bool, u8, &str)>) {
         _ => 2,
     };
     let parts: Vec<_> = branch.name.split('/').collect();
-    let components = parts.iter().enumerate().map(|(index, name)| {
-        let folder = index + 1 < parts.len();
-        (folder, if folder { 2 } else { priority }, *name)
-    }).collect();
+    let components = parts
+        .iter()
+        .enumerate()
+        .map(|(index, name)| {
+            let folder = index + 1 < parts.len();
+            (folder, if folder { 2 } else { priority }, *name)
+        })
+        .collect();
     (!branch.current, components)
 }
 

@@ -13,8 +13,8 @@ use crate::{
 use iced::{
     Alignment, Element, Font, Length,
     widget::{
-        self, Column, Row, button, column, container, mouse_area, pane_grid, responsive,
-        row, scrollable, space, text,
+        self, Column, Row, button, column, container, mouse_area, pane_grid, responsive, row,
+        scrollable, space, text,
     },
 };
 use std::path::Path;
@@ -68,7 +68,13 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         app,
         auth::overlay(
             app,
-            git_actions::overlay(app, project_menu(app, super::file_menu::overlay(app, pipelines::overlay(app, base)))),
+            git_actions::overlay(
+                app,
+                project_menu(
+                    app,
+                    super::file_menu::overlay(app, pipelines::overlay(app, base)),
+                ),
+            ),
         ),
     );
     let base = super::line_navigation::overlay(app, base);
@@ -116,35 +122,37 @@ fn header(app: &App) -> Element<'_, Message> {
         && !is_settings
     {
         heading = heading.push(tooltip::view(
-            container(button(
-                row![
-                    icon(Icon::Branch, theme::MUTED),
-                    text(if repo.head.is_empty() {
-                        app.i18n.text(Key::DetachedHead)
-                    } else if app
-                        .repository
-                        .as_ref()
-                        .is_some_and(|repos| repos.repositories.len() > 1)
-                    {
-                        short(
-                            &format!(
-                                "{}: {}",
-                                repo.root.file_name().unwrap_or_default().to_string_lossy(),
-                                repo.head
-                            ),
-                            32,
-                        )
-                    } else {
-                        short(&repo.head, 24)
-                    })
-                    .size(12)
-                ]
-                .spacing(6)
-                .align_y(Alignment::Center),
+            container(
+                button(
+                    row![
+                        icon(Icon::Branch, theme::MUTED),
+                        text(if repo.head.is_empty() {
+                            app.i18n.text(Key::DetachedHead)
+                        } else if app
+                            .repository
+                            .as_ref()
+                            .is_some_and(|repos| repos.repositories.len() > 1)
+                        {
+                            short(
+                                &format!(
+                                    "{}: {}",
+                                    repo.root.file_name().unwrap_or_default().to_string_lossy(),
+                                    repo.head
+                                ),
+                                32,
+                            )
+                        } else {
+                            short(&repo.head, 24)
+                        })
+                        .size(12)
+                    ]
+                    .spacing(6)
+                    .align_y(Alignment::Center),
+                )
+                .on_press(Message::RevealGitBranches)
+                .padding([4, 10])
+                .style(theme::branch_badge),
             )
-            .on_press(Message::RevealGitBranches)
-            .padding([4, 10])
-            .style(theme::branch_badge))
             .id("window-branch-button"),
             text(app.i18n.text(Key::ShowBranches)).size(12),
             tooltip::Position::Bottom,
@@ -702,45 +710,49 @@ fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Mes
         *point,
         iced::Size::new(340., 104.),
         move || {
-            column![container(
-                button(
-                    row![
-                        icon(Icon::Pin, theme::MUTED),
-                        text(app.i18n.text(if project.pinned {
-                            Key::UnpinProject
-                        } else {
-                            Key::PinProject
-                        }))
-                        .size(14)
-                    ]
-                    .spacing(8)
-                    .align_y(Alignment::Center),
-                )
-                .on_press(Message::TogglePinned)
-                .padding([10, 12])
-                .width(Length::Fill)
-                .style(theme::action(false)),
-            )
-            .id("toggle-project-pin"),
-            container(
-                button(
-                    row![
-                        icon(Icon::Close, theme::GIT_REMOVED),
-                        text(app.i18n.text(Key::RemoveProjectFromSpace))
+            column![
+                container(
+                    button(
+                        row![
+                            icon(Icon::Pin, theme::MUTED),
+                            text(app.i18n.text(if project.pinned {
+                                Key::UnpinProject
+                            } else {
+                                Key::PinProject
+                            }))
                             .size(14)
-                            .style(theme::GIT_REMOVED.text())
-                            .wrapping(text::Wrapping::None),
-                    ]
-                    .spacing(8)
-                    .align_y(Alignment::Center),
+                        ]
+                        .spacing(8)
+                        .align_y(Alignment::Center),
+                    )
+                    .on_press(Message::TogglePinned)
+                    .padding([10, 12])
+                    .width(Length::Fill)
+                    .style(theme::action(false)),
                 )
-                .on_press_maybe((!app.git_actions.pending && !app.picking)
-                    .then_some(Message::RemoveProjectFromSpace))
-                .padding([10, 12])
-                .width(Length::Fill)
-                .style(theme::action(false)),
-            )
-            .id("remove-project-from-space")]
+                .id("toggle-project-pin"),
+                container(
+                    button(
+                        row![
+                            icon(Icon::Close, theme::GIT_REMOVED),
+                            text(app.i18n.text(Key::RemoveProjectFromSpace))
+                                .size(14)
+                                .style(theme::GIT_REMOVED.text())
+                                .wrapping(text::Wrapping::None),
+                        ]
+                        .spacing(8)
+                        .align_y(Alignment::Center),
+                    )
+                    .on_press_maybe(
+                        (!app.git_actions.pending && !app.picking)
+                            .then_some(Message::RemoveProjectFromSpace)
+                    )
+                    .padding([10, 12])
+                    .width(Length::Fill)
+                    .style(theme::action(false)),
+                )
+                .id("remove-project-from-space")
+            ]
             .spacing(4)
             .into()
         },
@@ -902,20 +914,28 @@ fn file_tree<'a>(
                 hint.push('\n');
                 hint.push_str(&app.i18n.text(changed_tree::status_key(status)));
             }
-            body = body.push(context_menu::trigger(tooltip::view(
-                container(
-                    button(item)
-                        .on_press(event)
-                        .height(theme::FILE_TREE_ROW_HEIGHT)
-                        .padding([0, 6])
-                        .width(Length::Fill)
-                        .style(theme::tree_item(active)),
-                )
-                .id(format!("file-tree-{}", entry.path.to_string_lossy()))
-                .width(Length::Fill),
-                text(hint).size(12),
-                tooltip::Position::Right,
-            ), |point| Message::Files(crate::app::files::Event::OpenMenu(entry.path.clone(), point))));
+            body = body.push(context_menu::trigger(
+                tooltip::view(
+                    container(
+                        button(item)
+                            .on_press(event)
+                            .height(theme::FILE_TREE_ROW_HEIGHT)
+                            .padding([0, 6])
+                            .width(Length::Fill)
+                            .style(theme::tree_item(active)),
+                    )
+                    .id(format!("file-tree-{}", entry.path.to_string_lossy()))
+                    .width(Length::Fill),
+                    text(hint).size(12),
+                    tooltip::Position::Right,
+                ),
+                |point| {
+                    Message::Files(crate::app::files::Event::OpenMenu(
+                        entry.path.clone(),
+                        point,
+                    ))
+                },
+            ));
             if entry.directory && expanded {
                 body = file_tree(app, &entry.path, depth + 1, body);
             }
@@ -1207,7 +1227,11 @@ fn preview(app: &App) -> Element<'_, Message> {
                     }
                     let spans = &document.lines[index];
                     let code = code::selection::line(
-                        app, document, index, code::selection::Lane::Unified, index,
+                        app,
+                        document,
+                        index,
+                        code::selection::Lane::Unified,
+                        index,
                         spans
                             .iter()
                             .map(|(content, color)| {
@@ -1414,14 +1438,21 @@ fn preview(app: &App) -> Element<'_, Message> {
                 .style(theme::source_progress)
         ]
         .height(Length::Fill);
-        column![file_tabs(app), file_part_controls(app), content].height(Length::Fill).into()
+        column![file_tabs(app), file_part_controls(app), content]
+            .height(Length::Fill)
+            .into()
     } else {
         content
     }
 }
 
 fn file_part_controls(app: &App) -> Element<'_, Message> {
-    let Some(page) = app.preview().document.as_ref().and_then(|document| document.page) else {
+    let Some(page) = app
+        .preview()
+        .document
+        .as_ref()
+        .and_then(|document| document.page)
+    else {
         return Column::new().into();
     };
     let id = app.preview().id;
@@ -1433,14 +1464,24 @@ fn file_part_controls(app: &App) -> Element<'_, Message> {
             .padding([6, 8])
             .style(theme::action(false))
     };
-    container(column![
-        text(app.i18n.text(Key::FilePartsNotice)).size(12).style(theme::MUTED.text()),
-        row![
-            control(Key::PreviousFilePart, PageDirection::Previous, page.cursor.offset > 0),
-            control(Key::NextFilePart, PageDirection::Next, page.next.is_some()),
-            control(Key::Refresh, PageDirection::Refresh, true),
-        ].spacing(4),
-    ].spacing(4))
+    container(
+        column![
+            text(app.i18n.text(Key::FilePartsNotice))
+                .size(12)
+                .style(theme::MUTED.text()),
+            row![
+                control(
+                    Key::PreviousFilePart,
+                    PageDirection::Previous,
+                    page.cursor.offset > 0
+                ),
+                control(Key::NextFilePart, PageDirection::Next, page.next.is_some()),
+                control(Key::Refresh, PageDirection::Refresh, true),
+            ]
+            .spacing(4),
+        ]
+        .spacing(4),
+    )
     .padding([6, 12])
     .width(Length::Fill)
     .into()

@@ -47,7 +47,9 @@ fn application(
                 App::new(Rc::clone(&i18n)),
                 Task::batch([
                     Task::perform(workspace::load(), Message::Loaded),
-                    Task::done(Message::Update(updates::Event::Automatic(updates::Trigger::Periodic))),
+                    Task::done(Message::Update(updates::Event::Automatic(
+                        updates::Trigger::Periodic,
+                    ))),
                 ]),
             )
         },
@@ -76,7 +78,9 @@ fn application(
             iced::time::every(std::time::Duration::from_secs(60))
                 .map(|_| Message::Update(updates::Event::Automatic(updates::Trigger::Periodic))),
             window::events().filter_map(|(_, event)| match event {
-                window::Event::Focused => Some(Message::Update(updates::Event::Automatic(updates::Trigger::Focused))),
+                window::Event::Focused => Some(Message::Update(updates::Event::Automatic(
+                    updates::Trigger::Focused,
+                ))),
                 _ => None,
             }),
             app.pipeline_subscription(),
@@ -121,7 +125,11 @@ fn shortcut(event: iced::Event) -> Option<Message> {
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("w"));
     let reopen = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::KeyT)
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("t"));
-    let line_key = if cfg!(target_os = "macos") { keyboard::key::Code::KeyL } else { keyboard::key::Code::KeyG };
+    let line_key = if cfg!(target_os = "macos") {
+        keyboard::key::Code::KeyL
+    } else {
+        keyboard::key::Code::KeyG
+    };
     let line_character = if cfg!(target_os = "macos") { "l" } else { "g" };
     let go_to_line = physical_key == keyboard::key::Physical::Code(line_key)
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case(line_character));
@@ -594,8 +602,12 @@ impl App {
             Message::SelectSettingsTab(tab) => self.settings_tab = tab,
             Message::Space(message) => return self.update_space(message),
             Message::DismissDialog => {
-                if self.line_navigation.take().is_some() { return Task::none(); }
-                if self.files.menu.take().is_some() { return Task::none(); }
+                if self.line_navigation.take().is_some() {
+                    return Task::none();
+                }
+                if self.files.menu.take().is_some() {
+                    return Task::none();
+                }
                 self.project_menu = None;
                 if self.git_actions.menu.is_some() || self.git_actions.dialog.is_some() {
                     return self.update_git(git_actions::Message::Close);
@@ -857,19 +869,26 @@ impl App {
                 }
             }
             Message::RevealGitBranches => {
-                if self.workspace.directory().is_none() { return Task::none(); }
+                if self.workspace.directory().is_none() {
+                    return Task::none();
+                }
                 if !self.workspace.preferences.show_git {
                     return self.update(Message::TogglePanel(Panel::Git));
                 }
                 self.branch_attention_request = self.branch_attention_request.wrapping_add(1);
                 let request = self.branch_attention_request;
                 self.branch_attention = Some(request);
-                return Task::perform(async {
-                    tokio::time::sleep(std::time::Duration::from_millis(700)).await;
-                }, move |_| Message::ClearBranchAttention(request));
+                return Task::perform(
+                    async {
+                        tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+                    },
+                    move |_| Message::ClearBranchAttention(request),
+                );
             }
             Message::ClearBranchAttention(request) => {
-                if self.branch_attention == Some(request) { self.branch_attention = None; }
+                if self.branch_attention == Some(request) {
+                    self.branch_attention = None;
+                }
             }
             Message::TogglePanel(panel) => {
                 self.branch_attention = None;

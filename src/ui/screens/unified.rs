@@ -92,14 +92,21 @@ pub(super) fn line<'a>(
         .height(height)
         .style(theme::unified_gutter(line.change));
     let source = code::selection::line(
-        app, document, index, code::selection::Lane::Unified, index, code::emphasized_spans(
-        &document.lines[index],
-        line.emphasis,
-        line.change
-            .map(|change| theme::change_fill(theme::unified_color(change), &app.theme(), 0.30))
-            .unwrap_or(Color::TRANSPARENT),
-        &app.theme(),
-    ), size);
+        app,
+        document,
+        index,
+        code::selection::Lane::Unified,
+        index,
+        code::emphasized_spans(
+            &document.lines[index],
+            line.emphasis,
+            line.change
+                .map(|change| theme::change_fill(theme::unified_color(change), &app.theme(), 0.30))
+                .unwrap_or(Color::TRANSPARENT),
+            &app.theme(),
+        ),
+        size,
+    );
     container(row![gutter, source].spacing(8).height(height))
         .id(format!("unified-line-{index}"))
         .width(Length::Fill)

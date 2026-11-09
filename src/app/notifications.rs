@@ -82,7 +82,10 @@ impl State {
     }
 
     fn update_at(&mut self, event: Event, now: Instant) {
-        self.now = Some(match &event { Event::Tick(instant) => *instant, _ => now });
+        self.now = Some(match &event {
+            Event::Tick(instant) => *instant,
+            _ => now,
+        });
         match event {
             Event::Tick(now) => {
                 self.items

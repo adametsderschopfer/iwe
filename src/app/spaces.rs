@@ -26,8 +26,11 @@ pub(crate) enum Message {
 
 impl App {
     pub(super) fn remove_project_from_space(&mut self) -> Task<AppMessage> {
-        if self.picking || self.space_draft.is_some() || self.auth_dialog.is_some()
-            || self.git_actions.dialog.is_some() || self.git_actions.pending
+        if self.picking
+            || self.space_draft.is_some()
+            || self.auth_dialog.is_some()
+            || self.git_actions.dialog.is_some()
+            || self.git_actions.pending
         {
             return Task::none();
         }
@@ -37,13 +40,20 @@ impl App {
         let Some(space) = self.workspace.spaces.get(index) else {
             return Task::none();
         };
-        if !space.projects.iter().any(|project| project.directory == path) {
+        if !space
+            .projects
+            .iter()
+            .any(|project| project.directory == path)
+        {
             return Task::none();
         }
         let name = space.name.clone();
-        let directories = space.projects.iter()
+        let directories = space
+            .projects
+            .iter()
             .filter(|project| project.directory != path)
-            .map(|project| project.directory.clone()).collect();
+            .map(|project| project.directory.clone())
+            .collect();
         let previous = self.workspace.directory().cloned();
         if !self.workspace.update_space(index, name, directories) {
             return Task::none();

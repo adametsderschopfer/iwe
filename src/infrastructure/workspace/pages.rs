@@ -1,14 +1,23 @@
 //! Read bounded UTF-8 portions without retaining the complete file.
 
-use crate::domain::{Failure, changes::{TextCursor, TextPage}};
-use std::{io::{Read, Seek, SeekFrom}, path::PathBuf};
+use crate::domain::{
+    Failure,
+    changes::{TextCursor, TextPage},
+};
+use std::{
+    io::{Read, Seek, SeekFrom},
+    path::PathBuf,
+};
 
 pub(crate) const PAGE_BYTES: usize = super::PREVIEW_LIMIT as usize;
 pub(crate) const READ_BYTES: usize = PAGE_BYTES + 4;
 const PAGE_LINES: usize = 4096;
 
 pub(crate) fn decode(
-    bytes: Vec<u8>, cursor: TextCursor, total: u64, version: Option<(u64, u128)>,
+    bytes: Vec<u8>,
+    cursor: TextCursor,
+    total: u64,
+    version: Option<(u64, u128)>,
 ) -> Result<(String, TextPage), Failure> {
     let limit = bytes.len().min(PAGE_BYTES);
     let mut end = limit;
@@ -42,17 +51,29 @@ pub(crate) fn decode(
     if selected.contains(&0) {
         return Err(Failure::Binary);
     }
-    let text = std::str::from_utf8(selected).map_err(|_| Failure::Binary)?.to_owned();
+    let text = std::str::from_utf8(selected)
+        .map_err(|_| Failure::Binary)?
+        .to_owned();
     let next_offset = cursor.offset + end as u64;
     let next = (next_offset < total).then(|| TextCursor {
         offset: next_offset,
         line: cursor.line + selected.iter().filter(|byte| **byte == b'\n').count(),
     });
-    Ok((text, TextPage { cursor, next, version }))
+    Ok((
+        text,
+        TextPage {
+            cursor,
+            next,
+            version,
+        },
+    ))
 }
 
 pub(crate) async fn read(
-    root: PathBuf, path: PathBuf, cursor: TextCursor, expected: Option<(u64, u128)>,
+    root: PathBuf,
+    path: PathBuf,
+    cursor: TextCursor,
+    expected: Option<(u64, u128)>,
 ) -> Result<(String, TextPage), Failure> {
     tokio::task::spawn_blocking(move || {
         let root = root.canonicalize().map_err(|_| Failure::Read)?;
@@ -67,7 +88,9 @@ pub(crate) async fn read(
         }
         let version = |metadata: &std::fs::Metadata| -> Result<(u64, u128), Failure> {
             let modified = metadata.modified().map_err(|_| Failure::Read)?;
-            let stamp = modified.duration_since(std::time::UNIX_EPOCH).map_err(|_| Failure::Read)?;
+            let stamp = modified
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|_| Failure::Read)?;
             Ok((metadata.len(), stamp.as_nanos()))
         };
         let snapshot = version(&metadata)?;
@@ -79,12 +102,18 @@ pub(crate) async fn read(
         if cursor.offset > metadata.len() {
             return Err(Failure::Read);
         }
-        file.seek(SeekFrom::Start(cursor.offset)).map_err(|_| Failure::Read)?;
+        file.seek(SeekFrom::Start(cursor.offset))
+            .map_err(|_| Failure::Read)?;
         let mut bytes = Vec::new();
-        (&mut file).take(READ_BYTES as u64).read_to_end(&mut bytes).map_err(|_| Failure::Read)?;
+        (&mut file)
+            .take(READ_BYTES as u64)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Failure::Read)?;
         if version(&file.metadata().map_err(|_| Failure::Read)?)? != snapshot {
             return Err(Failure::Read);
         }
         decode(bytes, cursor, metadata.len(), Some(snapshot))
-    }).await.map_err(|_| Failure::Read)?
+    })
+    .await
+    .map_err(|_| Failure::Read)?
 }
