@@ -294,9 +294,11 @@ separator divides the toolbar from the branches. Commit search remains above the
 The local group starts expanded. Remote branches, tags, and nested branch folders start collapsed
 when a project opens or refreshes. Their arrows expand each group independently.
 
-The checked-out branch appears first, including branches inside collapsed folders. Then `main` and
-`master` precede other local branches. Remote folders also place `main` and `master` first. Other
-branches retain alphabetical order. Selecting a history filter does not change this order.
+The checked-out branch appears first, including branches inside collapsed folders. At each tree
+level, branches appear before folders containing branches. Within the branch rows, `main` and
+`master` keep their priority, followed by other branches alphabetically. Folders retain alphabetical
+order. Remote groups use the same branch-before-folder ordering. Selecting a history filter does not
+change this order.
 
 History loads 250 commits at a time. Scrolling near the bottom loads the next page until the oldest
 local commit. Pages share a fixed revision snapshot. Refresh includes new commits and changed

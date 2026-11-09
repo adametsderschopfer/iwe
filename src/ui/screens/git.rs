@@ -452,7 +452,7 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
         .into()
 }
 
-fn branch_order(branch: &Branch) -> (bool, Vec<(u8, &str)>) {
+fn branch_order(branch: &Branch) -> (bool, Vec<(bool, u8, &str)>) {
     let name = match branch.kind {
         ReferenceKind::Local => Some(branch.name.as_str()),
         ReferenceKind::Remote => branch.name.split_once('/').map(|(_, name)| name),
@@ -463,10 +463,11 @@ fn branch_order(branch: &Branch) -> (bool, Vec<(u8, &str)>) {
         Some("master") => 1,
         _ => 2,
     };
-    let mut components: Vec<_> = branch.name.split('/').map(|name| (2, name)).collect();
-    if let Some(last) = components.last_mut() {
-        last.0 = priority;
-    }
+    let parts: Vec<_> = branch.name.split('/').collect();
+    let components = parts.iter().enumerate().map(|(index, name)| {
+        let folder = index + 1 < parts.len();
+        (folder, if folder { 2 } else { priority }, *name)
+    }).collect();
     (!branch.current, components)
 }
 
