@@ -4,7 +4,7 @@ use super::super::http::Http;
 use crate::domain::{
     Failure,
     auth::{Account, Credential},
-    jobs::{Action, Details, Job, JobAction, Stage},
+    jobs::{Action, Details, Job, JobAction, Stage, Status},
     repository::{Pipeline, Provider, Remote},
 };
 use serde_json::{Value, json};
@@ -17,7 +17,7 @@ query PipelineJobs($project: ID!, $iid: ID!, $after: String) {
   project(fullPath: $project) {
     pipeline(iid: $iid) {
       id cancelable
-      stages(first: 100) { nodes { name } pageInfo { hasNextPage } }
+      stages(first: 100) { nodes { name status } pageInfo { hasNextPage } }
       jobs(first: 100, after: $after, retried: false) {
         nodes { id name status webPath playable retryable cancelable stage { name } }
         pageInfo { hasNextPage endCursor }
@@ -109,7 +109,11 @@ async fn github(
         }
         if jobs.len() as u64 >= total {
             return Ok(Details {
-                stages: vec![Stage { name: None, jobs }],
+                stages: vec![Stage {
+                    name: None,
+                    provider_status: None,
+                    jobs,
+                }],
                 cancelable: run.is_active(),
             });
         }
@@ -198,6 +202,10 @@ async fn gitlab(
                 }
                 details.stages.push(Stage {
                     name: Some(name),
+                    provider_status: stage
+                        .get("status")
+                        .and_then(Value::as_str)
+                        .map(|value| Status::from_provider(&value.to_ascii_lowercase())),
                     jobs: Vec::new(),
                 });
             }

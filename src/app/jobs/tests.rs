@@ -38,6 +38,7 @@ fn details() -> Details {
         .enumerate()
         .map(|(index, (stage, name, status, action))| Stage {
             name: Some(stage.into()),
+            provider_status: None,
             jobs: vec![Job {
                 id: index as u64 + 1,
                 name: name.into(),
@@ -326,4 +327,250 @@ fn github_retry_labels_include_dependents_and_errors_keep_job_rows_visible() {
     assert!(ui.find(Id::new("job-1")).is_ok());
     ui.click(Id::new("job-action-1-Retry")).unwrap();
     assert!(ui.into_messages().next().is_none());
+}
+
+#[test]
+fn pipeline_stage_popovers_support_both_providers_themes_and_languages() {
+    use super::overview::{Event as OverviewEvent, Target};
+    use crate::domain::workspace::Appearance;
+    for provider in [Provider::GitLab, Provider::GitHub] {
+        for (language, suffix) in [
+            (Language::English, "en"),
+            (Language::Russian, "ru"),
+            (Language::Spanish, "es"),
+        ] {
+            for (appearance, visual_theme, theme_name) in [
+                (Appearance::Dark, Theme::Dark, "dark"),
+                (Appearance::Light, Theme::Light, "light"),
+            ] {
+                let mut app = app(language);
+                app.workspace.preferences.appearance = appearance;
+                app.repository
+                    .as_mut()
+                    .unwrap()
+                    .remote
+                    .as_mut()
+                    .unwrap()
+                    .provider = Some(provider);
+                let mut data = details();
+                if provider == Provider::GitHub {
+                    let jobs = data
+                        .stages
+                        .into_iter()
+                        .flat_map(|stage| stage.jobs)
+                        .map(|mut job| {
+                            job.name = format!("Tests / {}", job.name);
+                            job.status = "success".into();
+                            job.actions = vec![JobAction::Retry];
+                            job
+                        })
+                        .collect();
+                    data.stages = vec![Stage {
+                        name: None,
+                        provider_status: None,
+                        jobs,
+                    }];
+                } else {
+                    let mut parallel = data.stages[0].jobs[0].clone();
+                    parallel.id = 4;
+                    parallel.name = "compile-windows".into();
+                    data.stages[0].jobs.push(parallel);
+                }
+                app.jobs.overview.remember(500, "running", &data);
+                app.jobs.overview.remember(501, "running", &data);
+                let node = if provider == Provider::GitHub {
+                    "pipeline-node-500-job-1"
+                } else {
+                    "pipeline-node-500-stage-0"
+                };
+                let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+                if provider == Provider::GitHub {
+                    for id in [
+                        "pipeline-node-500-job-1",
+                        "pipeline-node-500-job-2",
+                        "pipeline-node-500-job-3",
+                    ] {
+                        assert!(ui.find(Id::new(id)).is_ok());
+                    }
+                    assert!(ui.find(Id::new("pipeline-node-500-stage-0")).is_err());
+                }
+                ui.click(Id::new(node)).unwrap();
+                for message in ui.into_messages() {
+                    let _ = app.update(message);
+                }
+                assert!(app.jobs.selected.is_none());
+                assert!(app.jobs.overview.popup.is_some());
+                let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+                let bounds = ui
+                    .find(Id::new("pipeline-stage-popup"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                assert!(bounds.width >= 300. && bounds.height >= 100.);
+                assert!(
+                    bounds.x >= 0.
+                        && bounds.y >= 0.
+                        && bounds.x + bounds.width <= 1080.
+                        && bounds.y + bounds.height <= 720.
+                );
+                assert!(ui.find(Id::new("pipeline-popup-job-1")).is_ok());
+                assert_eq!(
+                    ui.find(Id::new("pipeline-popup-job-4")).is_ok(),
+                    provider == Provider::GitLab
+                );
+                assert!(ui.find(Id::new("pipeline-popup-job-2")).is_err());
+                if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+                    ui.snapshot(&visual_theme)
+                        .unwrap()
+                        .matches_image(output.join(format!(
+                            "pipeline-popover-{provider:?}-{suffix}-{theme_name}"
+                        )))
+                        .unwrap();
+                }
+                ui.click(Id::new("pipeline-popup-action-1-Retry")).unwrap();
+                for message in ui.into_messages() {
+                    let _ = app.update(message);
+                }
+                assert_eq!(
+                    app.jobs.pending,
+                    Some((500, Action::Job(1, JobAction::Retry)))
+                );
+                let request = app.jobs.action_request;
+                let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+                ui.click(Id::new("pipeline-popup-action-1-Retry")).unwrap();
+                for message in ui.into_messages() {
+                    let _ = app.update(message);
+                }
+                assert_eq!(app.jobs.action_request, request);
+                let _ = app.update(Message::DismissDialog);
+                assert!(app.jobs.overview.popup.is_none());
+                app.jobs.pending = None;
+                let target = if provider == Provider::GitHub {
+                    Target::Job(1)
+                } else {
+                    Target::Stage("build".into())
+                };
+                let _ = app.update_jobs(Event::Overview(OverviewEvent::Open(
+                    500,
+                    target,
+                    iced::Point::new(1070., 710.),
+                )));
+                let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+                let bounds = ui
+                    .find(Id::new("pipeline-stage-popup"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                assert!(bounds.x + bounds.width <= 1080. && bounds.y + bounds.height <= 720.);
+                ui.click(Id::new("pipeline-popup-details")).unwrap();
+                for message in ui.into_messages() {
+                    let _ = app.update(message);
+                }
+                assert_eq!(app.jobs.selected.as_ref().unwrap().id, 500);
+                assert!(app.jobs.details.is_some());
+                assert!(app.jobs.overview.popup.is_none());
+            }
+        }
+    }
+}
+
+#[test]
+fn long_pipeline_chains_and_stage_popovers_scroll_to_the_last_job() {
+    use super::overview::{Event as OverviewEvent, Target};
+    use iced::{
+        Event as IcedEvent, Point,
+        mouse::{Event as MouseEvent, ScrollDelta},
+    };
+    let mut app = app(Language::Russian);
+    let data = Details {
+        stages: vec![Stage {
+            name: Some("test".into()),
+            provider_status: None,
+            jobs: (1..=40)
+                .map(|id| Job {
+                    id,
+                    name: format!("Test / target-{id} with a long job name"),
+                    status: "success".into(),
+                    url: String::new(),
+                    actions: vec![JobAction::Retry],
+                })
+                .collect(),
+        }],
+        cancelable: false,
+    };
+    app.repository
+        .as_mut()
+        .unwrap()
+        .remote
+        .as_mut()
+        .unwrap()
+        .provider = Some(Provider::GitHub);
+    app.jobs.overview.remember(500, "running", &data);
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+    let first = ui
+        .find(Id::new("pipeline-node-500-job-1"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    assert!(
+        ui.find(Id::new("pipeline-node-500-job-40"))
+            .unwrap()
+            .visible_bounds()
+            .is_none()
+    );
+    ui.point_at(first.center());
+    ui.simulate([IcedEvent::Mouse(MouseEvent::WheelScrolled {
+        delta: ScrollDelta::Pixels { x: -10000., y: 0. },
+    })]);
+    ui.click(Id::new("pipeline-node-500-job-40")).unwrap();
+    for message in ui.into_messages() {
+        let _ = app.update(message);
+    }
+    assert_eq!(
+        app.jobs.overview.popup.as_ref().unwrap().target,
+        Target::Job(40)
+    );
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+    ui.click(Id::new("workspace-heading")).unwrap();
+    for message in ui.into_messages() {
+        assert!(!matches!(message, Message::DragWindow));
+        let _ = app.update(message);
+    }
+    assert!(app.jobs.overview.popup.is_none());
+    app.repository
+        .as_mut()
+        .unwrap()
+        .remote
+        .as_mut()
+        .unwrap()
+        .provider = Some(Provider::GitLab);
+    let _ = app.update_jobs(Event::Overview(OverviewEvent::Open(
+        500,
+        Target::Stage("test".into()),
+        Point::new(1000., 680.),
+    )));
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+    let first = ui
+        .find(Id::new("pipeline-popup-job-1"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    assert!(
+        ui.find(Id::new("pipeline-popup-job-40"))
+            .unwrap()
+            .visible_bounds()
+            .is_none()
+    );
+    ui.point_at(first.center());
+    ui.simulate([IcedEvent::Mouse(MouseEvent::WheelScrolled {
+        delta: ScrollDelta::Pixels { x: 0., y: -10000. },
+    })]);
+    ui.click(Id::new("pipeline-popup-action-40-Retry")).unwrap();
+    for message in ui.into_messages() {
+        let _ = app.update(message);
+    }
+    assert_eq!(
+        app.jobs.pending,
+        Some((500, Action::Job(40, JobAction::Retry)))
+    );
 }

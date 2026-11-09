@@ -196,14 +196,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                 .spacing(10)
                 .align_y(Alignment::Center);
                 for action in &job.actions {
-                    let label = match action {
-                        JobAction::Play => Key::RunJob,
-                        JobAction::Retry if provider == Some(Provider::GitHub) => {
-                            Key::RetryJobWithDependents
-                        }
-                        JobAction::Retry => Key::RetryJob,
-                        JobAction::Cancel => Key::CancelJob,
-                    };
+                    let label = action_label(provider, *action);
                     item = item.push(
                         container(
                             button(text(app.i18n.text(label)).size(12))
@@ -250,4 +243,13 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     ]
     .height(Length::Fill)
     .into()
+}
+
+pub(super) fn action_label(provider: Option<Provider>, action: JobAction) -> Key {
+    match action {
+        JobAction::Play => Key::RunJob,
+        JobAction::Retry if provider == Some(Provider::GitHub) => Key::RetryJobWithDependents,
+        JobAction::Retry => Key::RetryJob,
+        JobAction::Cancel => Key::CancelJob,
+    }
 }

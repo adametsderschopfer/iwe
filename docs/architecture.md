@@ -25,6 +25,7 @@ settings.
 | `infrastructure/pipelines.rs`       | Read GitHub Actions and GitLab pipeline APIs                                             |
 | `domain/jobs.rs`                    | Model stages, jobs, and provider-supported actions                                       |
 | `app/jobs.rs`                       | Coordinate job selection, cached details, refresh, and pending actions                   |
+| `app/jobs/overview.rs`              | Cache visible pipeline summaries and coordinate stage or job popups                      |
 | `infrastructure/pipelines/jobs.rs`  | Load paginated jobs and submit explicit provider actions                                 |
 | `infrastructure/auth/`              | Implement GitHub device authorization and GitLab PKCE callbacks                          |
 | `infrastructure/auth.rs`            | Validate accounts, refresh tokens, and serialize credential operations                   |
@@ -156,6 +157,18 @@ Pipeline responses include full commit identifiers. History matches active runs 
 identifiers. Visible Git or pipeline panels refresh loaded data every 30 seconds. Request guards
 prevent overlapping loads, and generation identifiers reject stale responses. Failed loads stop
 automatic polling.
+
+Pipeline rows project GitLab stages or individual GitHub jobs into status icons. GitLab supplies
+stage statuses. Domain aggregation covers missing statuses and keeps unsuccessful or unfinished jobs
+visible. Connectors indicate display order, not inferred dependencies. Popup targets use stage names
+or job identifiers and reuse existing capability checks and actions.
+
+The list requests summaries for its visible rows and one following row, with two concurrent reads.
+Request and project identifiers reject obsolete responses. Completed summaries reuse their cache
+until their run status changes or an explicit refresh occurs. Active visible summaries refresh every
+ten seconds. Failed reads retain cached content and stop automatic retries for that run. Opening
+complete details reuses cached jobs and starts a fresh read. Project changes, remote changes, and
+sign-out clear both caches. Missing popup targets close after refresh.
 
 GitLab job reads use GraphQL to preserve stage order and obtain current action capabilities. GitHub
 job reads use REST pagination for the latest attempt. GitHub has no stage entity. Job requests stop

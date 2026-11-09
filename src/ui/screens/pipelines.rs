@@ -1,16 +1,21 @@
 use super::workspace::{center_message, divider, icon_button, short};
 use crate::{
     app::{App, Message, Panel, PipelineState, auth::Message as AuthMessage, error_key},
-    domain::{Failure, repository::Provider},
+    domain::{
+        Failure,
+        jobs::Status,
+        repository::{Pipeline, Provider},
+    },
     i18n::Key,
     ui::{
+        ellipsis,
         icons::{Icon, icon},
         theme,
     },
 };
 use iced::{
     Alignment, Element, Length,
-    widget::{Column, button, column, container, row, scrollable, space, text},
+    widget::{Column, button, column, container, row, scrollable, space, text, tooltip},
 };
 
 pub(super) fn view(app: &App) -> Element<'_, Message> {
@@ -69,7 +74,9 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
             app,
             Icon::Refresh,
             Key::Refresh,
-            Message::RefreshPipelines,
+            Message::Jobs(crate::app::jobs::Event::Overview(
+                crate::app::jobs::overview::Event::RefreshVisible
+            )),
             false
         ),
         icon_button(
@@ -153,63 +160,26 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
             }
             PipelineState::Ready(runs) if runs.is_empty() => center_message(app, Key::NoPipelines),
             PipelineState::Ready(runs) => {
-                let mut rows = Column::new().spacing(2);
+                let mut rows = Column::new();
                 for run in runs {
-                    let (key, color) = status(&run.status);
-                    let title = if run.title.is_empty() {
-                        format!("#{}", run.id)
-                    } else {
-                        run.title.clone()
-                    };
-                    let item = row![
-                        text(app.i18n.text(key))
-                            .size(12)
-                            .style(color.text())
-                            .width(130),
-                        text(short(&title, 75)).size(12).width(Length::Fill),
-                        icon(Icon::Branch, theme::MUTED),
-                        text(short(&run.branch, 24))
-                            .size(11)
-                            .style(theme::MUTED.text())
-                            .width(180),
-                        text(short(&run.date.replace('T', " "), 16))
-                            .size(11)
-                            .style(theme::FAINT.text())
-                            .width(140),
-                    ]
-                    .spacing(10)
-                    .align_y(Alignment::Center);
-                    rows = rows.push(
-                        row![
-                            container(
-                                button(item)
-                                    .padding([10, 24])
-                                    .width(Length::Fill)
-                                    .style(theme::action(false))
-                                    .on_press(Message::Jobs(crate::app::jobs::Event::Select(
-                                        run.id
-                                    )))
-                            )
-                            .id(format!("pipeline-{}", run.id))
-                            .width(Length::Fill),
-                            icon_button(
-                                app,
-                                Icon::External,
-                                Key::OpenBrowser,
-                                Message::OpenUrl(run.url.clone()),
-                                false
-                            ),
-                        ]
-                        .align_y(Alignment::Center)
-                        .padding(iced::Padding {
-                            right: 12.,
-                            ..Default::default()
-                        }),
-                    );
+                    rows = rows.push(pipeline_row(app, run));
                 }
                 scrollable(rows)
+                    .id("pipelines-list")
+                    .width(Length::Fill)
                     .style(theme::scroll)
                     .height(Length::Fill)
+                    .on_scroll(|viewport| {
+                        let start = (viewport.absolute_offset().y / theme::PIPELINE_ROW_HEIGHT)
+                            .floor() as usize;
+                        let end = ((viewport.absolute_offset().y + viewport.bounds().height)
+                            / theme::PIPELINE_ROW_HEIGHT)
+                            .ceil() as usize
+                            + 1;
+                        Message::Jobs(crate::app::jobs::Event::Overview(
+                            crate::app::jobs::overview::Event::Viewport(start..end),
+                        ))
+                    })
                     .into()
             }
         }
@@ -225,26 +195,71 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
 }
 
 fn status(value: &str) -> (Key, theme::Tone) {
-    match value {
-        "success" | "passed" => (Key::Passed, theme::GREEN),
-        "failure" | "failed" | "timed_out" | "startup_failure" | "action_required" => {
-            (Key::Failed, theme::RED)
-        }
-        "running" | "in_progress" => (Key::Running, theme::BLUE),
-        "canceling" => (Key::Canceling, theme::YELLOW),
-        "queued"
-        | "pending"
-        | "waiting"
-        | "waiting_for_resource"
-        | "waiting_for_callback"
-        | "requested"
-        | "created"
-        | "preparing"
-        | "scheduled" => (Key::Pending, theme::YELLOW),
-        "cancelled" | "canceled" => (Key::Cancelled, theme::MUTED),
-        "skipped" | "neutral" => (Key::Skipped, theme::MUTED),
-        "manual" => (Key::Manual, theme::YELLOW),
-        _ => (Key::UnknownStatus, theme::MUTED),
-    }
+    status::label(Status::from_provider(value))
 }
+
+fn pipeline_row<'a>(app: &'a App, run: &'a Pipeline) -> Element<'a, Message> {
+    let title = if run.title.is_empty() {
+        format!("#{}", run.id)
+    } else {
+        run.title.clone()
+    };
+    let info = column![
+        ellipsis::text(title, 13.),
+        row![
+            icon(Icon::Branch, theme::MUTED),
+            container(ellipsis::text(&run.branch, 11.)).width(Length::Fill),
+            text(short(&run.date.replace('T', " "), 16))
+                .size(11)
+                .style(theme::FAINT.text()),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    ]
+    .spacing(4)
+    .width(Length::Fill);
+    let summary = row![
+        tooltip(
+            status::badge(Status::from_provider(&run.status), false),
+            text(app.i18n.text(status(&run.status).0)).size(12),
+            tooltip::Position::Top
+        )
+        .style(theme::tooltip),
+        info,
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center);
+    column![
+        row![
+            container(
+                button(summary)
+                    .width(Length::Fill)
+                    .padding([8, 12])
+                    .style(theme::action(false))
+                    .on_press(Message::Jobs(crate::app::jobs::Event::Select(run.id)))
+            )
+            .id(format!("pipeline-{}", run.id))
+            .width(Length::FillPortion(5)),
+            container(overview::chain(app, run)).width(Length::FillPortion(4)),
+            icon_button(
+                app,
+                Icon::External,
+                Key::OpenBrowser,
+                Message::OpenUrl(run.url.clone()),
+                false
+            ),
+        ]
+        .height(theme::PIPELINE_ROW_HEIGHT - 1.)
+        .spacing(10)
+        .align_y(Alignment::Center)
+        .padding([0, 12]),
+        divider(),
+    ]
+    .height(theme::PIPELINE_ROW_HEIGHT)
+    .into()
+}
+
 mod jobs;
+mod overview;
+mod status;
+pub(super) use overview::overlay;

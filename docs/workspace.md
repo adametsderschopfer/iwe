@@ -232,8 +232,28 @@ API ports.
 
 Iwe reads GitHub and GitLab APIs directly. Provider CLIs are not required. Public projects can load
 without authentication when the provider allows anonymous access. The application requests pipeline
-data when Git or pipelines is enabled. The panel lists the latest 30 runs. Select a run to display
-its stages and jobs. The external-link icon opens the provider page.
+data when Git or pipelines is enabled. The panel lists the latest 30 runs. Each row includes a
+compact chain of status icons. The external-link icon opens the provider page.
+
+GitLab shows one icon per stage, in the provider's order. GitHub shows one icon per job, including
+jobs with identical names. GitHub icons retain the provider's order and do not describe job
+dependencies. Long chains scroll horizontally.
+
+Click an icon to open its stage or job. The popup shows job names, statuses, and available actions.
+Click a job name to open its provider page. Choose **View pipeline** to open the complete job list.
+Click outside the popup or press Escape to close it. Long job lists scroll within the popup.
+
+Status symbols distinguish success, failure, running, waiting, manual, cancelling, cancelled,
+skipped, and unknown states. Colors follow the current appearance. GitLab supplies each stage's
+status, including its treatment of permitted job failures. Missing stage statuses use an aggregate
+that keeps failed, unfinished, cancelled, and unknown jobs visible.
+
+Visible rows and one following row load their summaries. At most two summary requests run
+simultaneously. Completed summaries remain cached until the pipeline status changes or the user
+refreshes them. Active visible summaries refresh every ten seconds. Failed summary reads preserve
+cached icons and offer an explicit retry. Switching projects or signing out clears these summaries.
+
+Select a run's title to display its complete stages and jobs.
 
 GitLab stages retain the provider's order. Click a stage heading to collapse its jobs. Each job
 shows its name, status, and available actions. Manual jobs offer **Run**. Retryable jobs offer **Run

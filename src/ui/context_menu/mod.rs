@@ -16,12 +16,25 @@ pub(crate) fn trigger<'a, Message: 'a>(
     Element::new(Trigger {
         content: content.into(),
         on_open: Box::new(on_open),
+        anchored: false,
+    })
+}
+
+pub(crate) fn anchored<'a, Message: 'a>(
+    content: impl Into<Element<'a, Message>>,
+    on_open: impl Fn(Point) -> Message + 'a,
+) -> Element<'a, Message> {
+    Element::new(Trigger {
+        content: content.into(),
+        on_open: Box::new(on_open),
+        anchored: true,
     })
 }
 
 struct Trigger<'a, Message> {
     content: Element<'a, Message>,
     on_open: Box<dyn Fn(Point) -> Message + 'a>,
+    anchored: bool,
 }
 
 impl<Message> Widget<Message, Theme, Renderer> for Trigger<'_, Message> {
@@ -66,13 +79,22 @@ impl<Message> Widget<Message, Theme, Renderer> for Trigger<'_, Message> {
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        if matches!(
-            event,
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right))
-        ) && let Some(position) = cursor
-            .position()
-            .filter(|point| layout.bounds().contains(*point) && viewport.contains(*point))
+        let button = if self.anchored {
+            mouse::Button::Left
+        } else {
+            mouse::Button::Right
+        };
+        if matches!(event, Event::Mouse(mouse::Event::ButtonPressed(pressed)) if *pressed == button)
+            && let Some(position) = cursor
+                .position()
+                .filter(|point| layout.bounds().contains(*point) && viewport.contains(*point))
         {
+            let position = if self.anchored {
+                let bounds = layout.bounds();
+                Point::new(bounds.x, bounds.y + bounds.height + 6.)
+            } else {
+                position
+            };
             shell.publish((self.on_open)(position));
             shell.capture_event();
             return;
@@ -96,6 +118,9 @@ impl<Message> Widget<Message, Theme, Renderer> for Trigger<'_, Message> {
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
+        if self.anchored && cursor.is_over(layout.bounds()) && cursor.is_over(*viewport) {
+            return mouse::Interaction::Pointer;
+        }
         self.content.as_widget().mouse_interaction(
             &tree.children[0],
             layout,

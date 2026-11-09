@@ -76,7 +76,10 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .into();
     super::space_form::overlay(
         app,
-        auth::overlay(app, git_actions::overlay(app, project_menu(app, base))),
+        auth::overlay(
+            app,
+            git_actions::overlay(app, project_menu(app, pipelines::overlay(app, base))),
+        ),
     )
 }
 

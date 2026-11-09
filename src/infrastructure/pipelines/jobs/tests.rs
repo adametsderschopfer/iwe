@@ -100,6 +100,27 @@ fn gitlab_page(jobs: Vec<Value>, next: Option<&str>) -> Value {
 }
 
 #[tokio::test]
+async fn gitlab_stage_status_respects_the_provider_result_for_permitted_job_failures() {
+    let mut page = gitlab_page(vec![gitlab_job(20, "build", "FAILED", "retryable")], None);
+    page["data"]["project"]["pipeline"]["stages"]["nodes"][0]["status"] = "success".into();
+    page["data"]["project"]["pipeline"]["stages"]["nodes"][1]["status"] = "RUNNING".into();
+    let (http, server) = fixture(vec![("200 OK", page)]).await;
+    let details = load(
+        &http,
+        &remote(Provider::GitLab),
+        &run(),
+        Some(&credential()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(details.stages[0].jobs[0].status, "failed");
+    assert_eq!(details.stages[0].status(), Status::Passed);
+    assert_eq!(details.stages[1].status(), Status::Running);
+    assert_eq!(details.stages[2].status(), Status::Skipped);
+    server.await.unwrap();
+}
+
+#[tokio::test]
 async fn gitlab_keeps_provider_stage_order_and_loads_all_pages_with_current_capabilities() {
     let (http, server) = fixture(vec![
         (

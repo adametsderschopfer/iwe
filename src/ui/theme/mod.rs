@@ -103,6 +103,12 @@ pub(crate) const FILE_TREE_TEXT_SIZE: f32 = 14.0;
 pub(crate) const FILE_TREE_INDENT: f32 = 20.0;
 pub(crate) const SPACE_PROJECT_HEIGHT: f32 = 56.0;
 pub(crate) const SPACE_PROJECT_GAP: f32 = 4.0;
+pub(crate) const PIPELINE_ROW_HEIGHT: f32 = 72.0;
+pub(crate) const PIPELINE_BADGE_SIZE: f32 = 30.0;
+pub(crate) const PIPELINE_CONNECTOR_WIDTH: f32 = 8.0;
+pub(crate) const PIPELINE_POPUP_WIDTH: f32 = 380.0;
+pub(crate) const PIPELINE_POPUP_JOBS_HEIGHT: f32 = 240.0;
+pub(crate) const PIPELINE_JOB_HEIGHT: f32 = 40.0;
 
 pub(crate) fn font() -> Font {
     if cfg!(target_os = "macos") {

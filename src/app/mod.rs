@@ -374,7 +374,10 @@ impl App {
                     | Message::ToggleDiffView(_)
                     | Message::ExpandUnchanged(_, _)
                     | Message::Jobs(
-                        jobs::Event::Select(_) | jobs::Event::Back | jobs::Event::Control(_, _)
+                        jobs::Event::Select(_)
+                            | jobs::Event::Back
+                            | jobs::Event::Control(_, _)
+                            | jobs::Event::Overview(jobs::overview::Event::Open(_, _, _))
                     )
             )
         {
@@ -447,7 +450,13 @@ impl App {
                     return self.save();
                 }
             }
-            Message::Navigate(navigation) => self.navigation = navigation,
+            Message::Navigate(navigation) => {
+                self.navigation = navigation;
+                self.jobs.overview.popup = None;
+                if navigation != Navigation::Settings {
+                    return self.refresh_pipeline_overviews(false);
+                }
+            }
             Message::SelectSettingsTab(tab) => self.settings_tab = tab,
             Message::Space(message) => return self.update_space(message),
             Message::DismissDialog => {
@@ -457,6 +466,9 @@ impl App {
                 }
                 if self.space_draft.is_some() {
                     return self.update_space(spaces::Message::Cancel);
+                }
+                if self.auth_dialog.is_none() && self.jobs.overview.popup.take().is_some() {
+                    return Task::none();
                 }
                 return self.update_auth(auth::Message::Cancel);
             }
@@ -636,6 +648,7 @@ impl App {
                 }
             }
             Message::TogglePanel(panel) => {
+                self.jobs.overview.popup = None;
                 match panel {
                     Panel::Git => {
                         self.workspace.preferences.show_git ^= true;
@@ -661,15 +674,17 @@ impl App {
                     Task::none()
                 };
                 let jobs = if self.workspace.preferences.show_pipelines {
-                    self.refresh_jobs()
+                    Task::batch([self.refresh_jobs(), self.refresh_pipeline_overviews(false)])
                 } else {
                     Task::none()
                 };
                 return Task::batch([pipelines, jobs, self.save()]);
             }
-            Message::Resize(event) => self
-                .panes
-                .resize(event.split, event.ratio.clamp(0.15, 0.85)),
+            Message::Resize(event) => {
+                self.jobs.overview.popup = None;
+                self.panes
+                    .resize(event.split, event.ratio.clamp(0.15, 0.85));
+            }
             Message::ResizeGit(event) => self
                 .git_panes
                 .resize(event.split, event.ratio.clamp(0.12, 0.88)),
@@ -693,7 +708,10 @@ impl App {
                 if self.workspace.preferences.show_pipelines
                     && self.navigation != Navigation::Settings
                 {
-                    return self.refresh_jobs();
+                    return Task::batch([
+                        self.refresh_jobs(),
+                        self.refresh_pipeline_overviews(false),
+                    ]);
                 }
             }
             Message::ChooseProvider(provider) => {

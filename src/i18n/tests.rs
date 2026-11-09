@@ -45,6 +45,9 @@ fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
         for &key in Key::ALL {
             let mut args = FluentArgs::new();
             match key {
+                Key::PipelineStageTitle | Key::PipelineJobTitle => {
+                    args.set("name", "build");
+                }
                 Key::GitNewBranchFrom => {
                     args.set("branch", "main");
                 }

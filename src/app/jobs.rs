@@ -9,6 +9,8 @@ use crate::domain::{
 use iced::{Subscription, Task};
 use std::{collections::BTreeSet, time::Duration};
 
+pub(crate) mod overview;
+
 #[derive(Default)]
 pub(crate) struct State {
     pub selected: Option<Pipeline>,
@@ -18,6 +20,7 @@ pub(crate) struct State {
     pub action_error: Option<Failure>,
     pub pending: Option<(u64, Action)>,
     pub collapsed: BTreeSet<String>,
+    pub overview: overview::State,
     epoch: u64,
     request: u64,
     action_request: u64,
@@ -33,6 +36,7 @@ pub(crate) enum Event {
     Loaded(u64, u64, u64, Result<Details, Failure>),
     Control(u64, Action),
     Controlled(u64, u64, u64, Result<(), Failure>),
+    Overview(overview::Event),
 }
 
 impl App {
@@ -44,17 +48,18 @@ impl App {
     }
 
     pub(super) fn reload_jobs_after_sign_in(&mut self) -> Task<Message> {
+        self.jobs.overview.clear();
         self.jobs.loading = false;
         self.jobs.error = None;
         self.jobs.action_error = None;
         self.jobs.request += 1;
-        self.refresh_jobs()
+        Task::batch([self.refresh_jobs(), self.refresh_pipeline_overviews(false)])
     }
 
     pub(super) fn jobs_subscription(&self) -> Subscription<Message> {
         if self.navigation != Navigation::Settings
             && self.workspace.preferences.show_pipelines
-            && self.jobs.details.is_some()
+            && (self.jobs.details.is_some() || !self.jobs.overview.entries.is_empty())
             && self.jobs.error.is_none()
             && self.jobs.action_error.is_none()
         {
@@ -91,6 +96,7 @@ impl App {
 
     pub(super) fn update_jobs(&mut self, event: Event) -> Task<Message> {
         match event {
+            Event::Overview(event) => return self.update_pipeline_overview(event),
             Event::Select(id) => {
                 if self.jobs.selected.as_ref().is_some_and(|run| run.id == id) {
                     return Task::none();
@@ -102,7 +108,14 @@ impl App {
                     return Task::none();
                 };
                 self.jobs.selected = Some(run);
-                self.jobs.details = None;
+                self.jobs.overview.popup = None;
+                self.jobs.overview.invalidate(id);
+                self.jobs.details = self
+                    .jobs
+                    .overview
+                    .entries
+                    .get(&id)
+                    .and_then(|entry| entry.details.clone());
                 self.jobs.loading = false;
                 self.jobs.error = None;
                 self.jobs.action_error = None;
@@ -116,13 +129,20 @@ impl App {
                 self.jobs.loading = false;
                 self.jobs.error = None;
                 self.jobs.request += 1;
+                self.jobs.action_error = None;
+                self.jobs.overview.popup = None;
+                return self.refresh_pipeline_overviews(false);
             }
             Event::Refresh => {
                 self.jobs.action_error = None;
                 return self.refresh_jobs();
             }
             Event::Tick if self.jobs.error.is_none() && self.jobs.action_error.is_none() => {
-                return self.refresh_jobs();
+                return if self.jobs.selected.is_some() {
+                    self.refresh_jobs()
+                } else {
+                    self.refresh_pipeline_overviews(true)
+                };
             }
             Event::ToggleStage(name) => {
                 if !self.jobs.collapsed.remove(&name) {
@@ -137,6 +157,9 @@ impl App {
                 self.jobs.loading = false;
                 match result {
                     Ok(details) => {
+                        if let Some(run) = &self.jobs.selected {
+                            self.jobs.overview.remember(id, &run.status, &details);
+                        }
                         self.jobs.details = Some(details);
                         self.jobs.error = None;
                     }
@@ -144,15 +167,9 @@ impl App {
                 }
             }
             Event::Control(id, action) => {
-                if self.disconnecting
-                    || self.jobs.pending.is_some()
-                    || self.jobs.error.is_some()
-                    || self.jobs.action_error.is_some()
-                    || self.jobs.selected.as_ref().is_none_or(|run| run.id != id)
+                if self.job_controls_blocked(id)
                     || !self
-                        .jobs
-                        .details
-                        .as_ref()
+                        .job_details(id)
                         .is_some_and(|details| details.allows(action))
                 {
                     return Task::none();
@@ -165,6 +182,7 @@ impl App {
                     return Task::none();
                 };
                 self.jobs.pending = Some((id, action));
+                self.jobs.overview.invalidate(id);
                 self.jobs.loading = false;
                 self.jobs.action_error = None;
                 self.jobs.request += 1;
@@ -187,17 +205,57 @@ impl App {
                 self.jobs.pending = None;
                 let selected = self.jobs.selected.as_ref().is_some_and(|run| run.id == id);
                 match result {
-                    Ok(()) => return Task::batch([self.load_pipelines(), self.refresh_jobs()]),
+                    Ok(()) => {
+                        return Task::batch([
+                            self.load_pipelines(),
+                            self.refresh_jobs(),
+                            self.refresh_pipeline_overviews(false),
+                        ]);
+                    }
                     Err(error) if selected => self.jobs.action_error = Some(error),
                     Err(error) => {
+                        self.jobs.overview.failed(id, error);
                         self.notice = Some(super::error_key(error));
-                        return self.refresh_jobs();
+                        return Task::batch([
+                            self.refresh_jobs(),
+                            self.refresh_pipeline_overviews(false),
+                        ]);
                     }
                 }
             }
             _ => {}
         }
         Task::none()
+    }
+
+    pub(crate) fn job_details(&self, id: u64) -> Option<&Details> {
+        if self.jobs.selected.as_ref().is_some_and(|run| run.id == id) {
+            self.jobs.details.as_ref()
+        } else if self.jobs.selected.is_none()
+            && matches!(&self.pipelines, PipelineState::Ready(runs) if runs.iter().any(|run| run.id == id))
+        {
+            self.jobs
+                .overview
+                .entries
+                .get(&id)
+                .and_then(|entry| entry.details.as_ref())
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn job_controls_blocked(&self, id: u64) -> bool {
+        self.disconnecting
+            || self.jobs.pending.is_some()
+            || if self.jobs.selected.as_ref().is_some_and(|run| run.id == id) {
+                self.jobs.error.is_some() || self.jobs.action_error.is_some()
+            } else {
+                self.jobs
+                    .overview
+                    .entries
+                    .get(&id)
+                    .is_none_or(|entry| entry.error.is_some())
+            }
     }
 }
 
