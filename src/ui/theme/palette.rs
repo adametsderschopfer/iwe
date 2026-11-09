@@ -57,6 +57,7 @@ pub(crate) const MUTED: Tone = Tone::new(0xb4b4b4, 0x55585e);
 pub(crate) const FAINT: Tone = Tone::new(0x949494, 0x666666);
 pub(crate) const LINE: Tone = Tone::new(0x373737, 0xd4d4d4);
 pub(crate) const GREEN: Tone = Tone::new(0x81c99c, 0x28663f);
+pub(crate) const UPDATE_BLUE: Tone = Tone::new(0x3478f6, 0x245da0);
 pub(crate) const BLUE: Tone = Tone::new(0x8bb4eb, 0x245da0);
 pub(crate) const RED: Tone = Tone::new(0xec9191, 0xa72b2d);
 pub(crate) const YELLOW: Tone = Tone::new(0xdec287, 0x7b5b0b);

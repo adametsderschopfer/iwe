@@ -9,6 +9,7 @@ pub(crate) mod notifications;
 mod repositories;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
+pub(crate) mod updates;
 
 use crate::domain::{
     Failure,
@@ -42,7 +43,10 @@ fn application(
         move || {
             (
                 App::new(Rc::clone(&i18n)),
-                Task::perform(workspace::load(), Message::Loaded),
+                Task::batch([
+                    Task::perform(workspace::load(), Message::Loaded),
+                    Task::done(Message::Update(updates::Event::Check)),
+                ]),
             )
         },
         App::update,
@@ -66,6 +70,8 @@ fn application(
     .subscription(|app| {
         Subscription::batch([
             app.change_subscription(),
+            iced::time::every(std::time::Duration::from_secs(6 * 60 * 60))
+                .map(|_| Message::Update(updates::Event::Check)),
             app.pipeline_subscription(),
             app.jobs_subscription(),
             app.notifications.subscription().map(Message::Notification),
@@ -97,11 +103,7 @@ fn shortcut(event: iced::Event) -> Option<Message> {
     let reopen = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::KeyT)
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("t"));
     if close && modifiers == keyboard::Modifiers::COMMAND {
-        Some(if cfg!(target_os = "macos") {
-            Message::CloseApplication
-        } else {
-            Message::CloseActiveTab
-        })
+        Some(Message::CloseActiveTab)
     } else if reopen && modifiers == keyboard::Modifiers::COMMAND | keyboard::Modifiers::SHIFT {
         Some(Message::ReopenClosedTab)
     } else {
@@ -193,6 +195,7 @@ pub(crate) struct App {
     pub account_username: Option<String>,
     pub disconnecting: bool,
     pub notifications: notifications::State,
+    pub updates: updates::State,
     pub picking: bool,
     pub loaded: bool,
     window_id: Option<window::Id>,
@@ -217,6 +220,7 @@ pub(crate) struct App {
 #[derive(Debug, Clone)]
 pub(crate) enum Message {
     WindowOpened(window::Id),
+    Update(updates::Event),
     DragWindow,
     ToggleWindowMaximized,
     GlassConfigured(bool),
@@ -280,7 +284,6 @@ pub(crate) enum Message {
     SelectTab(u64),
     CloseTab(u64),
     CloseActiveTab,
-    CloseApplication,
     ReopenClosedTab,
     ToggleUnchanged(u64),
     ToggleDiffView(u64),
@@ -308,7 +311,7 @@ impl App {
     }
 
     fn new(i18n: Rc<I18n>) -> Self {
-        Self {
+        let mut app = Self {
             i18n,
             workspace: Workspace::default(),
             navigation: Navigation::Projects,
@@ -347,6 +350,11 @@ impl App {
             account_username: None,
             disconnecting: false,
             notifications: notifications::State::default(),
+            updates: if std::env::var_os("IWE_UPDATE_FAILED").as_deref() == Some("1".as_ref()) {
+                updates::State::Failed(crate::infrastructure::updates::Error::Install)
+            } else {
+                updates::State::default()
+            },
             picking: false,
             loaded: false,
             window_id: None,
@@ -366,10 +374,23 @@ impl App {
             saving: false,
             save_pending: false,
             save_blocked: false,
+        };
+        if matches!(app.updates, updates::State::Failed(_)) {
+            app.notifications.error(Key::UpdateInstallFailed, None);
         }
+        app
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
+        if matches!(
+            self.updates,
+            updates::State::Saving(_) | updates::State::Installing(_)
+        ) && !matches!(
+            message,
+            Message::Saved(_) | Message::Update(updates::Event::Started(_))
+        ) {
+            return Task::none();
+        }
         if (self.auth_dialog.is_some()
             || self.space_draft.is_some()
             || self.git_actions.dialog.is_some())
@@ -390,6 +411,7 @@ impl App {
                     | Message::CloseTab(_)
                     | Message::CloseActiveTab
                     | Message::ReopenClosedTab
+                    | Message::Update(updates::Event::Download | updates::Event::Install)
                     | Message::ToggleUnchanged(_)
                     | Message::ToggleDiffView(_)
                     | Message::ExpandUnchanged(_, _)
@@ -404,7 +426,7 @@ impl App {
             return Task::none();
         }
         match message {
-            Message::CloseApplication => return iced::exit(),
+            Message::Update(event) => return self.update_release(event),
             Message::Git(message) => return self.update_git(message),
             Message::ProjectMenu(space, path, point)
                 if self.space_draft.is_none()
@@ -466,9 +488,15 @@ impl App {
                 if result.is_err() {
                     self.notifications.error(Key::StorageSaveFailed, None);
                 }
+                if result.is_err() && matches!(self.updates, updates::State::Saving(_)) {
+                    return self.restart_after_save(false);
+                }
                 if self.save_pending {
                     self.save_pending = false;
                     return self.save();
+                }
+                if matches!(self.updates, updates::State::Saving(_)) {
+                    return self.restart_after_save(true);
                 }
             }
             Message::Navigate(navigation) => {

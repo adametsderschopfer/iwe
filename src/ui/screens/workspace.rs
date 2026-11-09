@@ -220,10 +220,13 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     let navigation: Element<'_, Message> = {
         container(
             row![
-                text(app.i18n.text(Key::Spaces))
-                    .size(13)
-                    .style(theme::FAINT.text())
-                    .width(Length::Fill),
+                container(
+                    text(app.i18n.text(Key::Spaces))
+                        .size(13)
+                        .style(theme::FAINT.text())
+                )
+                .id("spaces-heading")
+                .width(Length::Fill),
                 tooltip::view(
                     container(
                         button(icon(Icon::Plus, theme::MUTED))
@@ -407,7 +410,8 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                         .size(13)
                         .style(theme::MUTED.text()),
                 )
-                .padding(12),
+                .id("spaces-empty-message")
+                .padding([12, 8]),
             );
         }
     }
@@ -439,6 +443,9 @@ fn sidebar(app: &App) -> Element<'_, Message> {
             app.workspace.preferences.show_pipelines,
             "nav-pipelines",
         ));
+    }
+    if let Some(update) = crate::ui::updates::sidebar(app) {
+        tools = tools.push(update);
     }
     tools = tools.push(space().height(8)).push(navigation_button(
         app,
@@ -685,7 +692,7 @@ fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Mes
     )
 }
 
-fn navigation_button<'a>(
+pub(crate) fn navigation_button<'a>(
     app: &'a App,
     symbol: Icon,
     label: Key,

@@ -1,6 +1,6 @@
 [package]
 name = "iwe"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2024"
 rust-version = "1.90"
 description = "A native workspace for projects, source code, Git history, and pipelines"
@@ -29,6 +29,10 @@ url = "2"
 sys-locale = "0.3.2"
 unic-langid = { version = "0.9.6", features = ["macros"] }
 similar = { version = "3.2.1", default-features = false, features = ["text", "std"] }
+semver = "1"
+ed25519-dalek = "2.2"
+tar = "0.4"
+flate2 = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3.6", features = ["apple-native"] }

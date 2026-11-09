@@ -51,6 +51,9 @@ fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
                 Key::GitNewBranchFrom => {
                     args.set("branch", "main");
                 }
+                Key::UpdateAvailable => {
+                    args.set("version", "0.1.11");
+                }
                 Key::FileCount => {
                     args.set("count", 3);
                 }

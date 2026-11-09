@@ -53,7 +53,7 @@ impl Http {
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(25))
             .connect_timeout(Duration::from_secs(10))
-            .user_agent(concat!("Iwe/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("IWE/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|_| Failure::Unavailable)?;
         Ok(Self {

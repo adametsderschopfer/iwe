@@ -27,6 +27,7 @@ pub(crate) enum Icon {
     Changes,
     Fetch,
     Upload,
+    Update,
     Pin,
     Refresh,
     Close,
@@ -54,9 +55,18 @@ impl<Message> canvas::Program<Message> for Drawing {
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
-        let stroke = Stroke::default()
-            .with_width(1.5)
-            .with_color(self.1.resolve(theme));
+        let updating = matches!(self.0, Icon::Update);
+        if updating {
+            frame.fill(
+                &Path::circle(Point::new(10., 10.), 10.),
+                super::theme::UPDATE_BLUE.resolve(theme),
+            );
+        }
+        let stroke = Stroke::default().with_width(1.5).with_color(if updating {
+            super::theme::PIPELINE_GLYPH.resolve(theme)
+        } else {
+            self.1.resolve(theme)
+        });
         let mut line = |points: &[(f32, f32)]| {
             let path = Path::new(|builder| {
                 if let Some(&(x, y)) = points.first() {
@@ -100,6 +110,11 @@ impl<Message> canvas::Program<Message> for Drawing {
                 ]);
                 line(&[(7., 8.), (13., 8.)]);
                 line(&[(7., 12.), (13., 12.)]);
+            }
+            Icon::Update => {
+                line(&[(10., 5.), (10., 11.5)]);
+                line(&[(7., 8.5), (10., 11.5), (13., 8.5)]);
+                line(&[(5., 12.5), (5., 15.), (15., 15.), (15., 12.5)]);
             }
             Icon::Fetch => {
                 line(&[(10., 2.), (10., 13.)]);

@@ -197,6 +197,10 @@ jobs:
           pattern: release-*
           path: dist
           merge-multiple: true
-      - name: Publish all six packages
+      - name: Sign update manifest
+        env:
+          IWE_UPDATE_SIGNING_KEY: ${{ secrets.IWE_UPDATE_SIGNING_KEY }}
+        run: python3 .github/scripts/sign-updates.py
+      - name: Publish all release and update packages
         shell: bash
         run: bash .github/scripts/publish-release.sh

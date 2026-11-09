@@ -892,23 +892,52 @@ fn middle_click_closes_only_its_tab_and_wheel_scrolling_keeps_tabs() {
 }
 
 #[test]
-fn closing_application_works_from_every_screen_and_dialog_without_closing_tabs() {
+fn close_shortcut_closes_tabs_without_exiting_and_keeps_their_documents_for_reopening() {
+    use iced::keyboard::{Event, Key, Modifiers, key};
+    let event = |name: &str, code, modifiers| {
+        iced::Event::Keyboard(Event::KeyPressed {
+            key: Key::Character(name.into()),
+            modified_key: Key::Character(name.into()),
+            physical_key: key::Physical::Code(code),
+            location: iced::keyboard::Location::Standard,
+            modifiers,
+            repeat: false,
+            text: None,
+        })
+    };
     let mut app = app();
-    assert_eq!(app.update(Message::CloseApplication).units(), 1);
-    let active = open(&mut app, "first.rs");
-    for navigation in [
-        crate::app::Navigation::Projects,
-        crate::app::Navigation::Files,
-        crate::app::Navigation::Settings,
-    ] {
-        for dialog in [false, true] {
-            app.navigation = navigation;
-            app.space_draft = dialog.then(crate::app::spaces::Draft::default);
-            assert_eq!(app.update(Message::CloseApplication).units(), 1);
-            assert_eq!(app.preview().id, active);
-            assert_eq!(app.tabs.files.len(), 1);
-        }
+    let first = open(&mut app, "first.rs");
+    loaded(&mut app, first, "first");
+    let second = open(&mut app, "second.rs");
+    loaded(&mut app, second, "second");
+    let document = app.preview().document.as_ref().unwrap().text.as_ptr();
+    for expected in [Some("first.rs"), None, None] {
+        let _ = app
+            .update(crate::app::shortcut(event("w", key::Code::KeyW, Modifiers::COMMAND)).unwrap());
+        assert_eq!(app.tabs.files.len(), 1);
+        assert_eq!(
+            app.preview().path,
+            expected.map(|path| PathBuf::from("project").join(path))
+        );
     }
+    for expected in ["first.rs", "second.rs"] {
+        let _ = app.update(
+            crate::app::shortcut(event(
+                "t",
+                key::Code::KeyT,
+                Modifiers::COMMAND | Modifiers::SHIFT,
+            ))
+            .unwrap(),
+        );
+        assert_eq!(
+            app.preview().path,
+            Some(PathBuf::from("project").join(expected))
+        );
+    }
+    assert_eq!(
+        app.preview().document.as_ref().unwrap().text.as_ptr(),
+        document
+    );
 }
 
 #[test]

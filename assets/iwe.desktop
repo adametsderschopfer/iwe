@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Iwe
+Name=IWE
 Comment=Projects, source code, Git history, and pipelines
 Exec=iwe %f
 Icon=iwe

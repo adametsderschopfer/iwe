@@ -1,6 +1,6 @@
-# Iwe
+# IWE
 
-<img src="assets/icon.png" alt="Iwe icon" width="128" height="128">
+<img src="assets/icon.png" alt="IWE icon" width="128" height="128">
 
 A native workspace for projects, source code, Git history, and pipelines. Built with Rust and Iced.
 
@@ -10,7 +10,7 @@ browser sign-in. Self-hosted GitLab supports personal access tokens. Open settin
 the bottom left. Preferences persist between launches. English, Russian, and Spanish translations
 are embedded in the executable.
 
-Iwe caches project trees locally and refreshes folder listings in the background. It reads source
+IWE caches project trees locally and refreshes folder listings in the background. It reads source
 contents when files open. Repository files remain unchanged, and source contents stay local. See
 [workspace behavior](docs/workspace.md) for limits, authentication, and keyboard shortcuts.
 
@@ -18,6 +18,9 @@ Version tags publish application packages through GitHub Actions after checks an
 pass. Packages cover macOS Apple Silicon and Intel, Windows x86 and x64, and Linux x86 and x64. See
 [release packages and publishing](docs/ci.md#release-packages) for installation requirements and the
 tag workflow.
+
+IWE can download signed updates from GitHub Releases and install them after confirmation. See
+[application updates](docs/updates.md) for installation requirements and release signing.
 
 ## Requirements
 
@@ -34,7 +37,7 @@ C++ workload. On Linux, install `pkg-config`, `libx11-dev`, `libxkbcommon-dev`, 
 and `libudev-dev`.
 
 Linux accounts require a running Secret Service, such as GNOME Keyring or KWallet with Secret
-Service support. Iwe does not require GitHub CLI or GitLab CLI. Browser sign-in requires registered
+Service support. IWE does not require GitHub CLI or GitLab CLI. Browser sign-in requires registered
 provider applications. See [authentication setup](docs/authentication.md) for public Client IDs and
 registration instructions.
 

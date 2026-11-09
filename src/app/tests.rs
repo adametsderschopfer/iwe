@@ -72,11 +72,7 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
             (
                 SettingsTab::Shortcuts,
                 "shortcuts",
-                if cfg!(target_os = "macos") {
-                    Key::CloseApplicationDescription
-                } else {
-                    Key::CloseActiveTabDescription
-                },
+                Key::CloseActiveTabDescription,
             ),
             (SettingsTab::About, "about", Key::AboutDescription),
         ] {
@@ -486,7 +482,7 @@ fn refresh_discards_confirmed_removed_repositories_and_does_not_reuse_other_proj
 }
 
 #[test]
-fn window_and_tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
+fn tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
     use iced::{
         Event,
         keyboard::{Event as KeyEvent, Key, Modifiers, key},
@@ -504,11 +500,7 @@ fn window_and_tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
     };
     for name in ["w", "W", "ц"] {
         let message = shortcut(event(name, key::Code::KeyW, Modifiers::COMMAND, false));
-        if cfg!(target_os = "macos") {
-            assert!(matches!(message, Some(Message::CloseApplication)));
-        } else {
-            assert!(matches!(message, Some(Message::CloseActiveTab)));
-        }
+        assert!(matches!(message, Some(Message::CloseActiveTab)));
     }
     for name in ["t", "T", "е"] {
         assert!(matches!(
@@ -660,11 +652,7 @@ fn shortcuts_are_visible_in_settings_in_every_language() {
         })]);
         for label in [
             app.i18n.text(Key::KeyboardShortcuts),
-            app.i18n.text(if cfg!(target_os = "macos") {
-                Key::CloseApplicationDescription
-            } else {
-                Key::CloseActiveTabDescription
-            }),
+            app.i18n.text(Key::CloseActiveTabDescription),
             app.i18n.text(Key::ReopenClosedTabDescription),
             if cfg!(target_os = "macos") {
                 "Command + Shift + T"
@@ -2524,5 +2512,28 @@ async fn render_for_visual_review_when_requested() {
             let _ = state.update(message);
         }
         capture(&state, name, (1080., 720.));
+    }
+}
+
+#[test]
+fn empty_spaces_text_aligns_with_the_spaces_heading_in_all_languages() {
+    use iced::widget::Id;
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = App::new(Rc::new(I18n::new(language)));
+        app.loaded = true;
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
+        let heading = ui
+            .find(Id::new("spaces-heading"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let empty = ui
+            .find(app.i18n.text(crate::i18n::Key::NoSpaces))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert_eq!(heading.x, empty.x);
+        assert!(empty.y > heading.y + heading.height);
     }
 }

@@ -5,6 +5,7 @@ pub(crate) mod changes;
 pub(crate) mod git;
 pub(crate) mod jobs;
 pub(crate) mod repository;
+pub(crate) mod update;
 pub(crate) mod workspace;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

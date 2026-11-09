@@ -10,5 +10,6 @@ pub(crate) mod pipelines;
 pub(crate) mod process;
 pub(crate) mod project_index;
 pub(crate) mod repository;
+pub(crate) mod updates;
 pub(crate) mod window_effect;
 pub(crate) mod workspace;

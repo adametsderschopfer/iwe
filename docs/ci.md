@@ -24,8 +24,8 @@ to refresh RustSec advisories.
 
 | Platform | Architecture         | Rust target              | Runner         | Package                |
 | -------- | -------------------- | ------------------------ | -------------- | ---------------------- |
-| macOS    | Apple Silicon, ARM64 | aarch64-apple-darwin     | macos-15       | DMG containing Iwe.app |
-| macOS    | Intel, 64-bit        | x86_64-apple-darwin      | macos-15-intel | DMG containing Iwe.app |
+| macOS    | Apple Silicon, ARM64 | aarch64-apple-darwin     | macos-15       | DMG containing IWE.app |
+| macOS    | Intel, 64-bit        | x86_64-apple-darwin      | macos-15-intel | DMG containing IWE.app |
 | Windows  | x64, 64-bit          | x86_64-pc-windows-msvc   | windows-2022   | ZIP containing iwe.exe |
 | Windows  | x86, 32-bit          | i686-pc-windows-msvc     | windows-2022   | ZIP containing iwe.exe |
 | Linux    | x64, 64-bit          | x86_64-unknown-linux-gnu | ubuntu-22.04   | tar.gz containing iwe  |
@@ -42,7 +42,7 @@ binaries require matching 32-bit runtime libraries and graphics drivers. Windows
 Windows 10 or newer and a supported graphics driver. Git remains an external dependency on every
 platform.
 
-Every package uses the Iwe display name and generated application icon. macOS bundles include an
+Every package uses the IWE display name and generated application icon. macOS bundles include an
 ICNS resource. Windows executables embed an ICO resource during compilation. Linux archives include
 `iwe.desktop` and `iwe.png`. Install the executable on PATH, the desktop entry under
 `~/.local/share/applications`, and the icon under `~/.local/share/icons`.
@@ -63,11 +63,13 @@ Tags containing prerelease versions, such as v0.2.0-rc.1, create prereleases. Br
 requests build all targets without publishing releases. Manual workflow runs on tags create packages
 without publishing them.
 
-The final job downloads all six packages and verifies that each package exists. It adds SHA256SUMS
-and creates a release with generated release notes. Only that job receives contents: write
-permission. Build jobs retain read-only repository access. Existing releases are not overwritten. If
-uploading fails, inspect the remaining draft before retrying publication. Tag workflows are not
-canceled by newer pushes. Branch workflows still cancel superseded runs.
+The final job downloads six installation packages and six update archives. It verifies that each
+package exists. It signs the update manifest, adds SHA256SUMS, and creates a release with generated
+release notes. Configure `IWE_UPDATE_SIGNING_KEY` before publishing. See
+[application updates](updates.md#release-signing) for key handling. Only that job receives contents:
+write permission. Build jobs retain read-only repository access. Existing releases are not
+overwritten. If uploading fails, inspect the remaining draft before retrying publication. Tag
+workflows are not canceled by newer pushes. Branch workflows still cancel superseded runs.
 
 Set repository variables IWE_GITHUB_CLIENT_ID and IWE_GITLAB_CLIENT_ID to embed public OAuth Client
 IDs in release builds. These values are public identifiers, not secrets. Missing values leave

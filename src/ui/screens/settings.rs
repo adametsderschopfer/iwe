@@ -126,16 +126,8 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .into(),
         SettingsTab::Shortcuts => column![
             setting(
-                t(if cfg!(target_os = "macos") {
-                    Key::CloseApplication
-                } else {
-                    Key::CloseTab
-                }),
-                t(if cfg!(target_os = "macos") {
-                    Key::CloseApplicationDescription
-                } else {
-                    Key::CloseActiveTabDescription
-                }),
+                t(Key::CloseTab),
+                t(Key::CloseActiveTabDescription),
                 shortcut_badge("Command + W", "Ctrl + W"),
             ),
             setting(
@@ -146,14 +138,19 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         ]
         .spacing(16)
         .into(),
-        SettingsTab::About => setting(
-            "Iwe".to_owned(),
-            t(Key::AboutDescription),
-            text(env!("CARGO_PKG_VERSION"))
-                .size(13)
-                .style(theme::MUTED.text())
-                .into(),
-        ),
+        SettingsTab::About => column![
+            setting(
+                t(Key::AppTitle),
+                t(Key::AboutDescription),
+                text(env!("CARGO_PKG_VERSION"))
+                    .size(13)
+                    .style(theme::MUTED.text())
+                    .into(),
+            ),
+            crate::ui::updates::settings(app)
+        ]
+        .spacing(24)
+        .into(),
     };
     column![
         container(

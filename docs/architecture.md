@@ -224,7 +224,7 @@ protocol details.
 
 ## Window and graphics
 
-The display name is Iwe. Embedded PNG pixels supply Windows and X11 window icons. Windows builds
+The display name is IWE. Embedded PNG pixels supply Windows and X11 window icons. Windows builds
 embed an ICO resource through `winresource`. macOS bundles include the ICNS icon. Linux packages
 include the PNG icon and desktop entry. The repository keeps the generated source artwork in
 `assets/`. The `png` crate decodes the embedded window icon without filesystem access.
@@ -283,6 +283,15 @@ The launcher tries these backends in order:
 Each attempt uses a separate process. Only graphics initialization failures trigger another attempt.
 The macOS fallback paths require external Vulkan/MoltenVK or ANGLE runtimes. The application does
 not bundle those runtimes. Normal macOS startup uses Metal.
+
+## Application updates
+
+`app/updates` coordinates release checks, downloads, workspace persistence, and restart requests.
+`domain/update` carries verified release metadata without operating-system access.
+`infrastructure/updates` verifies signed manifests, stages packages, and installs updates after
+shutdown. `ui/updates` presents localized actions in the sidebar and About settings. The startup
+entry point handles installer and cleanup processes before starting the graphics launcher. See
+[application updates](updates.md) for trust boundaries, package limits, and recovery behavior.
 
 ## Localization
 
