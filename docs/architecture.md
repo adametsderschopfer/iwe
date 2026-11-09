@@ -53,6 +53,15 @@ metadata uses Serde and atomic temporary-file replacement. Native directory sele
 Syntect highlights source with bundled `two-face` grammars and the Gerry Darcula palette. `open`
 delegates approved links to the system browser.
 
+Oversized source reads switch to bounded pages through `infrastructure/workspace/pages.rs`.
+Page boundaries preserve UTF-8 and CRLF, with limits of 512 KiB and 4,096 newline characters.
+Local pages seek directly and compare file metadata before and after reading. Changed snapshots
+restart at the first page. Git pages stream `cat-file` output, discard the preceding bytes, and stop
+the child after reading the requested range. Git page reads retain the 25-second process deadline.
+Tabs retain cursor history, and request identifiers reject obsolete page responses. Only the current
+page receives syntax preparation. Paged documents skip comparison and automatic content polling.
+Syntax state restarts on each page, and lines over 16 KiB remain plain text.
+
 The shared process launcher resolves Git for repository reads and explicit Git operations. On
 Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
 directories. Custom installations still require `PATH` configuration. The launcher does not install

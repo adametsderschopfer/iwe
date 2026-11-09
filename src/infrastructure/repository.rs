@@ -5,6 +5,7 @@ mod discovery;
 mod project;
 pub(crate) use changes::{
     commit_comparison, commit_text, working_comparison, working_file, working_status, working_text,
+    working_page,
 };
 pub(crate) use project::{load_project, load_project_history};
 
@@ -273,6 +274,22 @@ pub(crate) async fn blob(root: PathBuf, revision: String, path: String) -> Resul
         return Err(Failure::TooLarge);
     }
     workspace::decode(git(&root, &["cat-file", "blob", &object]).await?)
+}
+
+pub(crate) async fn blob_page(
+    root: PathBuf, revision: String, path: String, cursor: crate::domain::changes::TextCursor,
+) -> Result<(String, crate::domain::changes::TextPage), Failure> {
+    if !valid_id(&revision) { return Err(Failure::Read); }
+    let object = format!("{revision}:{path}");
+    let size = git(&root, &["cat-file", "-s", &object]).await?;
+    let size = String::from_utf8_lossy(&size).trim().parse::<u64>()
+        .map_err(|_| Failure::Read)?;
+    if cursor.offset > size { return Err(Failure::Read); }
+    let length = (size - cursor.offset).min(workspace::pages::READ_BYTES as u64) as usize;
+    let bytes = process::read_range(
+        "git", &["--no-pager", "cat-file", "blob", &object], &root, cursor.offset, length,
+    ).await?;
+    workspace::pages::decode(bytes, cursor, size, None)
 }
 
 #[cfg(test)]

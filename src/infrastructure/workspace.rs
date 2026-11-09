@@ -7,6 +7,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub(crate) mod pages;
+
 pub(crate) const PREVIEW_LIMIT: u64 = 512 * 1024;
 
 fn config_path() -> Result<PathBuf, Failure> {

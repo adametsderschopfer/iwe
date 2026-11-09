@@ -118,6 +118,9 @@ message_keys! {
     ProjectFiles => "project-files",
     WorkingChanges => "working-changes",
     RefreshWorkingChanges => "refresh-working-changes",
+    FilePartsNotice => "file-parts-notice",
+    PreviousFilePart => "previous-file-part",
+    NextFilePart => "next-file-part",
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     MinimizeWindow => "minimize-window",
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]

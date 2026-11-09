@@ -195,6 +195,28 @@ pub(crate) async fn working_text(directory: PathBuf, path: PathBuf) -> Result<St
     }
 }
 
+pub(crate) async fn working_page(
+    directory: PathBuf, path: PathBuf, cursor: crate::domain::changes::TextCursor,
+    version: Option<(u64, u128)>,
+) -> Result<(String, crate::domain::changes::TextPage), Failure> {
+    if tokio::fs::try_exists(&path).await.map_err(|_| Failure::Read)? {
+        return workspace::pages::read(directory, path, cursor, version).await;
+    }
+    let status = working_status(directory.clone()).await?;
+    if !status.files.get(&path).is_some_and(|change| change.status == FileStatus::Deleted) {
+        return Err(Failure::Read);
+    }
+    let discovery = discovery::discover(&directory).await?;
+    let absolute = discovery.scope.join(path.strip_prefix(&directory).map_err(|_| Failure::Read)?);
+    let root = discovery::owner(&discovery.roots, &absolute).ok_or(Failure::Read)?;
+    let relative = absolute.strip_prefix(root).map_err(|_| Failure::Read)?
+        .components().map(|part| part.as_os_str().to_str().ok_or(Failure::Read))
+        .collect::<Result<Vec<_>, _>>()?.join("/");
+    let head = git(root, &["rev-parse", "--verify", "HEAD"]).await?;
+    let head = String::from_utf8(head).map_err(|_| Failure::Read)?;
+    super::blob_page(root.clone(), head.trim().to_owned(), relative, cursor).await
+}
+
 pub(crate) async fn working_comparison(directory: PathBuf, path: PathBuf, text: String) -> Source {
     let comparison = working_baseline(&directory, &path).await;
     let deleted = matches!(tokio::fs::try_exists(&path).await, Ok(false))

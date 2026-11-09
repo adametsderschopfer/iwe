@@ -67,6 +67,39 @@ pub(crate) async fn run(name: &str, args: &[&str], cwd: Option<&Path>) -> Result
     run_with_timeout(name, args, cwd, Duration::from_secs(25)).await
 }
 
+pub(crate) async fn read_range(
+    name: &str, args: &[&str], cwd: &Path, offset: u64, length: usize,
+) -> Result<Vec<u8>, Failure> {
+    if length > super::workspace::pages::READ_BYTES { return Err(Failure::TooLarge); }
+    let mut command = Command::new(executable(name));
+    command.args(args).current_dir(cwd)
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null())
+        .env("GIT_TERMINAL_PROMPT", "0").env("GIT_OPTIONAL_LOCKS", "0")
+        .kill_on_drop(true);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(0x08000000);
+    let operation = async {
+        let mut child = command.spawn().map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound { Failure::MissingTool }
+            else { Failure::Unavailable }
+        })?;
+        let mut stdout = child.stdout.take().ok_or(Failure::Read)?;
+        let skipped = tokio::io::copy(&mut (&mut stdout).take(offset), &mut tokio::io::sink())
+            .await.map_err(|_| Failure::Read)?;
+        if skipped != offset { return Err(Failure::Read); }
+        let mut bytes = Vec::with_capacity(length);
+        (&mut stdout).take(length as u64).read_to_end(&mut bytes)
+            .await.map_err(|_| Failure::Read)?;
+        // Stop the producer after the requested range instead of buffering the remainder.
+        let _ = child.kill().await;
+        let _ = child.wait().await;
+        if bytes.len() != length { return Err(Failure::Read); }
+        Ok(bytes)
+    };
+    tokio::time::timeout(Duration::from_secs(25), operation).await
+        .map_err(|_| Failure::Unavailable)?
+}
+
 pub(crate) async fn run_with_timeout(
     name: &str,
     args: &[&str],

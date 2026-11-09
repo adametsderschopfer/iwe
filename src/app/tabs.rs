@@ -4,6 +4,7 @@ use super::{App, Message};
 use crate::{
     domain::{
         Failure,
+        changes::TextCursor,
         repository::{ChangedFile, Commit},
         workspace::DiffView,
     },
@@ -38,15 +39,34 @@ impl Source {
     }
 
     async fn read(self) -> Result<Document, Failure> {
-        let text = match self {
-            Self::Working { root, path } => repository::working_text(root, path).await?,
+        let text = match self.clone() {
+            Self::Working { root, path } => repository::working_text(root, path).await,
             Self::Commit { root, commit, file } => {
-                repository::commit_text(root, *commit, file).await?
+                repository::commit_text(root, *commit, file).await
             }
+        };
+        let text = match text {
+            Ok(text) => text,
+            Err(Failure::TooLarge) => return self.read_page(TextCursor::default(), None).await,
+            Err(error) => return Err(error),
         };
         tokio::task::spawn_blocking(move || Document::plain(text))
             .await
             .map_err(|_| Failure::Read)
+    }
+
+    async fn read_page(self, cursor: TextCursor, version: Option<(u64, u128)>) -> Result<Document, Failure> {
+        let (text, page) = match self {
+            Self::Working { root, path } => repository::working_page(root, path, cursor, version).await?,
+            Self::Commit { root, commit, file } => {
+                let revision = if file.status == 'D' {
+                    commit.parents.first().cloned().ok_or(Failure::Read)?
+                } else { commit.id };
+                repository::blob_page(root, revision, file.path, cursor).await?
+            }
+        };
+        tokio::task::spawn_blocking(move || Document::plain(text).with_page(Some(page)))
+            .await.map_err(|_| Failure::Read)
     }
 
     async fn compare(self, document: Arc<Document>) -> Result<Document, Failure> {
@@ -74,6 +94,9 @@ pub(crate) enum Preparation {
     Changes,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum PageDirection { Previous, Next, Refresh }
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Preview {
     pub id: u64,
@@ -92,6 +115,7 @@ pub(crate) struct Preview {
     unfolded_scroll: (f32, f32),
     diff_unfolded_scroll: ([f32; 2], f32),
     source: Option<Source>,
+    page_history: Vec<TextCursor>,
 }
 
 pub(crate) struct State {
@@ -214,6 +238,50 @@ impl App {
         })
     }
 
+    pub(super) fn reload_large_preview(&mut self, id: u64) -> Task<Message> {
+        if self.preview().id != id { return Task::none(); }
+        let Some(source) = self.preview().source.clone() else { return Task::none(); };
+        self.file_request += 1;
+        let request = self.file_request;
+        let preview = &mut self.tabs.files[self.tabs.active];
+        preview.id = request;
+        preview.loading = true;
+        preview.preparation = Preparation::Text;
+        preview.error = None;
+        self.read_preview(request, source)
+    }
+
+    pub(super) fn read_file_part(&mut self, id: u64, direction: PageDirection) -> Task<Message> {
+        if self.preview().id != id || self.preview().loading { return Task::none(); }
+        let Some(page) = self.preview().document.as_ref().and_then(|document| document.page) else {
+            return Task::none();
+        };
+        let preview = &self.tabs.files[self.tabs.active];
+        let cursor = match direction {
+            PageDirection::Next => page.next,
+            PageDirection::Previous => preview.page_history.iter().rev()
+                .find(|cursor| cursor.offset < page.cursor.offset).copied(),
+            PageDirection::Refresh => Some(page.cursor),
+        };
+        let (Some(cursor), Some(source)) = (cursor, preview.source.clone()) else { return Task::none(); };
+        self.file_request += 1;
+        let request = self.file_request;
+        let preview = &mut self.tabs.files[self.tabs.active];
+        if cursor.offset > page.cursor.offset && preview.page_history.last() != Some(&page.cursor) {
+            preview.page_history.push(page.cursor);
+        }
+        preview.id = request;
+        preview.loading = true;
+        preview.preparation = Preparation::Text;
+        preview.error = None;
+        preview.scroll_x = 0.;
+        preview.scroll_y = 0.;
+        let generation = self.generation;
+        Task::perform(source.read_page(cursor, page.version), move |result| {
+            Message::FilePrepared(generation, request, Preparation::Text, result)
+        })
+    }
+
     pub(super) fn continue_preview(
         &mut self,
         id: u64,
@@ -231,6 +299,9 @@ impl App {
             Ok(document) => Arc::new(document),
             Err(error) => return self.finish_preview(id, Err(error)),
         };
+        if let Some(page) = document.page {
+            preview.page_history.retain(|cursor| cursor.offset < page.cursor.offset);
+        }
         let Some(source) = preview.source.clone() else {
             return Task::none();
         };
@@ -244,7 +315,7 @@ impl App {
                 Task::perform(
                     async move {
                         tokio::task::spawn_blocking(move || {
-                            Document::new(document.text.clone(), &extension)
+                            Document::new(document.text.clone(), &extension).with_page(document.page)
                         })
                         .await
                         .map_err(|_| Failure::Read)
@@ -255,6 +326,9 @@ impl App {
                 )
             }
             Preparation::Syntax => {
+                if document.page.is_some() {
+                    return self.finish_preview(id, Ok(Arc::unwrap_or_clone(document)));
+                }
                 preview.preparation = Preparation::Changes;
                 Task::perform(source.compare(document), move |result| {
                     Message::FileLoaded(generation, id, result)

@@ -116,8 +116,21 @@ preferences. No source code is uploaded.
 
 ## Source preview
 
-The viewer displays UTF-8 text up to 512 KiB. Binary and larger files display an explanation. The
-preview cannot edit files. Only visible lines and nearby lines become widgets. The visible range
+The viewer displays UTF-8 text. Files larger than 512 KiB open in parts instead of being rejected.
+Use **Previous part**, **Next part**, and **Refresh** above the text to navigate or reload a part.
+Each part contains at most 512 KiB and 4,096 newline characters. Long lines can continue into the
+next part with the same line number. UTF-8 characters and CRLF pairs remain intact at boundaries.
+Binary content displays an explanation when encountered.
+
+Large working files and historical Git versions use the same part controls. Deleted working files
+can show their last committed contents in parts. Part navigation retains offsets rather than source
+contents. Working files reopen at the first part when their size or modification time changes.
+Large files refresh only through their part controls, not through automatic working-file polling.
+Git comparisons remain unavailable for files opened in parts. Syntax highlighting restarts at each
+part, so multiline constructs can lose their preceding context. Lines longer than 16 KiB use plain
+text to bound syntax work.
+
+The preview cannot edit files. Only visible lines and nearby lines become widgets. The visible range
 follows the panel height. Stable line identities preserve text layout while scrolling. Long lines
 stay unwrapped and use horizontal scrolling.
 

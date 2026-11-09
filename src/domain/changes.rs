@@ -78,3 +78,22 @@ pub(crate) struct Source {
     pub deleted: bool,
     pub comparison_failed: bool,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TextCursor {
+    pub offset: u64,
+    pub line: usize,
+}
+
+impl Default for TextCursor {
+    fn default() -> Self {
+        Self { offset: 0, line: 1 }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TextPage {
+    pub cursor: TextCursor,
+    pub next: Option<TextCursor>,
+    pub version: Option<(u64, u128)>,
+}

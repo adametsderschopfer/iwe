@@ -29,6 +29,7 @@ pub(crate) struct Document {
     pub change_counts: [usize; 3],
     pub fingerprint: [u8; 32],
     pub comparison: Option<comparison::Comparison>,
+    pub page: Option<crate::domain::changes::TextPage>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,6 +80,7 @@ impl Document {
             comparison_failed: false,
             change_counts: [0; 3],
             comparison: None,
+            page: None,
         }
     }
 
@@ -98,6 +100,9 @@ impl Document {
             .map(|line| {
                 let line = line.replace('\t', "    ");
                 columns = columns.max(line.chars().count());
+                if line.len() > 16 * 1024 {
+                    return vec![(line, syntax::TEXT)];
+                }
                 let highlights = highlighter
                     .highlight_line(&line, &SYNTAXES)
                     .map(|spans| {
@@ -133,7 +138,18 @@ impl Document {
             comparison_failed: false,
             change_counts: [0; 3],
             comparison: None,
+            page: None,
         }
+    }
+
+    pub(crate) fn with_page(mut self, page: Option<crate::domain::changes::TextPage>) -> Self {
+        if let Some(page) = page {
+            for line in &mut self.line_info {
+                line.number += page.cursor.line.saturating_sub(1);
+            }
+        }
+        self.page = page;
+        self
     }
 
     pub(crate) fn from_source(source: Source, extension: &str) -> Self {

@@ -1394,10 +1394,36 @@ fn preview(app: &App) -> Element<'_, Message> {
                 .style(theme::source_progress)
         ]
         .height(Length::Fill);
-        column![file_tabs(app), content].height(Length::Fill).into()
+        column![file_tabs(app), file_part_controls(app), content].height(Length::Fill).into()
     } else {
         content
     }
+}
+
+fn file_part_controls(app: &App) -> Element<'_, Message> {
+    let Some(page) = app.preview().document.as_ref().and_then(|document| document.page) else {
+        return Column::new().into();
+    };
+    let id = app.preview().id;
+    let ready = !app.preview().loading;
+    use crate::app::tabs::PageDirection;
+    let control = |key, direction, enabled| {
+        button(text(app.i18n.text(key)).size(12))
+            .on_press_maybe((ready && enabled).then_some(Message::ReadFilePart(id, direction)))
+            .padding([6, 8])
+            .style(theme::action(false))
+    };
+    container(column![
+        text(app.i18n.text(Key::FilePartsNotice)).size(12).style(theme::MUTED.text()),
+        row![
+            control(Key::PreviousFilePart, PageDirection::Previous, page.cursor.offset > 0),
+            control(Key::NextFilePart, PageDirection::Next, page.next.is_some()),
+            control(Key::Refresh, PageDirection::Refresh, true),
+        ].spacing(4),
+    ].spacing(4))
+    .padding([6, 12])
+    .width(Length::Fill)
+    .into()
 }
 
 pub(super) fn icon_button<'a>(

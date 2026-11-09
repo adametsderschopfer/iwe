@@ -109,6 +109,7 @@ impl App {
                 }
                 match result {
                     Ok(Some(document)) => return self.finish_preview(request, Ok(document)),
+                    Err(Failure::TooLarge) => return self.reload_large_preview(request),
                     result => {
                         if let Some(preview) = self.preview_for_request(request) {
                             preview.error = result.err();
@@ -123,6 +124,7 @@ impl App {
 
     pub(super) fn refresh_preview(&mut self) -> Task<Message> {
         if self.preview().loading
+            || self.preview().document.as_ref().is_some_and(|document| document.page.is_some())
             || self.preview().revision.is_some()
             || self.changes.preview_pending.is_some()
         {

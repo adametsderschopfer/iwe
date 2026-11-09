@@ -279,6 +279,7 @@ pub(crate) enum Message {
     Files(files::Event),
     Worktree(changes::Event),
     OpenFile(PathBuf),
+    ReadFilePart(u64, tabs::PageDirection),
     OpenCommitFile(usize),
     FileLoaded(u64, u64, Result<Document, Failure>),
     FilePrepared(u64, u64, tabs::Preparation, Result<Document, Failure>),
@@ -750,6 +751,7 @@ impl App {
             Message::ToggleFolder(path) => return self.toggle_folder(path),
             Message::Files(event) => return self.update_files(event),
             Message::Worktree(event) => return self.update_changes(event),
+            Message::ReadFilePart(id, direction) => return self.read_file_part(id, direction),
             Message::OpenFile(path) => return self.open_file(path),
             Message::OpenCommitFile(index) => return self.open_commit_file(index),
             Message::FilePrepared(generation, request, stage, result)
