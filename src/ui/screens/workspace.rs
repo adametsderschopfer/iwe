@@ -699,9 +699,9 @@ fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Mes
     context_menu::overlay(
         base,
         *point,
-        iced::Size::new(230., 58.),
+        iced::Size::new(340., 104.),
         move || {
-            container(
+            column![container(
                 button(
                     row![
                         icon(Icon::Pin, theme::MUTED),
@@ -720,7 +720,27 @@ fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Mes
                 .width(Length::Fill)
                 .style(theme::action(false)),
             )
-            .id("toggle-project-pin")
+            .id("toggle-project-pin"),
+            container(
+                button(
+                    row![
+                        icon(Icon::Close, theme::GIT_REMOVED),
+                        text(app.i18n.text(Key::RemoveProjectFromSpace))
+                            .size(14)
+                            .style(theme::GIT_REMOVED.text())
+                            .wrapping(text::Wrapping::None),
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center),
+                )
+                .on_press_maybe((!app.git_actions.pending && !app.picking)
+                    .then_some(Message::RemoveProjectFromSpace))
+                .padding([10, 12])
+                .width(Length::Fill)
+                .style(theme::action(false)),
+            )
+            .id("remove-project-from-space")]
+            .spacing(4)
             .into()
         },
         Message::CloseProjectMenu,

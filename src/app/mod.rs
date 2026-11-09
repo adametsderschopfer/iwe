@@ -258,6 +258,7 @@ pub(crate) enum Message {
     Git(git_actions::Message),
     ProjectMenu(usize, PathBuf, iced::Point),
     TogglePinned,
+    RemoveProjectFromSpace,
     CloseProjectMenu,
     DismissDialog,
     SelectProject(usize, usize),
@@ -430,6 +431,7 @@ impl App {
                 Message::Navigate(_)
                     | Message::SelectSettingsTab(_)
                     | Message::SelectProject(_, _)
+                    | Message::RemoveProjectFromSpace
                     | Message::SelectFilePanel(_)
                     | Message::ToggleFilePanel(_)
                     | Message::ResizeFilePanel(_, _)
@@ -468,6 +470,7 @@ impl App {
                 self.project_menu = Some((space, path, point));
             }
             Message::CloseProjectMenu => self.project_menu = None,
+            Message::RemoveProjectFromSpace => return self.remove_project_from_space(),
             Message::TogglePinned => {
                 if let Some((space, path, _)) = self.project_menu.take()
                     && let Some(project) = self.workspace.spaces.get_mut(space).and_then(|group| {

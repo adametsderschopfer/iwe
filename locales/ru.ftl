@@ -195,6 +195,7 @@ file-count = { $count ->
 pinned-projects = Закреплённые
 pin-project = Закрепить проект
 unpin-project = Открепить проект
+remove-project-from-space = Убрать проект из пространства
 git-fetch-all = Получить все ветки
 git-new-branch = Создать ветку
 git-new-branch-from = Создать ветку от «{ $branch }»

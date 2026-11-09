@@ -194,6 +194,7 @@ file-count = { $count ->
 pinned-projects = Fijados
 pin-project = Fijar proyecto
 unpin-project = Desfijar proyecto
+remove-project-from-space = Quitar proyecto del espacio
 git-fetch-all = Obtener todos los remotos
 git-new-branch = Nueva rama
 git-new-branch-from = Nueva rama desde «{ $branch }»

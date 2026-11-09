@@ -81,6 +81,7 @@ message_keys! {
     PinnedProjects => "pinned-projects",
     PinProject => "pin-project",
     UnpinProject => "unpin-project",
+    RemoveProjectFromSpace => "remove-project-from-space",
     GitFetchAll => "git-fetch-all",
     GitNewBranch => "git-new-branch",
     GitNewBranchFrom => "git-new-branch-from",

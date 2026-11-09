@@ -15,6 +15,12 @@ add project folders, or remove projects, then choose **Save changes**. Cancel ke
 unchanged. Removing a project only detaches its folder. The application never deletes the folder.
 The header shows the selected space. The files view shows **Space • Project**.
 
+Right-click a project and choose the red **Remove project from space** action to detach it immediately.
+The action appears below **Pin project** or **Unpin project** and also works in the pinned list.
+It removes only that space's project entry and saves the change. Project files remain on disk.
+Other spaces retain their entries for the same directory. Removing the active project selects another
+available project or returns to the empty workspace.
+
 On Windows, the application header replaces the system title bar. Its right-hand buttons minimize,
 maximize or restore, and close the window. Drag empty header space to move the window. Double-click
 empty header space to maximize or restore it. Drag any edge or corner to resize a restored window.
