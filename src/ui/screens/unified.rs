@@ -1,5 +1,6 @@
 //! Compose a unified comparison with both source line numbers and compact fold separators.
 
+use crate::ui::tooltip;
 use crate::{
     app::{App, Message},
     i18n::{FluentArgs, Key},
@@ -13,7 +14,7 @@ use iced::{
     widget::{
         Row, button,
         canvas::{self, Frame, Geometry, Path, Stroke},
-        container, rich_text, row, space, text, tooltip,
+        container, rich_text, row, space, text,
     },
 };
 use std::ops::Range;
@@ -122,19 +123,16 @@ pub(super) fn fold<'a>(
     let separator = canvas::Canvas::new(FoldSeparator)
         .width(Length::Fill)
         .height(height);
-    container(
-        tooltip(
-            button(separator)
-                .width(Length::Fill)
-                .height(height)
-                .padding(0)
-                .style(theme::fold_row)
-                .on_press(Message::ExpandUnchanged(app.preview().id, range.clone())),
-            text(hint).size(12),
-            tooltip::Position::FollowCursor,
-        )
-        .style(theme::tooltip),
-    )
+    container(tooltip::view(
+        button(separator)
+            .width(Length::Fill)
+            .height(height)
+            .padding(0)
+            .style(theme::fold_row)
+            .on_press(Message::ExpandUnchanged(app.preview().id, range.clone())),
+        text(hint).size(12),
+        tooltip::Position::FollowCursor,
+    ))
     .id(format!("unchanged-{}-{}", app.preview().id, range.start))
     .width(Length::Fill)
     .into()

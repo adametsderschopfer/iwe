@@ -1,4 +1,5 @@
 use super::{auth, diff, git, git_actions, pipelines, settings, unified};
+use crate::ui::tooltip;
 use crate::{
     app::{App, Message, Navigation, Panel, error_key},
     domain::workspace::{DiffView, Preferences},
@@ -13,7 +14,7 @@ use iced::{
     Alignment, Element, Font, Length,
     widget::{
         self, Column, Row, button, column, container, mouse_area, pane_grid, responsive, rich_text,
-        row, scrollable, space, text, tooltip,
+        row, scrollable, space, text,
     },
 };
 use std::path::Path;
@@ -186,27 +187,24 @@ fn footer(app: &App) -> Element<'_, Message> {
         .or(app.workspace.directory())
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| app.i18n.text(Key::LocalWorkspace));
-    let mut content = row![
-        tooltip(
-            container(
-                button(
-                    text(short_path(&path, 100))
-                        .size(12)
-                        .style(theme::FAINT.text())
-                        .wrapping(text::Wrapping::None)
-                )
-                .on_press(Message::CopyPath)
-                .padding([4, 8])
-                .width(Length::Fill)
-                .style(theme::action(false))
+    let mut content = row![tooltip::view(
+        container(
+            button(
+                text(short_path(&path, 100))
+                    .size(12)
+                    .style(theme::FAINT.text())
+                    .wrapping(text::Wrapping::None)
             )
-            .id("footer-path")
-            .width(Length::Fill),
-            text(format!("{}\n{}", path, app.i18n.text(Key::CopyPath))).size(12),
-            tooltip::Position::Top
+            .on_press(Message::CopyPath)
+            .padding([4, 8])
+            .width(Length::Fill)
+            .style(theme::action(false))
         )
-        .style(theme::tooltip),
-    ]
+        .id("footer-path")
+        .width(Length::Fill),
+        text(format!("{}\n{}", path, app.i18n.text(Key::CopyPath))).size(12),
+        tooltip::Position::Top
+    ),]
     .spacing(16);
     if app.loading {
         content = content.push(
@@ -226,7 +224,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                     .size(13)
                     .style(theme::FAINT.text())
                     .width(Length::Fill),
-                tooltip(
+                tooltip::view(
                     container(
                         button(icon(Icon::Plus, theme::MUTED))
                             .padding(4)
@@ -241,8 +239,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                     .id("new-space"),
                     text(app.i18n.text(Key::NewSpace)).size(12),
                     tooltip::Position::Right,
-                )
-                .style(theme::tooltip),
+                ),
             ]
             .align_y(Alignment::Center)
             .spacing(8),
@@ -314,7 +311,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                         .width(Length::Fill)
                         .on_press(Message::ToggleSpace(space_index))
                         .style(theme::action(false)),
-                        tooltip(
+                        tooltip::view(
                             container(
                                 button(icon(Icon::Settings, theme::FAINT))
                                     .padding(6)
@@ -328,8 +325,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                             .id(format!("edit-space-{space_index}")),
                             text(app.i18n.text(Key::EditSpace)).size(12),
                             tooltip::Position::Right
-                        )
-                        .style(theme::tooltip),
+                        ),
                     ]
                     .spacing(4)
                     .align_y(Alignment::Center),
@@ -494,32 +490,29 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
             FilePanel::Project => (Icon::Folder, Key::ProjectFiles, "file-panel-project"),
             FilePanel::Changes => (Icon::Changes, Key::WorkingChanges, "file-panel-changes"),
         };
-        tools = tools.push(
-            tooltip(
-                container(
-                    button(icon(symbol, theme::MUTED))
-                        .on_press(Message::ToggleFilePanel(*panel))
-                        .width(theme::FILE_PANEL_TOOL_SIZE)
-                        .height(theme::FILE_PANEL_TOOL_SIZE)
-                        .padding(10)
-                        .style(theme::action(
-                            app.file_panel_visible && app.file_panel == *panel,
-                        )),
-                )
-                .id(id),
-                text(
-                    app.i18n
-                        .text(if app.file_panel_visible && app.file_panel == *panel {
-                            Key::HidePanel
-                        } else {
-                            label
-                        }),
-                )
-                .size(12),
-                tooltip::Position::Right,
+        tools = tools.push(tooltip::view(
+            container(
+                button(icon(symbol, theme::MUTED))
+                    .on_press(Message::ToggleFilePanel(*panel))
+                    .width(theme::FILE_PANEL_TOOL_SIZE)
+                    .height(theme::FILE_PANEL_TOOL_SIZE)
+                    .padding(10)
+                    .style(theme::action(
+                        app.file_panel_visible && app.file_panel == *panel,
+                    )),
             )
-            .style(theme::tooltip),
-        );
+            .id(id),
+            text(
+                app.i18n
+                    .text(if app.file_panel_visible && app.file_panel == *panel {
+                        Key::HidePanel
+                    } else {
+                        label
+                    }),
+            )
+            .size(12),
+            tooltip::Position::Right,
+        ));
     }
     let tools = container(reorder::fixed_column(tools, Message::MoveFilePanel))
         .padding(theme::FILE_PANEL_TOOL_INSET)
@@ -620,7 +613,7 @@ fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element
                 .style(theme::FAINT.text()),
         );
     }
-    let entry = tooltip(
+    let entry = tooltip::view(
         container(
             button(
                 row![
@@ -642,8 +635,7 @@ fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element
         .width(Length::Fill),
         text(project.directory.to_string_lossy().into_owned()).size(12),
         tooltip::Position::Right,
-    )
-    .style(theme::tooltip);
+    );
     let path = project.directory.clone();
     context_menu::trigger(entry, move |point| {
         Message::ProjectMenu(space_index, path.clone(), point)
@@ -847,23 +839,20 @@ fn file_tree<'a>(
                 hint.push('\n');
                 hint.push_str(&app.i18n.text(changed_tree::status_key(status)));
             }
-            body = body.push(
-                tooltip(
-                    container(
-                        button(item)
-                            .on_press(event)
-                            .height(theme::FILE_TREE_ROW_HEIGHT)
-                            .padding([0, 6])
-                            .width(Length::Fill)
-                            .style(theme::tree_item(active)),
-                    )
-                    .id(format!("file-tree-{}", entry.path.to_string_lossy()))
-                    .width(Length::Fill),
-                    text(hint).size(12),
-                    tooltip::Position::Right,
+            body = body.push(tooltip::view(
+                container(
+                    button(item)
+                        .on_press(event)
+                        .height(theme::FILE_TREE_ROW_HEIGHT)
+                        .padding([0, 6])
+                        .width(Length::Fill)
+                        .style(theme::tree_item(active)),
                 )
-                .style(theme::tooltip),
-            );
+                .id(format!("file-tree-{}", entry.path.to_string_lossy()))
+                .width(Length::Fill),
+                text(hint).size(12),
+                tooltip::Position::Right,
+            ));
             if entry.directory && expanded {
                 body = file_tree(app, &entry.path, depth + 1, body);
             }
@@ -923,7 +912,7 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
             {
                 description.push_str(&format!("\n{}", app.i18n.text(Key::ComparisonFailed)));
             }
-            let select = tooltip(
+            let select = tooltip::view(
                 container(
                     button(
                         row![
@@ -944,9 +933,8 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                 .width(Length::Fill),
                 text(description).size(12),
                 tooltip::Position::Bottom,
-            )
-            .style(theme::tooltip);
-            let close = tooltip(
+            );
+            let close = tooltip::view(
                 container(
                     button(icon(Icon::Close, theme::FAINT))
                         .on_press(Message::CloseTab(preview.id))
@@ -958,8 +946,7 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                 .id(format!("close-file-tab-{}", preview.id)),
                 text(app.i18n.text(Key::CloseTab)).size(12),
                 tooltip::Position::Bottom,
-            )
-            .style(theme::tooltip);
+            );
             mouse_area(
                 container(column![
                     row![select, close, space().width(4)].align_y(Alignment::Center),
@@ -995,34 +982,31 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
     {
         let split = app.workspace.preferences.diff_view == DiffView::SideBySide;
         bar = bar.push(
-            container(
-                tooltip(
-                    button(
-                        container(icon(
-                            if split {
-                                Icon::UnifiedDiff
-                            } else {
-                                Icon::SplitDiff
-                            },
-                            theme::MUTED,
-                        ))
-                        .center(Length::Fill),
-                    )
-                    .padding(8)
-                    .width(36)
-                    .height(theme::FILE_TABS_HEIGHT)
-                    .style(theme::icon_action(split))
-                    .on_press(Message::ToggleDiffView(app.preview().id)),
-                    text(app.i18n.text(if split {
-                        Key::DiffUnified
-                    } else {
-                        Key::DiffSideBySide
-                    }))
-                    .size(12),
-                    tooltip::Position::Bottom,
+            container(tooltip::view(
+                button(
+                    container(icon(
+                        if split {
+                            Icon::UnifiedDiff
+                        } else {
+                            Icon::SplitDiff
+                        },
+                        theme::MUTED,
+                    ))
+                    .center(Length::Fill),
                 )
-                .style(theme::tooltip),
-            )
+                .padding(8)
+                .width(36)
+                .height(theme::FILE_TABS_HEIGHT)
+                .style(theme::icon_action(split))
+                .on_press(Message::ToggleDiffView(app.preview().id)),
+                text(app.i18n.text(if split {
+                    Key::DiffUnified
+                } else {
+                    Key::DiffSideBySide
+                }))
+                .size(12),
+                tooltip::Position::Bottom,
+            ))
             .id("toggle-diff-view"),
         );
     }
@@ -1036,34 +1020,31 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
     {
         let collapsed = app.preview().folding.collapsed;
         bar = bar.push(
-            container(
-                tooltip(
-                    button(
-                        container(icon(
-                            if collapsed {
-                                Icon::ExpandLines
-                            } else {
-                                Icon::CollapseLines
-                            },
-                            theme::MUTED,
-                        ))
-                        .center(Length::Fill),
-                    )
-                    .padding(8)
-                    .width(36)
-                    .height(theme::FILE_TABS_HEIGHT)
-                    .style(theme::icon_action(collapsed))
-                    .on_press(Message::ToggleUnchanged(app.preview().id)),
-                    text(app.i18n.text(if collapsed {
-                        Key::ExpandUnchanged
-                    } else {
-                        Key::CollapseUnchanged
-                    }))
-                    .size(12),
-                    tooltip::Position::Bottom,
+            container(tooltip::view(
+                button(
+                    container(icon(
+                        if collapsed {
+                            Icon::ExpandLines
+                        } else {
+                            Icon::CollapseLines
+                        },
+                        theme::MUTED,
+                    ))
+                    .center(Length::Fill),
                 )
-                .style(theme::tooltip),
-            )
+                .padding(8)
+                .width(36)
+                .height(theme::FILE_TABS_HEIGHT)
+                .style(theme::icon_action(collapsed))
+                .on_press(Message::ToggleUnchanged(app.preview().id)),
+                text(app.i18n.text(if collapsed {
+                    Key::ExpandUnchanged
+                } else {
+                    Key::CollapseUnchanged
+                }))
+                .size(12),
+                tooltip::Position::Bottom,
+            ))
             .id("fold-unchanged"),
         );
     }
@@ -1375,7 +1356,7 @@ pub(super) fn icon_button<'a>(
     message: Message,
     active: bool,
 ) -> Element<'a, Message> {
-    tooltip(
+    tooltip::view(
         button(
             container(icon(
                 symbol,
@@ -1389,8 +1370,6 @@ pub(super) fn icon_button<'a>(
         text(app.i18n.text(label)).size(12),
         tooltip::Position::Bottom,
     )
-    .gap(8)
-    .style(theme::tooltip)
     .into()
 }
 

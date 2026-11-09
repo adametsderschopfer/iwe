@@ -1,3 +1,4 @@
+use crate::ui::tooltip;
 use crate::{
     app::{
         App, Message,
@@ -8,10 +9,7 @@ use crate::{
 };
 use iced::{
     Alignment, Element, Length, Size,
-    widget::{
-        Column, button, column, container, pick_list, row, space, text, text_input, toggler,
-        tooltip,
-    },
+    widget::{Column, button, column, container, pick_list, row, space, text, text_input, toggler},
 };
 
 pub(super) fn label(app: &App, action: Action, branch: &str) -> String {
@@ -70,12 +68,11 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         text(app.i18n.text(action_key(dialog.action)))
             .size(22)
             .font(theme::semibold()),
-        tooltip(
+        tooltip::view(
             ellipsis::text(&dialog.branch.name, 14.),
             text(&dialog.branch.name).size(12),
             tooltip::Position::Bottom
-        )
-        .style(theme::tooltip),
+        ),
     ]
     .spacing(16);
     if app

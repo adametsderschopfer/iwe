@@ -1,4 +1,5 @@
 use super::workspace::{center_message, divider, icon_button, short};
+use crate::ui::tooltip;
 use crate::{
     app::{App, Message, Panel, PipelineState, auth::Message as AuthMessage, error_key},
     domain::{
@@ -15,7 +16,7 @@ use crate::{
 };
 use iced::{
     Alignment, Element, Length,
-    widget::{Column, button, column, container, row, scrollable, space, text, tooltip},
+    widget::{Column, button, column, container, row, scrollable, space, text},
 };
 
 pub(super) fn view(app: &App) -> Element<'_, Message> {
@@ -210,20 +211,17 @@ fn pipeline_row<'a>(app: &'a App, run: &'a Pipeline) -> Element<'a, Message> {
     .spacing(8)
     .align_y(Alignment::Center);
     if let Some(commit) = &run.commit {
-        metadata = metadata.push(
-            tooltip(
-                container(
-                    text(commit.chars().take(8).collect::<String>())
-                        .size(11)
-                        .font(iced::Font::MONOSPACE)
-                        .style(theme::MUTED.text()),
-                )
-                .id(format!("pipeline-commit-{}", run.id)),
-                text(commit).size(12),
-                tooltip::Position::Top,
+        metadata = metadata.push(tooltip::view(
+            container(
+                text(commit.chars().take(8).collect::<String>())
+                    .size(11)
+                    .font(iced::Font::MONOSPACE)
+                    .style(theme::MUTED.text()),
             )
-            .style(theme::tooltip),
-        );
+            .id(format!("pipeline-commit-{}", run.id)),
+            text(commit).size(12),
+            tooltip::Position::Top,
+        ));
     }
     metadata = metadata.push(
         text(short(&run.date.replace('T', " "), 16))
@@ -234,12 +232,11 @@ fn pipeline_row<'a>(app: &'a App, run: &'a Pipeline) -> Element<'a, Message> {
         .spacing(4)
         .width(Length::Fill);
     let summary = row![
-        tooltip(
+        tooltip::view(
             status::badge(Status::from_provider(&run.status), false),
             text(app.i18n.text(status(&run.status).0)).size(12),
             tooltip::Position::Top
-        )
-        .style(theme::tooltip),
+        ),
         info,
     ]
     .spacing(10)

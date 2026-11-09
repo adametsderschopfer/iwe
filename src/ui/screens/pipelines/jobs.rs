@@ -1,4 +1,5 @@
 use super::{center_message, divider, icon_button, short, status};
+use crate::ui::tooltip;
 use crate::{
     app::{App, Message, error_key, jobs::Event},
     domain::{
@@ -15,7 +16,7 @@ use crate::{
 };
 use iced::{
     Alignment, Element, Length,
-    widget::{Column, button, column, container, row, scrollable, space, text, tooltip},
+    widget::{Column, button, column, container, row, scrollable, space, text},
 };
 
 pub(super) fn view(app: &App) -> Element<'_, Message> {
@@ -185,12 +186,11 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                         .size(12)
                         .style(color.text())
                         .width(130),
-                    tooltip(
+                    tooltip::view(
                         container(ellipsis::text(&job.name, 12.)).width(Length::Fill),
                         text(&job.name).size(12),
                         tooltip::Position::Top,
-                    )
-                    .style(theme::tooltip),
+                    ),
                 ]
                 .spacing(10)
                 .align_y(Alignment::Center);

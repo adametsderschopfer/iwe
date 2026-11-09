@@ -15,6 +15,7 @@ settings.
 | `ui/icons.rs`, `ui/file_icons.rs`                     | Draw interface icons and compact file-type symbols                                       |
 | `ui/graph.rs`                                         | Draw commit ancestry                                                                     |
 | `ui/theme/`                                           | Define interface colors, syntax colors, and the native material fallback                 |
+| `ui/tooltip.rs`                                       | Apply shared spacing and styling to hover hints                                          |
 | `i18n/`                                               | Format embedded Fluent translations and recover from missing messages                    |
 | `infrastructure/locale.rs`                            | Read `IWE_LANG` and the system locale                                                    |
 | `infrastructure/workspace.rs`                         | Save workspace metadata and read bounded local previews                                  |

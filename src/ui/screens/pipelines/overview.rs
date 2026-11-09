@@ -1,6 +1,7 @@
 //! Show provider stages or individual GitHub jobs in a compact status chain.
 
 use super::{divider, icon_button, jobs, status};
+use crate::ui::tooltip;
 use crate::{
     app::{
         App, Message, Navigation, PipelineState,
@@ -23,7 +24,7 @@ use crate::{
 };
 use iced::{
     Alignment, Element, Length, Size,
-    widget::{Column, Row, button, column, container, row, scrollable, space, text, tooltip},
+    widget::{Column, Row, button, column, container, row, scrollable, space, text},
 };
 
 fn message(event: Event) -> Message {
@@ -77,12 +78,11 @@ pub(super) fn chain<'a>(app: &'a App, run: &'a Pipeline) -> Element<'a, Message>
         ]
         .spacing(4);
         let node = context_menu::anchored(
-            tooltip(
+            tooltip::view(
                 container(status::badge(value, selected)).id(id),
                 hint,
                 tooltip::Position::Top,
-            )
-            .style(theme::tooltip),
+            ),
             move |point| message(Event::Open(run.id, target.clone(), point)),
         );
         nodes.push(node);
@@ -213,13 +213,12 @@ pub(in crate::ui::screens) fn overlay<'a>(
         Size::new(theme::PIPELINE_POPUP_WIDTH, height),
         move || {
             let heading = row![
-                tooltip(
+                tooltip::view(
                     container(ellipsis::text(title.clone(), 13.)).width(Length::Fill),
                     text(title.clone()).size(12),
                     tooltip::Position::Top
-                )
-                .style(theme::tooltip),
-                tooltip(
+                ),
+                tooltip::view(
                     button(icon(Icon::Refresh, theme::MUTED))
                         .padding(5)
                         .style(theme::icon_action(false))
@@ -229,8 +228,7 @@ pub(in crate::ui::screens) fn overlay<'a>(
                         ),
                     text(app.i18n.text(Key::Refresh)).size(12),
                     tooltip::Position::Top
-                )
-                .style(theme::tooltip),
+                ),
                 icon_button(app, Icon::Close, Key::Dismiss, message(Event::Close), false),
             ]
             .align_y(Alignment::Center)
@@ -295,13 +293,12 @@ fn job_row<'a>(app: &'a App, pipeline: u64, job: &'a Job) -> Element<'a, Message
         .and_then(|remote| remote.provider);
     let value = Status::from_provider(&job.status);
     let mut item = row![
-        tooltip(
+        tooltip::view(
             status::badge(value, false),
             text(app.i18n.text(status::label(value).0)).size(12),
             tooltip::Position::Top
-        )
-        .style(theme::tooltip),
-        tooltip(
+        ),
+        tooltip::view(
             button(ellipsis::text(&job.name, 13.))
                 .width(Length::Fill)
                 .style(theme::action(false))
@@ -309,8 +306,7 @@ fn job_row<'a>(app: &'a App, pipeline: u64, job: &'a Job) -> Element<'a, Message
                 .on_press(Message::OpenUrl(job.url.clone())),
             text(&job.name).size(12),
             tooltip::Position::Top
-        )
-        .style(theme::tooltip),
+        ),
     ]
     .spacing(6)
     .align_y(Alignment::Center);
@@ -320,25 +316,19 @@ fn job_row<'a>(app: &'a App, pipeline: u64, job: &'a Job) -> Element<'a, Message
             JobAction::Retry => Icon::Refresh,
             JobAction::Cancel => Icon::Close,
         };
-        item = item.push(
-            tooltip(
-                container(
-                    button(icon(glyph, theme::MUTED))
-                        .padding(5)
-                        .style(theme::secondary)
-                        .on_press_maybe((!app.job_controls_blocked(pipeline)).then_some(
-                            Message::Jobs(JobsEvent::Control(
-                                pipeline,
-                                Action::Job(job.id, *action),
-                            )),
-                        )),
-                )
-                .id(format!("pipeline-popup-action-{}-{action:?}", job.id)),
-                text(app.i18n.text(jobs::action_label(provider, *action))).size(12),
-                tooltip::Position::Top,
+        item = item.push(tooltip::view(
+            container(
+                button(icon(glyph, theme::MUTED))
+                    .padding(5)
+                    .style(theme::secondary)
+                    .on_press_maybe((!app.job_controls_blocked(pipeline)).then_some(
+                        Message::Jobs(JobsEvent::Control(pipeline, Action::Job(job.id, *action))),
+                    )),
             )
-            .style(theme::tooltip),
-        );
+            .id(format!("pipeline-popup-action-{}-{action:?}", job.id)),
+            text(app.i18n.text(jobs::action_label(provider, *action))).size(12),
+            tooltip::Position::Top,
+        ));
     }
     container(item)
         .height(theme::PIPELINE_JOB_HEIGHT)

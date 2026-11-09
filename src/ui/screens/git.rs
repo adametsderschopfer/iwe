@@ -1,4 +1,5 @@
 use super::workspace::{center_message, divider, icon_button, short};
+use crate::ui::tooltip;
 use crate::{
     app::{App, GitPanel, Message, Panel, error_key},
     domain::repository::{Branch, ReferenceKind, project::BranchKey},
@@ -13,7 +14,7 @@ use iced::{
     Alignment, Element, Font, Length, Size,
     widget::{
         Column, Row, button, column, container, pane_grid, responsive, row, scrollable, space,
-        text, text_input, tooltip,
+        text, text_input,
     },
 };
 
@@ -314,34 +315,31 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                     ]
                     .spacing(7)
                     .align_y(Alignment::Center);
-                    items = items.push(
-                        tooltip(
-                            context_menu::trigger(
-                                container(
-                                    button(line)
-                                        .width(Length::Fill)
-                                        .padding([5, 6])
-                                        .style(theme::action(active))
-                                        .on_press(Message::SelectBranch(key.clone())),
-                                )
-                                .id(if multiple {
-                                    format!("branch-{}-{}", repo.root.display(), branch.reference)
-                                } else {
-                                    format!("branch-{}", branch.reference)
-                                })
-                                .width(Length::Fill),
-                                move |position| {
-                                    Message::Git(crate::app::git_actions::Message::Menu(
-                                        key.clone(),
-                                        position,
-                                    ))
-                                },
-                            ),
-                            text(&branch.name).size(12),
-                            tooltip::Position::Right,
-                        )
-                        .style(theme::tooltip),
-                    );
+                    items = items.push(tooltip::view(
+                        context_menu::trigger(
+                            container(
+                                button(line)
+                                    .width(Length::Fill)
+                                    .padding([5, 6])
+                                    .style(theme::action(active))
+                                    .on_press(Message::SelectBranch(key.clone())),
+                            )
+                            .id(if multiple {
+                                format!("branch-{}-{}", repo.root.display(), branch.reference)
+                            } else {
+                                format!("branch-{}", branch.reference)
+                            })
+                            .width(Length::Fill),
+                            move |position| {
+                                Message::Git(crate::app::git_actions::Message::Menu(
+                                    key.clone(),
+                                    position,
+                                ))
+                            },
+                        ),
+                        text(&branch.name).size(12),
+                        tooltip::Position::Right,
+                    ));
                 }
             }
         }
@@ -400,22 +398,19 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                 .map(|(key, _)| Message::Git(GitMessage::Choose(Action::Push, key.clone()))),
         ),
     ] {
-        tools = tools.push(
-            tooltip(
-                container(
-                    button(container(icon(symbol, theme::MUTED)).center(Length::Fill))
-                        .width(tool_size)
-                        .height(theme::BRANCH_TOOL_SIZE)
-                        .padding(0)
-                        .style(theme::action(false))
-                        .on_press_maybe(message.filter(|_| !app.git_actions.pending)),
-                )
-                .id(id),
-                text(app.i18n.text(key)).size(12),
-                tooltip::Position::Right,
+        tools = tools.push(tooltip::view(
+            container(
+                button(container(icon(symbol, theme::MUTED)).center(Length::Fill))
+                    .width(tool_size)
+                    .height(theme::BRANCH_TOOL_SIZE)
+                    .padding(0)
+                    .style(theme::action(false))
+                    .on_press_maybe(message.filter(|_| !app.git_actions.pending)),
             )
-            .style(theme::tooltip),
-        );
+            .id(id),
+            text(app.i18n.text(key)).size(12),
+            tooltip::Position::Right,
+        ));
     }
     let header = container(
         column![
@@ -562,28 +557,25 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                 .iter()
                 .position(|member| member.root == entry.root)
                 .unwrap_or_default();
-            subject = subject.push(
-                tooltip(
-                    container(ellipsis::text(
-                        entry
-                            .root
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .into_owned(),
-                        10.,
-                    ))
-                    .width(78)
-                    .padding([2, 5])
-                    .style(move |theme| iced::widget::container::Style {
-                        text_color: Some(theme::repository_color(index).resolve(theme)),
-                        ..theme::badge(theme)
-                    }),
-                    text(entry.root.display().to_string()).size(12),
-                    tooltip::Position::Top,
-                )
-                .style(theme::tooltip),
-            );
+            subject = subject.push(tooltip::view(
+                container(ellipsis::text(
+                    entry
+                        .root
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                    10.,
+                ))
+                .width(78)
+                .padding([2, 5])
+                .style(move |theme| iced::widget::container::Style {
+                    text_color: Some(theme::repository_color(index).resolve(theme)),
+                    ..theme::badge(theme)
+                }),
+                text(entry.root.display().to_string()).size(12),
+                tooltip::Position::Top,
+            ));
         }
         if !active.is_empty() {
             let running = active
@@ -596,18 +588,15 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                     .text(if running { Key::Running } else { Key::Pending }),
                 active.len()
             );
-            subject = subject.push(
-                tooltip(
-                    container(icon(
-                        Icon::Play,
-                        if running { theme::GREEN } else { theme::YELLOW },
-                    ))
-                    .id(format!("commit-pipeline-{}", commit.id)),
-                    text(description).size(12),
-                    tooltip::Position::Top,
-                )
-                .style(theme::tooltip),
-            );
+            subject = subject.push(tooltip::view(
+                container(icon(
+                    Icon::Play,
+                    if running { theme::GREEN } else { theme::YELLOW },
+                ))
+                .id(format!("commit-pipeline-{}", commit.id)),
+                text(description).size(12),
+                tooltip::Position::Top,
+            ));
         }
         let mut subject = subject
             .push(ellipsis::text(&commit.subject, 13.))
@@ -643,22 +632,19 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
         .spacing(8)
         .align_y(Alignment::Center)
         .height(30);
-        rows = rows.push(
-            tooltip(
-                button(item)
-                    .on_press(Message::SelectCommit(key))
-                    .width(Length::Fill)
-                    .padding([0, 6])
-                    .style(theme::action(selected)),
-                text(format!(
-                    "{}\n{} · {}",
-                    commit.subject, commit.author, commit.id
-                ))
-                .size(12),
-                tooltip::Position::Bottom,
-            )
-            .style(theme::tooltip),
-        );
+        rows = rows.push(tooltip::view(
+            button(item)
+                .on_press(Message::SelectCommit(key))
+                .width(Length::Fill)
+                .padding([0, 6])
+                .style(theme::action(selected)),
+            text(format!(
+                "{}\n{} · {}",
+                commit.subject, commit.author, commit.id
+            ))
+            .size(12),
+            tooltip::Position::Bottom,
+        ));
     }
     rows = rows.push(space().height((matching.len() - end) as f32 * 30.));
     let heading = row![
@@ -769,19 +755,16 @@ fn changed_files_content(app: &App, height: f32) -> Element<'_, Message> {
         text(app.changed_files.len())
             .size(11)
             .style(theme::FAINT.text()),
-        container(
-            tooltip(
-                button(icon(Icon::Close, theme::MUTED))
-                    .padding(4)
-                    .width(28)
-                    .height(28)
-                    .style(theme::action(false))
-                    .on_press(Message::CloseCommitFiles),
-                text(app.i18n.text(Key::HidePanel)).size(12),
-                tooltip::Position::Left,
-            )
-            .style(theme::tooltip)
-        )
+        container(tooltip::view(
+            button(icon(Icon::Close, theme::MUTED))
+                .padding(4)
+                .width(28)
+                .height(28)
+                .style(theme::action(false))
+                .on_press(Message::CloseCommitFiles),
+            text(app.i18n.text(Key::HidePanel)).size(12),
+            tooltip::Position::Left,
+        ))
         .id("close-commit-files"),
     ]
     .spacing(8)

@@ -1,5 +1,6 @@
 //! Show operation results above the workspace without changing its layout.
 
+use crate::ui::tooltip;
 use crate::{
     app::notifications::{Event, Kind, State},
     i18n::{I18n, Key},
@@ -11,7 +12,7 @@ use crate::{
 };
 use iced::{
     Alignment, Element, Length,
-    widget::{Column, button, column, container, mouse_area, opaque, row, stack, text, tooltip},
+    widget::{Column, button, column, container, mouse_area, opaque, row, stack, text},
 };
 
 pub(crate) fn overlay<'a, Message: Clone + 'a>(
@@ -31,21 +32,16 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
         };
         let mut content = column![text(i18n.text(item.message)).size(13)].spacing(6);
         if let Some(context) = &item.context {
-            content = content.push(
-                tooltip(
-                    container(ellipsis::text(context.as_str(), 12.)).style(|theme| {
-                        container::Style {
-                            text_color: Some(theme::MUTED.resolve(theme)),
-                            ..Default::default()
-                        }
-                    }),
-                    text(context).size(12),
-                    tooltip::Position::Top,
-                )
-                .style(theme::tooltip),
-            );
+            content = content.push(tooltip::view(
+                container(ellipsis::text(context.as_str(), 12.)).style(|theme| container::Style {
+                    text_color: Some(theme::MUTED.resolve(theme)),
+                    ..Default::default()
+                }),
+                text(context).size(12),
+                tooltip::Position::Top,
+            ));
         }
-        let close = tooltip(
+        let close = tooltip::view(
             container(
                 button(icon(Icon::Close, theme::MUTED))
                     .padding(3)
@@ -55,8 +51,7 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
             .id(format!("notification-close-{}", item.id)),
             text(i18n.text(Key::Dismiss)).size(12),
             tooltip::Position::Top,
-        )
-        .style(theme::tooltip);
+        );
         items = items.push(
             container(
                 row![icon(symbol, tone), content.width(Length::Fill), close]

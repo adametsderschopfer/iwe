@@ -512,7 +512,10 @@ where
 
                     Vector::new(
                         self.cursor_position.x,
-                        self.cursor_position.y - text_bounds.height,
+                        self.cursor_position.y
+                            - text_bounds.height
+                            - self.gap
+                            - self.padding,
                     ) + translation
                 }
             };

@@ -13,3 +13,4 @@ pub(crate) mod reorder;
 pub(crate) mod resize;
 pub(crate) mod screens;
 pub(crate) mod theme;
+pub(crate) mod tooltip;

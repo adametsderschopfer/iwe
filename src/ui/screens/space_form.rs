@@ -2,6 +2,7 @@ use super::{
     modal,
     workspace::{short, short_path},
 };
+use crate::ui::tooltip;
 use crate::{
     app::{App, Message, spaces},
     i18n::Key,
@@ -12,9 +13,7 @@ use crate::{
 };
 use iced::{
     Alignment, Element, Length,
-    widget::{
-        Column, button, column, container, row, scrollable, space, text, text_input, tooltip,
-    },
+    widget::{Column, button, column, container, row, scrollable, space, text, text_input},
 };
 
 pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Message> {
@@ -62,7 +61,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                 .file_name()
                 .unwrap_or(directory.as_os_str())
                 .to_string_lossy();
-            let remove = tooltip(
+            let remove = tooltip::view(
                 container(
                     button(icon(Icon::Close, theme::MUTED))
                         .padding(8)
@@ -75,8 +74,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                 .id(format!("space-remove-project-{index}")),
                 text(app.i18n.text(Key::RemoveProject)).size(12),
                 tooltip::Position::Bottom,
-            )
-            .style(theme::tooltip);
+            );
             folders = folders.push(
                 container(
                     row![

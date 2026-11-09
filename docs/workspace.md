@@ -34,6 +34,9 @@ available.
 
 Space settings remain at the sidebar's right edge. Project rows contain no separate file button.
 
+Hover hints use a consistent eight-pixel gap from their controls. Cursor-following hints keep the
+same gap above the pointer. Hints remain inside the window near its edges.
+
 Spaces group projects and have no filesystem path. Their sidebar headings do not open a project.
 Each project represents one directory. Its folder name becomes the project name. Use **Add project**
 beneath a space to attach another folder. Selecting a project opens its files and Git history.

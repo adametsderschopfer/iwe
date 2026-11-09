@@ -1,13 +1,14 @@
 //! Display changed files with compact folders, file counts, and status colors.
 
 use super::{file_icons, theme};
+use crate::ui::tooltip;
 use crate::{
     domain::changes::FileStatus,
     i18n::{FluentArgs, I18n, Key},
 };
 use iced::{
     Alignment, Element, Length,
-    widget::{Column, button, row, space, text, tooltip},
+    widget::{Column, button, row, space, text},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -139,18 +140,15 @@ fn rows<'a, Message: Clone + 'a>(
         .spacing(4)
         .align_y(Alignment::Center)
         .height(theme::FILE_TREE_ROW_HEIGHT);
-        result = result.push(
-            tooltip(
-                button(label)
-                    .on_press(entry.open)
-                    .padding([0, 4])
-                    .style(theme::tree_item(false))
-                    .width(Length::Shrink),
-                text(format!("{}\n{}", entry.path, i18n.text(key))).size(12),
-                tooltip::Position::Bottom,
-            )
-            .style(theme::tooltip),
-        );
+        result = result.push(tooltip::view(
+            button(label)
+                .on_press(entry.open)
+                .padding([0, 4])
+                .style(theme::tree_item(false))
+                .width(Length::Shrink),
+            text(format!("{}\n{}", entry.path, i18n.text(key))).size(12),
+            tooltip::Position::Bottom,
+        ));
     }
     result
 }
