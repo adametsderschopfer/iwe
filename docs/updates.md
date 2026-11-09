@@ -1,7 +1,8 @@
 # Application updates
 
 IWE Code checks GitHub Releases at startup and every six hours. Checks never use repository accounts
-or tokens. Only stable versions newer than the running version qualify. Failed checks stop until
+or tokens. It selects stable releases for the current operating system, with shared releases as a
+compatibility fallback. Only versions newer than the running version qualify. Failed checks stop until
 another scheduled or explicit check. Open **Settings → About** to check manually.
 
 A download row with a dark blue icon appears near the sidebar settings button when an update becomes
@@ -24,8 +25,9 @@ updater accepts HTTPS redirects only to GitHub API, release, and asset hosts. It
 provider credentials. Metadata reads have size limits and a 45-second combined deadline. Downloads
 have a five-minute deadline and a 512 MiB maximum.
 
-Every release includes `updates.json`, its Ed25519 signature `updates.sig`, and six dedicated update
-archives. The embedded public key verifies the manifest before version or package data becomes
+Each platform release includes `updates.json`, its Ed25519 signature `updates.sig`, and two update
+archives for that operating system. Shared migration releases contain six archives. The embedded
+public key verifies the manifest before version or package data becomes
 trusted. The signed manifest identifies each package's version, platform, byte size, and SHA-256
 digest. The updater verifies package bytes before extraction and repeats verification immediately
 before installation. Archives may contain only regular files and directories beneath the expected
@@ -51,8 +53,20 @@ background cleanup deletes unrelated application directories.
 
 ## Release signing
 
-The publication job signs the manifest only after every platform package passes the existing CI
-prerequisites. Only the publication step receives the repository secret `IWE_UPDATE_SIGNING_KEY`.
+Platform tags use `macos-vVERSION`, `windows-vVERSION`, or `linux-vVERSION`. Their numeric version
+must match Cargo.toml. The updater reads at most three pages of 100 GitHub releases and selects the
+highest eligible version. Equal versions prefer a platform release over a shared release. Drafts,
+prereleases, unrelated tags, and other operating systems do not qualify. List responses are bounded
+to 4 MiB per page and share the existing 45-second metadata deadline.
+
+Older updater versions only understand the shared Latest release and six-archive manifests.
+Publish one shared migration release containing this updater before relying on platform-only tags.
+Platform releases do not replace that shared Latest release. Older installations can receive the
+migration release, then discover subsequent platform releases. Existing published releases remain unchanged.
+
+The publication job signs the manifest only after its selected platform packages pass their CI
+prerequisites. Shared release tags still require every platform. Only the publication step receives
+the repository secret `IWE_UPDATE_SIGNING_KEY`.
 That secret contains an Ed25519 private key in PEM format. Keep its backup outside the repository.
 `assets/update-public-key.bin` contains the matching 32-byte public key. The signing script rejects
 a private key that does not match the embedded public key. Missing or invalid signing configuration
@@ -60,7 +74,8 @@ prevents publication. Unsigned updates are never accepted.
 
 The signing script requires Python 3.11 or newer and OpenSSL with Ed25519 support. Run
 `.github/scripts/sign-updates.py` with `RELEASE_TAG` and `IWE_UPDATE_SIGNING_KEY` after generating
-all six update archives. Never print the private key or place it in command arguments.
+the selected platform's two archives, or all six archives for a shared tag. Never print the private
+key or place it in command arguments.
 
 ## Verification
 

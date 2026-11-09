@@ -13,6 +13,21 @@ concurrency:
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
+  plan:
+    name: Plan / Platform scope
+    runs-on: ubuntu-24.04
+    outputs:
+      platform: ${{ steps.plan.outputs.platform }}
+      checks: ${{ steps.plan.outputs.checks }}
+      targets: ${{ steps.plan.outputs.targets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: plan
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: python3 .github/scripts/release-plan.py
+
   format:
     name: Checks / Formatter
     runs-on: ubuntu-24.04
@@ -42,10 +57,10 @@ jobs:
 
   lint:
     name: Checks / Linter (${{ matrix.os }})
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-24.04]
+      matrix: ${{ fromJSON(needs.plan.outputs.checks) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,10 +71,10 @@ jobs:
 
   typecheck:
     name: Checks / Type checker (${{ matrix.os }})
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-24.04]
+      matrix: ${{ fromJSON(needs.plan.outputs.checks) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -68,29 +83,10 @@ jobs:
 
   unit_tests:
     name: Tests / Unit (${{ matrix.target }})
-    needs: [format, lint, security, typecheck]
+    needs: [plan, format, lint, security, typecheck]
     strategy:
       fail-fast: false
-      matrix:
-        include: &release-platforms
-          - os: macos-15
-            target: aarch64-apple-darwin
-            platform: macos-arm64
-          - os: macos-15-intel
-            target: x86_64-apple-darwin
-            platform: macos-x64
-          - os: windows-2022
-            target: x86_64-pc-windows-msvc
-            platform: windows-x64
-          - os: windows-2022
-            target: i686-pc-windows-msvc
-            platform: windows-x86
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            platform: linux-x64
-          - os: ubuntu-22.04
-            target: i686-unknown-linux-gnu
-            platform: linux-x86
+      matrix: ${{ fromJSON(needs.plan.outputs.targets) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -101,11 +97,10 @@ jobs:
 
   integration_tests:
     name: Tests / Integration (${{ matrix.os }})
-    needs: [format, lint, security, typecheck]
+    needs: [plan, format, lint, security, typecheck]
     strategy:
       fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-24.04]
+      matrix: ${{ fromJSON(needs.plan.outputs.checks) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -133,11 +128,10 @@ jobs:
 
   build:
     name: Build / Release (${{ matrix.platform }})
-    needs: [unit_tests, integration_tests]
+    needs: [plan, unit_tests, integration_tests]
     strategy:
       fail-fast: false
-      matrix:
-        include: *release-platforms
+      matrix: ${{ fromJSON(needs.plan.outputs.targets) }}
     runs-on: ${{ matrix.os }}
     env:
       BUILD_TARGET: ${{ matrix.target }}
@@ -188,8 +182,8 @@ jobs:
 
   windows_package:
     name: Build / Windows installer (${{ matrix.platform }})
-    if: github.ref_type == 'tag'
-    needs: build
+    if: github.ref_type == 'tag' && (needs.plan.outputs.platform == 'all' || needs.plan.outputs.platform == 'windows')
+    needs: [plan, build]
     runs-on: windows-2022
     environment: windows-signing
     permissions:
@@ -248,8 +242,13 @@ jobs:
 
   publish:
     name: Publish / GitHub Release
-    if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, windows_package]
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' &&
+      needs.plan.result == 'success' && needs.build.result == 'success' &&
+      (needs.windows_package.result == 'success' ||
+      (needs.plan.outputs.platform != 'all' && needs.plan.outputs.platform != 'windows' &&
+      needs.windows_package.result == 'skipped')) }}
+    needs: [plan, build, windows_package]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -257,6 +256,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_PLATFORM: ${{ needs.plan.outputs.platform }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

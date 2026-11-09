@@ -42,7 +42,9 @@ CI runs checks, tests, and release builds in sequential stages. Keep formatter, 
 checker, and dependency security in separate jobs within the checks stage. Require all checks to
 succeed before starting test jobs. Keep unit and integration tests in separate jobs within the tests
 stage. Require test jobs to succeed before starting release builds. Keep the macOS, Windows, and
-Linux matrix for lint, type checks, tests, and builds. Formatting and dependency security use
+Linux matrix for lint, type checks, tests, and builds on branches and shared release tags.
+Platform release tags scope those jobs to their operating system and both supported architectures.
+Formatting and dependency security remain mandatory for every platform release and use
 dedicated Linux jobs. Dependency security checks inspect the complete lockfile without platform
 filters. Report missing integration test targets explicitly. Do not present missing tests as passed
 tests. Use `needs` for stage dependencies. Do not use `always()` or `continue-on-error` to bypass

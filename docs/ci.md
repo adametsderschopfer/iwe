@@ -9,7 +9,9 @@ GitHub Actions runs these sequential stages:
 5. GitHub Release publication for version tags.
 
 Clippy, type checks, tests, and builds run on macOS, Windows, and Linux. Unit tests and release
-builds use the same six-target matrix. Integration discovery runs once per operating system.
+builds use the same six-target matrix for ordinary branches and shared release tags. Platform
+release tags scope lint, type checks, tests, and builds to the selected operating system and both
+architectures. Integration discovery runs once per selected operating system.
 Formatting and dependency security checks run on Linux. Each stage requires the preceding stage to
 succeed.
 
@@ -64,18 +66,25 @@ systems can require confirmation when opening downloaded packages.
 
 1. Update the package version in Cargo.toml and refresh Cargo.lock.
 2. Commit the release changes after local checks pass.
-3. Create a matching version tag, such as 0.0.1 or v0.0.1.
-4. Push that tag to GitHub.
+3. Create platform tags, such as `macos-v0.1.12`, `windows-v0.1.12`, and `linux-v0.1.12`.
+4. Push the required platform tags to GitHub. Each tag publishes its own release independently.
 
-The push starts CI for the tagged commit. Every check, test job, and target build must pass before
-publication. Tag versions must match Cargo.toml. Mismatches fail before packaging and publication.
-Tags containing prerelease versions, such as v0.2.0-rc.1, create prereleases. Branch pushes and pull
-requests build all targets without publishing releases. Manual workflow runs on tags create packages
-without publishing them.
+The push starts CI for the tagged commit. Each platform tag requires that platform's checks, tests,
+and two architecture builds before publication. Formatting and dependency security remain mandatory.
+Windows additionally requires both installer packaging jobs. macOS and Linux do not wait for Windows
+packaging. Failed or cancelled prerequisites prevent publication. Tag versions must match Cargo.toml.
+Only stable version tags qualify. Branch pushes and pull requests build all targets without
+publishing releases. Manual workflow runs on tags create packages without publishing them.
 
-The final job downloads eight installation packages and six update archives. It verifies that each
-package exists. It signs the update manifest, adds SHA256SUMS, and creates a release with generated
-release notes. Configure `IWE_UPDATE_SIGNING_KEY` before publishing. See
+All three platform tags use the same application version. A platform can publish later without
+blocking the others. Reuse the same commit for all three tags when releasing identical source.
+Shared tags such as `v0.1.12` remain supported for migration releases covering all six targets.
+
+The final job downloads the selected platform's installation packages and two update archives.
+Shared tags still require eight installation packages and six update archives. The job verifies
+each required package, signs the update manifest, adds SHA256SUMS, and creates a separate release.
+Platform releases include their platform in the title and do not replace GitHub's shared Latest
+release. Configure `IWE_UPDATE_SIGNING_KEY` before publishing. See
 [application updates](updates.md#release-signing) for key handling. Only that job receives contents:
 write permission. Build jobs retain read-only repository access. Existing releases are not
 overwritten. If uploading fails, inspect the remaining draft before retrying publication. Tag
