@@ -13,7 +13,7 @@ const base = useRuntimeConfig().app.baseURL
       :to="locale === 'en' ? '/' : `/${locale}/`"
       :aria-label="messages.nav.home"
     >
-      <img :src="`${base}icon.png`" width="36" height="36" alt="" />
+      <img :src="`${base}icon.webp`" width="36" height="36" alt="" />
       <span>IWE <span class="brand-code">Code</span></span>
     </NuxtLink>
     <nav class="main-nav" :aria-label="messages.nav.features">

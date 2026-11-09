@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -86,6 +86,24 @@ test('all catalogs contain the same nonempty translations and recovery text', ()
     for (const key of ['title', 'description', 'back']) {
       assert.equal(typeof catalog.error?.[key], 'string', `${language} lacks error.${key}`)
       assert.ok(catalog.error[key].trim(), `${language} has empty error.${key}`)
+    }
+  }
+})
+
+test('published bitmap images use WebP throughout every language', () => {
+  assert.ok(existsSync(outputDirectory), 'Run npm run generate before checking published images')
+  const files = readdirSync(outputDirectory, { recursive: true })
+  assert.ok(
+    files.some((file) => String(file).endsWith('.webp')),
+    'The website needs its WebP images',
+  )
+  assert.deepEqual(
+    files.filter((file) => /\.(png|jpe?g|gif|bmp|avif|tiff?|ico)$/i.test(String(file))),
+    [],
+  )
+  for (const { route } of locales) {
+    for (const image of elements(readPage(route), 'img')) {
+      assert.match(new URL(image.src, localOrigin).pathname, /\.webp$/i)
     }
   }
 })

@@ -1,52 +1,127 @@
 <script setup lang="ts">
 import { releases, type Messages } from '~/i18n'
+import {
+  detectPlatform,
+  type DetectedPlatform,
+  type DesktopSystem,
+  type DesktopArchitecture,
+} from '~/utils/platform'
 
 defineProps<{ messages: Messages }>()
 const version = '0.1.11'
 const downloadBase = 'https://github.com/adametsderschopfer/iwe-code/releases/download'
 const platforms = [
   {
+    id: 'macos',
     name: 'macOS',
     icon: 'mac',
     description: 'mac',
     files: [
-      { label: 'Apple Silicon', slug: 'macos-arm64.dmg' },
-      { label: 'Intel', slug: 'macos-x64.dmg' },
+      { label: 'Apple Silicon', slug: 'macos-arm64.dmg', architecture: 'arm64' },
+      { label: 'Intel', slug: 'macos-x64.dmg', architecture: 'x64' },
     ],
   },
   {
+    id: 'windows',
     name: 'Windows',
     icon: 'windows',
     description: 'windows',
     files: [
-      { label: 'x64', slug: 'windows-x64.zip' },
-      { label: 'x86', slug: 'windows-x86.zip' },
+      { label: 'x64', slug: 'windows-x64.zip', architecture: 'x64' },
+      { label: 'x86', slug: 'windows-x86.zip', architecture: 'x86' },
     ],
   },
   {
+    id: 'linux',
     name: 'Linux',
     icon: 'linux',
     description: 'linux',
     files: [
-      { label: 'x64', slug: 'linux-x64.tar.gz' },
-      { label: 'x86', slug: 'linux-x86.tar.gz' },
+      { label: 'x64', slug: 'linux-x64.tar.gz', architecture: 'x64' },
+      { label: 'x86', slug: 'linux-x86.tar.gz', architecture: 'x86' },
     ],
   },
 ] as const
+
+const detected = shallowRef<DetectedPlatform>({ system: undefined, architecture: undefined })
+const orderedPlatforms = computed(() =>
+  [...platforms].sort(
+    (left, right) =>
+      Number(right.id === detected.value.system) - Number(left.id === detected.value.system),
+  ),
+)
+let disposed = false
+
+function isPriority(system: DesktopSystem, architecture: DesktopArchitecture) {
+  if (!detected.value.system) return system === 'macos' && architecture === 'arm64'
+  if (system !== detected.value.system) return false
+  if (detected.value.architecture) return architecture === detected.value.architecture
+  return system === 'macos' && architecture === 'arm64'
+}
+
+onBeforeUnmount(() => {
+  disposed = true
+})
+onMounted(async () => {
+  const browser = navigator as Navigator & {
+    userAgentData?: {
+      platform?: string
+      mobile?: boolean
+      getHighEntropyValues?: (
+        hints: string[],
+      ) => Promise<{ platform?: string; architecture?: string; bitness?: string; mobile?: boolean }>
+    }
+  }
+  const input = {
+    userAgent: browser.userAgent,
+    platform: browser.platform,
+    maxTouchPoints: browser.maxTouchPoints,
+  }
+  const basicHints = {
+    platform: browser.userAgentData?.platform,
+    mobile: browser.userAgentData?.mobile,
+  }
+  detected.value = detectPlatform({ ...input, hints: basicHints })
+  try {
+    const hints = await browser.userAgentData?.getHighEntropyValues?.([
+      'architecture',
+      'bitness',
+      'platform',
+    ])
+    if (hints && !disposed)
+      detected.value = detectPlatform({ ...input, hints: { ...basicHints, ...hints } })
+  } catch {
+    // Keep the platform fallback when the browser withholds architecture information.
+  }
+})
 </script>
 
 <template>
   <section id="download" class="download-section section-space" aria-labelledby="download-title">
-    <div class="download-heading">
+    <ScrollReveal class="download-heading">
       <p class="release-note"><span />{{ messages.download.early }}</p>
       <h2 id="download-title" class="section-title preserve-lines">
         {{ messages.download.title }}
       </h2>
       <p class="section-description">{{ messages.download.description }}</p>
-    </div>
+    </ScrollReveal>
     <div class="platform-list" :aria-label="messages.download.architecture">
-      <article v-for="platform in platforms" :key="platform.name" class="platform">
-        <SiteIcon :name="platform.icon" class="platform-icon" />
+      <ScrollReveal
+        v-for="(platform, index) in orderedPlatforms"
+        :key="platform.name"
+        as="article"
+        class="platform"
+        :class="{ 'platform-detected': detected.system === platform.id }"
+        :data-platform="platform.id"
+        :delay="index * 60"
+      >
+        <div class="platform-top">
+          <SiteIcon :name="platform.icon" class="platform-icon" /><span
+            v-if="detected.system === platform.id"
+            class="detected-badge"
+            ><SiteIcon name="check" />{{ messages.download.detected }}</span
+          >
+        </div>
         <h3>{{ platform.name }}</h3>
         <p>{{ messages.download[platform.description] }}</p>
         <div class="platform-downloads">
@@ -55,10 +130,27 @@ const platforms = [
             :key="file.slug"
             :href="`${downloadBase}/${version}/iwe-${version}-${file.slug}`"
             :aria-label="`${messages.download.download} IWE Code ${platform.name} ${file.label}`"
+            :class="{ 'download-priority': isPriority(platform.id, file.architecture) }"
             >{{ file.label }}<SiteIcon name="download"
           /></a>
         </div>
-      </article>
+        <p
+          v-if="platform.id === 'macos' && (!detected.architecture || !detected.system)"
+          class="platform-hint"
+        >
+          {{ messages.download.siliconHint }}
+        </p>
+        <p
+          v-else-if="
+            platform.id === detected.system &&
+            detected.architecture === 'arm64' &&
+            platform.id !== 'macos'
+          "
+          class="platform-hint"
+        >
+          {{ messages.download.armUnavailable }}
+        </p>
+      </ScrollReveal>
     </div>
     <a class="release-link" :href="releases"
       >{{ messages.download.release }} <SiteIcon name="arrow"
@@ -97,19 +189,38 @@ const platforms = [
 .platform-list {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  max-width: 900px;
+  gap: 14px;
+  max-width: 1000px;
   margin: 60px auto 28px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--surface);
 }
 .platform {
-  padding: 34px;
-  border-right: 1px solid var(--line);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
 }
-.platform:last-child {
-  border: 0;
+.platform-detected {
+  background: #242a1e;
+  border-color: #7a8969;
+}
+.platform-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 27px;
+}
+.detected-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #d1dfc2;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.detected-badge svg {
+  width: 12px;
+  height: 12px;
 }
 .platform-icon {
   width: 27px;
@@ -142,6 +253,22 @@ const platforms = [
 .platform-downloads a:hover {
   background: var(--raised);
 }
+.platform-downloads .download-priority {
+  color: #181b15;
+  background: #e7ebdf;
+  border-color: #e7ebdf;
+  font-weight: 550;
+}
+.platform-downloads .download-priority:hover {
+  color: #181b15;
+  background: #fff;
+}
+.platform .platform-hint {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 18px 0 0;
+}
 .platform-downloads svg {
   width: 14px;
   height: 14px;
@@ -166,24 +293,13 @@ const platforms = [
     margin-top: 38px;
   }
   .platform {
-    display: grid;
-    grid-template-columns: 32px 1fr;
-    column-gap: 16px;
     padding: 24px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .platform-icon {
-    grid-row: span 2;
   }
   .platform h3 {
-    margin: 0 0 6px;
+    margin: 20px 0 6px;
   }
   .platform p {
     margin: 0 0 18px;
-  }
-  .platform-downloads {
-    grid-column: 2;
   }
 }
 </style>

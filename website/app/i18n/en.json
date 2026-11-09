@@ -95,7 +95,10 @@
     "download": "Download",
     "release": "Release notes",
     "early": "Early releases. Active development.",
-    "architecture": "Choose your platform"
+    "architecture": "Choose your platform",
+    "detected": "Your system",
+    "siliconHint": "Apple Silicon comes first. Choose Intel if your Mac uses an Intel processor.",
+    "armUnavailable": "These packages support Intel and AMD processors. Check releases for other options."
   },
   "faq": {
     "title": "A few things to know.",

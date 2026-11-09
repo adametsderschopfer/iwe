@@ -9,6 +9,10 @@
   --accent: #c0ceb2;
   --line: #2b2d27;
   --line-strong: #3c3f35;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --duration-reveal: 600ms;
+  --distance-reveal: 12px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: var(--text);
   background: var(--background);

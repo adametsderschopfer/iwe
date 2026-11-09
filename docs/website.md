@@ -58,8 +58,22 @@ The screenshots come from existing Iced rendering tests with fictional fixture p
 the actual application interface in English. The website opens in English by default. Regenerate the
 screenshots when the illustrated interface changes.
 
+All website bitmap images use lossless WebP, including the product icon. Generated-page tests reject
+other bitmap formats in the published files.
+
 `DownloadSection.vue` links to verified packages from release `0.1.11`. Update its version when
 selecting a newer release. The release-notes link always opens the latest release.
+
+The download section detects desktop systems in the browser after the page loads. It moves the
+matching system first and highlights its card. Explicit browser architecture hints select a matching
+package. The website does not infer a Mac processor from the browser's Intel identification. Without
+reliable architecture hints, macOS prioritizes Apple Silicon and keeps Intel available. Mobile
+devices keep all desktop downloads available without a detected-system badge. ARM devices without a
+matching package receive a compatibility note. Detection never starts a download.
+
+Selected sections appear once when they enter the viewport. The reveal uses CSS transitions and
+`IntersectionObserver`. The website honors reduced-motion preferences and reveals keyboard-focused
+content immediately. Content remains visible without JavaScript or observer support.
 
 ## Dependency security
 

@@ -95,7 +95,10 @@
     "download": "Descargar",
     "release": "Notas de las versiones",
     "early": "Versiones iniciales. Desarrollo activo.",
-    "architecture": "Elige tu plataforma"
+    "architecture": "Elige tu plataforma",
+    "detected": "Tu sistema",
+    "siliconHint": "Apple Silicon aparece primero. Elige Intel si tu Mac utiliza un procesador Intel.",
+    "armUnavailable": "Estos paquetes admiten procesadores Intel y AMD. Consulta las versiones para otras opciones."
   },
   "faq": {
     "title": "Lo que conviene saber.",

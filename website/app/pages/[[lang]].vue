@@ -18,7 +18,7 @@ useHead(() => ({
   htmlAttrs: { lang: locale.value },
   title: messages.value.meta.title,
   link: [
-    { rel: 'icon', href: `${base}icon.png`, type: 'image/png' },
+    { rel: 'icon', href: `${base}icon.webp`, type: 'image/webp' },
     { rel: 'canonical', href: canonical.value },
     ...languages.map((language) => ({
       rel: 'alternate' as const,
@@ -35,7 +35,7 @@ useSeoMeta({
   ogDescription: () => messages.value.meta.description,
   ogType: 'website',
   ogUrl: () => canonical.value,
-  ogImage: `${siteURL}images/workspace-en.png`,
+  ogImage: `${siteURL}images/workspace-en.webp`,
   twitterCard: 'summary_large_image',
 })
 </script>
@@ -60,22 +60,28 @@ useSeoMeta({
           </div>
         </div>
         <p class="platform-note">{{ messages.hero.platforms }}</p>
-        <ProductShowcase :messages="messages" />
+        <ScrollReveal><ProductShowcase :messages="messages" /></ScrollReveal>
       </section>
 
       <section id="features" class="features section-space" aria-labelledby="features-title">
-        <div class="section-heading">
+        <ScrollReveal class="section-heading">
           <h2 id="features-title" class="section-title preserve-lines">
             {{ messages.features.title }}
           </h2>
           <p class="section-description">{{ messages.features.description }}</p>
-        </div>
+        </ScrollReveal>
         <div class="feature-list">
-          <article v-for="feature in messages.features.items" :key="feature.icon" class="feature">
+          <ScrollReveal
+            v-for="(feature, index) in messages.features.items"
+            :key="feature.icon"
+            as="article"
+            class="feature"
+            :delay="index * 60"
+          >
             <SiteIcon :name="feature.icon" />
             <h3>{{ feature.title }}</h3>
             <p>{{ feature.description }}</p>
-          </article>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -87,16 +93,16 @@ useSeoMeta({
           <p class="section-description">{{ messages.workflow.description }}</p>
         </div>
         <div class="workflow-content">
-          <figure class="comparison-figure">
+          <ScrollReveal as="figure" class="comparison-figure" variant="wipe">
             <img
-              :src="`${base}images/comparison-en.png`"
+              :src="`${base}images/comparison-en.webp`"
               :alt="messages.preview.altComparison"
               width="2880"
               height="1840"
               loading="lazy"
             />
             <figcaption>{{ messages.workflow.caption }}</figcaption>
-          </figure>
+          </ScrollReveal>
           <div class="workflow-points">
             <article v-for="item in messages.workflow.items" :key="item.title">
               <h3>{{ item.title }}</h3>
@@ -116,7 +122,7 @@ useSeoMeta({
             </li>
           </ul>
         </div>
-        <div class="local-diagram">
+        <ScrollReveal class="local-diagram">
           <div class="diagram-computer">
             <SiteIcon name="computer" /><span>{{ messages.local.folderLabel }}</span
             ><span class="local-indicator" />
@@ -124,7 +130,7 @@ useSeoMeta({
           <div class="diagram-connection" />
           <div class="diagram-workspace">
             <div class="diagram-title">
-              <img :src="`${base}icon.png`" width="24" height="24" alt="" /><span>{{
+              <img :src="`${base}icon.webp`" width="24" height="24" alt="" /><span>{{
                 messages.local.spaceLabel
               }}</span>
             </div>
@@ -141,7 +147,7 @@ useSeoMeta({
             </div>
           </div>
           <p>{{ messages.local.note }}</p>
-        </div>
+        </ScrollReveal>
       </section>
 
       <DownloadSection :messages="messages" />
