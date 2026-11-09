@@ -31,7 +31,7 @@ settings.
 | `infrastructure/pipelines/jobs.rs`  | Load paginated jobs and submit explicit provider actions                                 |
 | `infrastructure/auth/`              | Implement GitHub device authorization and GitLab PKCE callbacks                          |
 | `infrastructure/auth.rs`            | Validate accounts, refresh tokens, and serialize credential operations                   |
-| `infrastructure/credentials.rs`     | Store provider credentials in the operating system vault                                 |
+| `infrastructure/credentials.rs`     | Store provider credentials in the operating system vault and share session reads         |
 | `infrastructure/http.rs`            | Enforce HTTPS, response bounds, request deadlines, and redirect restrictions             |
 | `infrastructure/process.rs`         | Bound asynchronous subprocess time and output                                            |
 | `infrastructure/graphics/`          | Start graphics backends in platform priority order                                       |
@@ -192,6 +192,10 @@ response failure.
 Authentication uses direct HTTPS requests through Reqwest and Rustls. The keyring crate selects
 Keychain, Windows Credential Manager, or Linux Secret Service. Linux builds vendor the D-Bus
 library, but still require a running Secret Service. Credential operations run on blocking workers.
+The session store shares successful reads, missing accounts, and access failures across service
+clones. Explicit retries clear only cached failures for the selected account. Successful writes and
+deletions update the session cache. Failed mutations block cached credential use until an explicit
+retry. Session credentials use the existing zeroizing secret type and never enter workspace files.
 Token refresh, storage, and sign-out share a mutex. Cancellation waits for active vault writes
 before releasing that mutex. Authorization results carry request identifiers and cannot replace
 newer dialog state. Secrets have redacted debug output and zeroize their owned buffers when dropped.

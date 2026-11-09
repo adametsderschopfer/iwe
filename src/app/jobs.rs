@@ -71,6 +71,10 @@ impl App {
     }
 
     pub(super) fn refresh_jobs(&mut self) -> Task<Message> {
+        self.request_jobs(false)
+    }
+
+    fn request_jobs(&mut self, retry_credentials: bool) -> Task<Message> {
         if self.jobs.loading || self.disconnecting || self.jobs.pending.is_some() {
             return Task::none();
         }
@@ -90,7 +94,12 @@ impl App {
         let (epoch, request, id) = (self.jobs.epoch, self.jobs.request, run.id);
         let service = self.auth_service.clone();
         Task::perform(
-            async move { service.load_jobs(remote, run).await },
+            async move {
+                if retry_credentials {
+                    service.retry_credentials(&remote).await?;
+                }
+                service.load_jobs(remote, run).await
+            },
             move |result| Message::Jobs(Event::Loaded(epoch, request, id, result)),
         )
     }
@@ -136,7 +145,7 @@ impl App {
             }
             Event::Refresh => {
                 self.jobs.action_error = None;
-                return self.refresh_jobs();
+                return self.request_jobs(true);
             }
             Event::Tick if self.jobs.error.is_none() && self.jobs.action_error.is_none() => {
                 return if self.jobs.selected.is_some() {

@@ -94,6 +94,17 @@ No plaintext fallback exists. Unlock the system credential store if access fails
 running Secret Service. Workspace JSON contains project metadata, preferences, and provider choices
 only.
 
+Iwe reads each account from the credential store once per application session. Concurrent pipeline
+and job requests share that result. Cached secrets remain in memory and clear when the session ends.
+Token updates and sign-out update the cache only after the credential store accepts the operation.
+Failed operations block further background reads. Use **Retry**, refresh the pipeline panel, or sign
+in again after restoring access. Explicit retries preserve successfully cached credentials.
+
+macOS can still request authorization when the credential store is locked or the application
+identity changes. Local ad hoc signatures identify a specific build. Updates can therefore require
+authorization again. Stable signing identities preserve application identity across updates. See
+[Apple's code signing requirements](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements).
+
 **Sign out** deletes the saved credential for the selected provider and server. Other projects using
 that account will require sign-in after their next refresh. The provider's authorization grant
 remains active until revoked through its account settings. Token fields clear after submission,

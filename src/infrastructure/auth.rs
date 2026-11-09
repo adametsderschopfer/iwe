@@ -4,7 +4,7 @@ mod device;
 mod pkce;
 
 use super::{
-    credentials::{Store, SystemStore},
+    credentials::{SessionStore, Store, SystemStore},
     http::Http,
     pipelines,
 };
@@ -25,7 +25,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Clone)]
 pub(crate) struct Service {
     http: Result<Http, Failure>,
-    store: Arc<dyn Store>,
+    store: Arc<SessionStore>,
     gate: Arc<Mutex<()>>,
 }
 
@@ -126,7 +126,7 @@ impl Service {
     pub(crate) fn new() -> Self {
         Self {
             http: Http::new(),
-            store: Arc::new(SystemStore),
+            store: Arc::new(SessionStore::new(Arc::new(SystemStore))),
             gate: Arc::new(Mutex::new(())),
         }
     }
@@ -212,6 +212,10 @@ impl Service {
             return Err(Failure::AuthCancelled);
         }
         let username = credential.username.clone();
+        self.allow_credential_retry(account.clone()).await?;
+        if cancel.is_cancelled() {
+            return Err(Failure::AuthCancelled);
+        }
         let previous = self.read(account.clone()).await?;
         if cancel.is_cancelled() {
             return Err(Failure::AuthCancelled);
@@ -261,6 +265,19 @@ impl Service {
     async fn read(&self, account: Account) -> Result<Option<Credential>, Failure> {
         let store = Arc::clone(&self.store);
         tokio::task::spawn_blocking(move || store.read(&account))
+            .await
+            .map_err(|_| Failure::Credentials)?
+    }
+
+    pub(crate) async fn retry_credentials(&self, remote: &Remote) -> Result<(), Failure> {
+        let account = Account::from_remote(remote)?;
+        let _guard = self.gate.lock().await;
+        self.allow_credential_retry(account).await
+    }
+
+    async fn allow_credential_retry(&self, account: Account) -> Result<(), Failure> {
+        let store = Arc::clone(&self.store);
+        tokio::task::spawn_blocking(move || store.allow_retry(&account))
             .await
             .map_err(|_| Failure::Credentials)?
     }

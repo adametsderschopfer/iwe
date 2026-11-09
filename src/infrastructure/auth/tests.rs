@@ -24,7 +24,7 @@ impl Store for MemoryStore {
 fn service() -> Service {
     Service {
         http: Ok(Http::local()),
-        store: Arc::new(MemoryStore::default()),
+        store: Arc::new(SessionStore::new(Arc::new(MemoryStore::default()))),
         gate: Arc::new(Mutex::new(())),
     }
 }
@@ -75,6 +75,49 @@ async fn disconnect_removes_only_the_selected_server() {
     service.disconnect(account.clone()).await.unwrap();
     assert!(service.read(account).await.unwrap().is_none());
     assert!(service.read(other).await.unwrap().is_some());
+}
+
+#[tokio::test]
+async fn background_requests_share_denied_access_until_an_explicit_retry() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[derive(Default)]
+    struct DenyFirstRead(AtomicUsize);
+    impl Store for DenyFirstRead {
+        fn read(&self, _: &Account) -> Result<Option<Credential>, Failure> {
+            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+                Err(Failure::Credentials)
+            } else {
+                Ok(None)
+            }
+        }
+        fn write(&self, _: &Account, _: &Credential) -> Result<(), Failure> {
+            Err(Failure::Credentials)
+        }
+        fn delete(&self, _: &Account) -> Result<(), Failure> {
+            Err(Failure::Credentials)
+        }
+    }
+    let (origin, server) = fixture(vec![("200 OK", "[]"), ("200 OK", "[]")]).await;
+    let store = Arc::new(DenyFirstRead::default());
+    let service = Service {
+        http: Ok(Http::fixture(&origin)),
+        store: Arc::new(SessionStore::new(store.clone())),
+        ..service()
+    };
+    let remote = Remote::parse("https://gitlab.com/group/app.git").unwrap();
+    for _ in 0..4 {
+        assert!(matches!(
+            service.clone().load(remote.clone()).await.runs,
+            Err(Failure::Credentials)
+        ));
+    }
+    assert_eq!(store.0.load(Ordering::SeqCst), 1);
+    service.retry_credentials(&remote).await.unwrap();
+    for _ in 0..2 {
+        assert!(service.clone().load(remote.clone()).await.runs.is_ok());
+    }
+    assert_eq!(store.0.load(Ordering::SeqCst), 2);
+    assert_eq!(server.await.unwrap().len(), 2);
 }
 
 #[tokio::test]
@@ -354,7 +397,7 @@ async fn cancellation_during_vault_write_restores_the_previous_account() {
         }
         let service = Service {
             http: Ok(Http::fixture(&origin)),
-            store,
+            store: Arc::new(SessionStore::new(store)),
             gate: Arc::new(Mutex::new(())),
         };
         assert_eq!(

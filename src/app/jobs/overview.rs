@@ -260,11 +260,11 @@ impl App {
                     }
                 }
                 self.jobs.action_error = None;
-                return Task::batch([
-                    self.load_pipelines(),
+                // Retry the shared account before starting summary requests.
+                return self.request_pipelines(true).chain(Task::batch([
                     self.refresh_jobs(),
                     self.refresh_pipeline_overviews(false),
-                ]);
+                ]));
             }
             Event::Loaded(epoch, request, id, result) if epoch == self.jobs.epoch => {
                 let state = &mut self.jobs.overview;

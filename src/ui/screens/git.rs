@@ -161,13 +161,7 @@ fn header(app: &App, width: f32) -> Element<'_, Message> {
 }
 
 fn branches(app: &App, width: f32) -> Element<'_, Message> {
-    let mut items = column![
-        text(app.i18n.text(Key::Branches))
-            .size(11)
-            .style(theme::FAINT.text()),
-    ]
-    .spacing(6)
-    .width(Length::Fill);
+    let mut items = Column::new().spacing(6).width(Length::Fill);
     if let Some(repo) = &app.repository {
         for (kind, group, label) in [
             (ReferenceKind::Local, "false", Key::LocalBranches),
@@ -307,14 +301,18 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
             .iter()
             .find(|branch| Some(&branch.reference) == app.branch.as_ref())
     });
-    let mut tools = Column::new().spacing(4);
-    for (symbol, key, message) in [
+    let tool_size = theme::BRANCH_TOOL_SIZE
+        .min((width - theme::BRANCH_HEADER_INSET * 2. - theme::BRANCH_TOOL_GAP * 3.) / 4.);
+    let mut tools = Row::new().spacing(theme::BRANCH_TOOL_GAP);
+    for (id, symbol, key, message) in [
         (
+            "git-fetch",
             Icon::Fetch,
             Key::GitFetchAll,
             Some(Message::Git(GitMessage::Fetch)),
         ),
         (
+            "git-new-branch",
             Icon::Plus,
             Key::GitNewBranch,
             selected.map(|branch| {
@@ -322,6 +320,7 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
             }),
         ),
         (
+            "git-update",
             Icon::Down,
             Key::GitUpdateSelected,
             selected
@@ -331,6 +330,7 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                 }),
         ),
         (
+            "git-push",
             Icon::Upload,
             Key::GitPush,
             selected
@@ -342,28 +342,49 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
     ] {
         tools = tools.push(
             tooltip(
-                button(icon(symbol, theme::MUTED))
-                    .padding(7)
-                    .style(theme::action(false))
-                    .on_press_maybe(message.filter(|_| !app.git_actions.pending)),
+                container(
+                    button(container(icon(symbol, theme::MUTED)).center(Length::Fill))
+                        .width(tool_size)
+                        .height(theme::BRANCH_TOOL_SIZE)
+                        .padding(0)
+                        .style(theme::action(false))
+                        .on_press_maybe(message.filter(|_| !app.git_actions.pending)),
+                )
+                .id(id),
                 text(app.i18n.text(key)).size(12),
                 tooltip::Position::Right,
             )
             .style(theme::tooltip),
         );
     }
-    container(
-        row![
+    let header = container(
+        column![
+            text(app.i18n.text(Key::Branches))
+                .size(11)
+                .style(theme::FAINT.text()),
             tools,
-            scrollable(items).width(Length::Fill).style(theme::scroll)
         ]
-        .spacing(8),
+        .spacing(theme::BRANCH_TOOL_GAP),
     )
-    .width(width)
+    .id("git-branch-tools")
+    .width(Length::Fill)
+    .padding(theme::BRANCH_HEADER_INSET);
+    let list = scrollable(container(items).padding(iced::Padding {
+        left: theme::BRANCH_HEADER_INSET,
+        ..iced::Padding::ZERO
+    }))
+    .id("git-branch-scroll")
+    .direction(scrollable::Direction::Vertical(
+        scrollable::Scrollbar::default().spacing(0),
+    ))
+    .width(Length::Fill)
     .height(Length::Fill)
-    .padding(16)
-    .style(theme::surface)
-    .into()
+    .style(theme::scroll);
+    container(column![header, list])
+        .width(width)
+        .height(Length::Fill)
+        .style(theme::surface)
+        .into()
 }
 
 fn branch_order(branch: &Branch) -> (bool, Vec<(u8, &str)>) {

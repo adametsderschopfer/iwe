@@ -258,6 +258,7 @@ pub(crate) enum Message {
     Resize(pane_grid::ResizeEvent),
     ResizeGit(pane_grid::ResizeEvent),
     RefreshPipelines,
+    PollPipelines,
     PipelinesLoaded(u64, u64, pipelines::Loaded),
     Jobs(jobs::Event),
     ChooseProvider(Provider),
@@ -696,7 +697,8 @@ impl App {
             Message::ResizeGit(event) => self
                 .git_panes
                 .resize(event.split, event.ratio.clamp(0.12, 0.88)),
-            Message::RefreshPipelines => return self.load_pipelines(),
+            Message::RefreshPipelines => return self.request_pipelines(true),
+            Message::PollPipelines => return self.load_pipelines(),
             Message::Jobs(event) => return self.update_jobs(event),
             Message::PipelinesLoaded(generation, request, result)
                 if generation == self.generation && request == self.pipeline_request =>
@@ -962,6 +964,10 @@ impl App {
     }
 
     fn load_pipelines(&mut self) -> Task<Message> {
+        self.request_pipelines(false)
+    }
+
+    fn request_pipelines(&mut self, retry_credentials: bool) -> Task<Message> {
         if self.disconnecting || self.pipeline_refreshing {
             return Task::none();
         }
@@ -980,9 +986,18 @@ impl App {
         }
         let (generation, request) = (self.generation, self.pipeline_request);
         let service = self.auth_service.clone();
-        Task::perform(async move { service.load(remote).await }, move |result| {
-            Message::PipelinesLoaded(generation, request, result)
-        })
+        Task::perform(
+            async move {
+                if retry_credentials && let Err(error) = service.retry_credentials(&remote).await {
+                    return pipelines::Loaded {
+                        runs: Err(error),
+                        username: None,
+                    };
+                }
+                service.load(remote).await
+            },
+            move |result| Message::PipelinesLoaded(generation, request, result),
+        )
     }
 
     fn pipeline_subscription(&self) -> Subscription<Message> {
@@ -991,7 +1006,7 @@ impl App {
             && (self.workspace.preferences.show_git || self.workspace.preferences.show_pipelines)
             && matches!(self.pipelines, PipelineState::Ready(_))
         {
-            iced::time::every(std::time::Duration::from_secs(30)).map(|_| Message::RefreshPipelines)
+            iced::time::every(std::time::Duration::from_secs(30)).map(|_| Message::PollPipelines)
         } else {
             Subscription::none()
         }

@@ -193,6 +193,24 @@ fn long_branch_and_folder_names_remain_on_one_line() {
             assert!(bounds.x + bounds.width <= panel.x + panel.width);
             assert!(ui.find(name.as_str()).is_err());
         }
+        let list = ui
+            .find(Id::new("git-branch-scroll"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!((list.x + list.width - panel.x - panel.width).abs() < 1.);
+        let mut previous = None::<iced::Rectangle>;
+        for id in ["git-fetch", "git-new-branch", "git-update", "git-push"] {
+            let bounds = ui.find(Id::new(id)).unwrap().visible_bounds().unwrap();
+            assert!(bounds.y + bounds.height <= list.y);
+            assert!(bounds.x >= panel.x && bounds.x + bounds.width <= panel.x + panel.width);
+            if let Some(previous) = previous {
+                assert_eq!(bounds.y, previous.y);
+                assert_eq!(bounds.height, previous.height);
+                assert!(bounds.x > previous.x + previous.width);
+            }
+            previous = Some(bounds);
+        }
         if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
             ui.snapshot(&iced::Theme::Dark)
                 .unwrap()
@@ -202,6 +220,112 @@ fn long_branch_and_folder_names_remain_on_one_line() {
         ui.click(Id::from(format!("branch-refs/heads/{nested}")))
             .unwrap();
         assert!(ui.into_messages().any(|message| matches!(message, AppMessage::SelectBranch(reference) if reference == format!("refs/heads/{nested}"))));
+    }
+}
+
+#[test]
+fn branch_toolbar_and_scrollbar_fit_the_minimum_pane_width() {
+    use crate::{domain::repository::Commit, ui::theme};
+    use iced::{
+        Event, mouse,
+        widget::{Id, pane_grid},
+    };
+    let mut app = app();
+    app.workspace
+        .create_space("Work".into(), vec!["/test".into()]);
+    app.branch = Some("refs/heads/main".into());
+    let repo = app.repository.as_mut().unwrap();
+    repo.commits.push(Commit {
+        id: "a".repeat(40),
+        parents: vec![],
+        subject: "Preview".into(),
+        author: "Test".into(),
+        date: "2026-11-09".into(),
+        refs: String::new(),
+        graph: Default::default(),
+    });
+    for index in 0..60 {
+        repo.branches.push(Branch {
+            name: format!("branch-{index:02}"),
+            reference: format!("refs/heads/branch-{index:02}"),
+            current: false,
+            kind: ReferenceKind::Local,
+        });
+    }
+    if let pane_grid::Node::Split { id, .. } = app.git_panes.layout() {
+        app.git_panes.resize(*id, 0.01);
+    }
+    app.workspace.preferences.show_git = true;
+    app.sync_panels();
+    for appearance in [
+        crate::domain::workspace::Appearance::Dark,
+        crate::domain::workspace::Appearance::Light,
+    ] {
+        app.workspace.preferences.appearance = appearance;
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings {
+                default_font: theme::font(),
+                ..Default::default()
+            },
+            (1080., 720.),
+            app.view(),
+        );
+        let panel = ui
+            .find(Id::new("git-branches"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!((panel.width - theme::GIT_PANE_MIN_SIZE).abs() < 1.);
+        let list = ui
+            .find(Id::new("git-branch-scroll"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!((list.x + list.width - panel.x - panel.width).abs() < 1.);
+        let first = ui
+            .find(Id::new("branch-refs/heads/main"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        for id in ["git-fetch", "git-new-branch", "git-update", "git-push"] {
+            let bounds = ui.find(Id::new(id)).unwrap().visible_bounds().unwrap();
+            assert!(bounds.width >= 20.);
+            assert!(bounds.x >= panel.x && bounds.x + bounds.width <= panel.x + panel.width);
+            assert!(bounds.y + bounds.height <= first.y);
+        }
+        if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+            ui.snapshot(&app.theme())
+                .unwrap()
+                .matches_image(output.join(format!("branch-toolbar-minimum-{appearance:?}")))
+                .unwrap();
+        }
+        let fetch = ui
+            .find(Id::new("git-fetch"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        ui.point_at((list.x + list.width - 3., list.y + 8.));
+        ui.simulate([Event::Mouse(mouse::Event::WheelScrolled {
+            delta: mouse::ScrollDelta::Pixels { x: 0., y: -120. },
+        })]);
+        assert_eq!(
+            ui.find(Id::new("git-fetch"))
+                .unwrap()
+                .visible_bounds()
+                .unwrap(),
+            fetch
+        );
+        assert!(
+            ui.find(Id::new("branch-refs/heads/main"))
+                .unwrap()
+                .visible_bounds()
+                .is_none()
+        );
+        ui.click(Id::new("git-fetch")).unwrap();
+        assert!(
+            ui.into_messages()
+                .any(|message| matches!(message, AppMessage::Git(Message::Fetch)))
+        );
     }
 }
 

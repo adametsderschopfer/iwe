@@ -3,6 +3,9 @@
 Git actions operate on the selected project's repository. Selecting history references alone never
 changes the checked-out branch. Use the branch toolbar or right-click a branch to execute an action.
 
+The branch toolbar places equally sized action buttons above the branch tree. It stays visible while
+the tree scrolls. The scrollbar reaches the panel's right edge without covering branch names.
+
 | Action            | Behavior                                                                                      |
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | Fetch all remotes | Fetch every configured remote using Git's fetch-all behavior.                                 |
