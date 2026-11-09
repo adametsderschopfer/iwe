@@ -48,6 +48,14 @@ The panel heading aligns with the first toolbar button. Panel content and status
 heading's left inset. The scroll area fills the file panel. Scrollbars stay at its edges, regardless
 of filename length.
 
+Click the active file toolbar icon again to hide its panel. The source preview fills the available
+width while the toolbar remains visible. Click either icon to reopen its panel. Open files, source
+scroll positions, and folder expansion remain unchanged.
+
+Drag the divider beside the file panel to change its width. Iwe saves the width when dragging ends.
+Both file panels share this width across projects and restarts. Narrow windows limit the visible
+panel width to preserve space for code. The panel heading and file tabs share the same bottom edge.
+
 A thin divider separates the workspace heading from its content. Another divider separates the file
 panel from the source preview. A full-height divider separates the spaces sidebar from the
 workspace. All dividers follow the current appearance.

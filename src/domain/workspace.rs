@@ -54,6 +54,13 @@ pub(crate) struct Preferences {
     pub collapse_unchanged: bool,
     pub diff_view: DiffView,
     pub file_panels: Vec<FilePanel>,
+    pub file_panel_width: f32,
+}
+
+impl Preferences {
+    pub(crate) const DEFAULT_FILE_PANEL_WIDTH: f32 = 280.;
+    pub(crate) const MIN_FILE_PANEL_WIDTH: f32 = 180.;
+    pub(crate) const MAX_FILE_PANEL_WIDTH: f32 = 640.;
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -88,6 +95,7 @@ impl Default for Preferences {
             collapse_unchanged: false,
             diff_view: DiffView::default(),
             file_panels: vec![FilePanel::Project, FilePanel::Changes],
+            file_panel_width: Self::DEFAULT_FILE_PANEL_WIDTH,
         }
     }
 }
@@ -128,6 +136,14 @@ impl Workspace {
             }
         }
         self.preferences.file_panels = panels;
+        self.preferences.file_panel_width = if self.preferences.file_panel_width.is_finite() {
+            self.preferences.file_panel_width.clamp(
+                Preferences::MIN_FILE_PANEL_WIDTH,
+                Preferences::MAX_FILE_PANEL_WIDTH,
+            )
+        } else {
+            Preferences::DEFAULT_FILE_PANEL_WIDTH
+        };
         self.preferences.code_size = self.preferences.code_size.clamp(11, 22);
         if self.preferences.show_git {
             self.preferences.show_pipelines = false;

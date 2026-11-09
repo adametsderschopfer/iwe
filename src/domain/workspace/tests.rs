@@ -1,6 +1,30 @@
 use super::*;
 
 #[test]
+fn file_panel_width_restores_and_normalizes_legacy_preferences() {
+    let mut legacy: Workspace = serde_json::from_str(r#"{"spaces":[],"preferences":{}}"#).unwrap();
+    legacy.normalize();
+    assert_eq!(
+        legacy.preferences.file_panel_width,
+        Preferences::DEFAULT_FILE_PANEL_WIDTH
+    );
+    for (stored, expected) in [
+        (400., 400.),
+        (-1., Preferences::MIN_FILE_PANEL_WIDTH),
+        (5000., Preferences::MAX_FILE_PANEL_WIDTH),
+        (f32::NAN, Preferences::DEFAULT_FILE_PANEL_WIDTH),
+        (f32::INFINITY, Preferences::DEFAULT_FILE_PANEL_WIDTH),
+    ] {
+        legacy.preferences.file_panel_width = stored;
+        legacy.normalize();
+        assert_eq!(legacy.preferences.file_panel_width, expected);
+        let restored: Workspace =
+            serde_json::from_value(serde_json::to_value(&legacy).unwrap()).unwrap();
+        assert_eq!(restored.preferences.file_panel_width, expected);
+    }
+}
+
+#[test]
 fn project_reordering_preserves_metadata_and_every_active_selection() {
     for selected in 0..4 {
         for (from, to) in [(0, 3), (3, 0), (1, 2), (2, 1)] {

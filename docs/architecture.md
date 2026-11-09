@@ -23,6 +23,7 @@ settings.
 | `domain/git.rs`, `app/git_actions/` | Define Git operations and coordinate dialogs, pending actions, and results               |
 | `infrastructure/git/`               | Validate references and execute explicit Git operations                                  |
 | `ui/context_menu/`                  | Detect right-clicks and anchor menus inside the window                                   |
+| `ui/resize/`                        | Resize the file panel while preserving child widget state                                |
 | `ui/changed_tree/`                  | Display compact changed-file trees with counts and status colors                         |
 | `infrastructure/pipelines.rs`       | Read GitHub Actions and GitLab pipeline APIs                                             |
 | `domain/jobs.rs`                    | Model stages, jobs, and provider-supported actions                                       |
@@ -241,8 +242,13 @@ catalogs.
 
 Selecting a project immediately opens its file panel. The file toolbar selects the project-files
 mode directly. Project rows have no separate file button. Project selection preserves the sidebar.
-Git and pipelines share one optional panel position. Keyboard handling accepts only the close-tab
-shortcut, plus Escape for dialogs. Middle-click closes the targeted tab.
+Clicking an active file toolbar icon hides its panel. The resize widget keeps preview widgets in
+stable child positions while panel visibility changes. Dragging updates the width in memory and
+saves it on release. The view limits panel width to preserve source space without changing the saved
+preference. File panel headings and file tabs share a common bottom edge.
+
+Git and pipelines share one optional panel position. The workspace guide lists platform-specific
+keyboard shortcuts. Middle-click closes the targeted tab.
 
 Native Liquid Glass remains beneath the renderer on supported macOS versions. The renderer keeps an
 opaque neutral fallback until native initialization succeeds. The fallback follows the selected

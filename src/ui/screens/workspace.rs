@@ -1,12 +1,12 @@
 use super::{auth, diff, git, git_actions, pipelines, settings, unified};
 use crate::{
     app::{App, Message, Navigation, Panel, error_key},
-    domain::workspace::DiffView,
+    domain::workspace::{DiffView, Preferences},
     i18n::{FluentArgs, Key},
     ui::{
         changed_tree, code, context_menu, file_icons,
         icons::{Icon, icon},
-        reorder, theme,
+        reorder, resize, theme,
     },
 };
 use iced::{
@@ -25,7 +25,9 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         let panes = pane_grid(&app.panes, |_, panel, _| {
             pane_grid::Content::new(
                 container(match panel {
-                    Panel::Workspace => project_content(app),
+                    Panel::Workspace => {
+                        responsive(move |size| project_content(app, size.width)).into()
+                    }
                     Panel::Git => git::view(app),
                     Panel::Pipelines => pipelines::view(app),
                 })
@@ -457,11 +459,20 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-fn project_content(app: &App) -> Element<'_, Message> {
+fn project_content(app: &App, width: f32) -> Element<'_, Message> {
     use crate::domain::workspace::FilePanel;
     if app.workspace.directory().is_none() {
         return preview(app);
     }
+    let toolbar_width = theme::FILE_PANEL_TOOL_SIZE + 2. * theme::FILE_PANEL_TOOL_INSET;
+    let maximum = (width - toolbar_width - 1. - theme::SOURCE_MIN_WIDTH)
+        .clamp(1., Preferences::MAX_FILE_PANEL_WIDTH);
+    let minimum = Preferences::MIN_FILE_PANEL_WIDTH.min(maximum);
+    let panel_width = app
+        .workspace
+        .preferences
+        .file_panel_width
+        .clamp(minimum, maximum);
     let mut tools = Column::new()
         .spacing(theme::FILE_PANEL_TOOL_INSET)
         .width(theme::FILE_PANEL_TOOL_SIZE);
@@ -474,14 +485,24 @@ fn project_content(app: &App) -> Element<'_, Message> {
             tooltip(
                 container(
                     button(icon(symbol, theme::MUTED))
-                        .on_press(Message::SelectFilePanel(*panel))
+                        .on_press(Message::ToggleFilePanel(*panel))
                         .width(theme::FILE_PANEL_TOOL_SIZE)
                         .height(theme::FILE_PANEL_TOOL_SIZE)
                         .padding(10)
-                        .style(theme::action(app.file_panel == *panel)),
+                        .style(theme::action(
+                            app.file_panel_visible && app.file_panel == *panel,
+                        )),
                 )
                 .id(id),
-                text(app.i18n.text(label)).size(12),
+                text(
+                    app.i18n
+                        .text(if app.file_panel_visible && app.file_panel == *panel {
+                            Key::HidePanel
+                        } else {
+                            label
+                        }),
+                )
+                .size(12),
                 tooltip::Position::Right,
             )
             .style(theme::tooltip),
@@ -560,11 +581,21 @@ fn project_content(app: &App) -> Element<'_, Message> {
         FilePanel::Changes => Key::WorkingChanges,
     });
     let files = container(column![
-        container(container(text(title).size(13).font(theme::semibold())).id("file-panel-title"))
-            .height(theme::FILE_PANEL_HEADER_HEIGHT)
-            .width(Length::Fill)
-            .padding([0., theme::FILE_PANEL_CONTENT_INSET])
-            .align_y(Alignment::Center),
+        container(
+            container(
+                text(title)
+                    .size(13)
+                    .font(theme::semibold())
+                    .wrapping(text::Wrapping::None)
+            )
+            .id("file-panel-title")
+        )
+        .id("file-panel-header")
+        .height(theme::FILE_PANEL_HEADER_HEIGHT)
+        .width(Length::Fill)
+        .padding([0., theme::FILE_PANEL_CONTENT_INSET])
+        .clip(true)
+        .align_y(Alignment::Center),
         divider(),
         scrollable(container(content).padding(theme::FILE_PANEL_CONTENT_INSET))
             .id("project-files-browser")
@@ -577,12 +608,40 @@ fn project_content(app: &App) -> Element<'_, Message> {
             .height(Length::Fill),
     ])
     .id("project-files-panel")
-    .width(theme::PROJECT_FILES_WIDTH)
+    .width(Length::Fill)
     .height(Length::Fill)
     .style(theme::surface);
-    row![tools, files, vertical_divider(), preview(app)]
+    // Keep the preview in the same child slot when the file panel is hidden.
+    resize::horizontal(
+        Row::from_vec(vec![
+            tools.into(),
+            container(files)
+                .width(if app.file_panel_visible {
+                    panel_width
+                } else {
+                    0.
+                })
+                .clip(true)
+                .into(),
+            container(vertical_divider())
+                .id("file-panel-divider")
+                .width(if app.file_panel_visible { 1. } else { 0. })
+                .clip(true)
+                .into(),
+            container(preview(app))
+                .id("source-preview")
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into(),
+        ])
+        .width(Length::Fill)
         .height(Length::Fill)
-        .into()
+        .into(),
+        app.file_panel_visible.then_some(panel_width),
+        toolbar_width + panel_width,
+        minimum..=maximum,
+        Message::ResizeFilePanel,
+    )
 }
 
 fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element<'_, Message> {
@@ -897,12 +956,13 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                             text(label).size(12).wrapping(text::Wrapping::None),
                         ]
                         .spacing(6)
+                        .height(Length::Fill)
                         .align_y(Alignment::Center),
                     )
                     .on_press(Message::SelectTab(preview.id))
                     .padding([7, 8])
                     .width(Length::Fill)
-                    .height(34)
+                    .height(theme::FILE_TABS_HEIGHT - 2.)
                     .style(theme::file_tab_button),
                 )
                 .id(format!("file-tab-{}", preview.id))
@@ -946,7 +1006,7 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                 scrollable::Scrollbar::default().width(4).scroller_width(4),
             ))
             .width(Length::Fill)
-            .height(36)
+            .height(theme::FILE_TABS_HEIGHT)
             .style(theme::scroll),
     ]
     .align_y(Alignment::Center);
@@ -962,17 +1022,20 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
         bar = bar.push(
             container(
                 tooltip(
-                    button(icon(
-                        if split {
-                            Icon::UnifiedDiff
-                        } else {
-                            Icon::SplitDiff
-                        },
-                        theme::MUTED,
-                    ))
+                    button(
+                        container(icon(
+                            if split {
+                                Icon::UnifiedDiff
+                            } else {
+                                Icon::SplitDiff
+                            },
+                            theme::MUTED,
+                        ))
+                        .center(Length::Fill),
+                    )
                     .padding(8)
                     .width(36)
-                    .height(36)
+                    .height(theme::FILE_TABS_HEIGHT)
                     .style(theme::icon_action(split))
                     .on_press(Message::ToggleDiffView(app.preview().id)),
                     text(app.i18n.text(if split {
@@ -1000,17 +1063,20 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
         bar = bar.push(
             container(
                 tooltip(
-                    button(icon(
-                        if collapsed {
-                            Icon::ExpandLines
-                        } else {
-                            Icon::CollapseLines
-                        },
-                        theme::MUTED,
-                    ))
+                    button(
+                        container(icon(
+                            if collapsed {
+                                Icon::ExpandLines
+                            } else {
+                                Icon::CollapseLines
+                            },
+                            theme::MUTED,
+                        ))
+                        .center(Length::Fill),
+                    )
                     .padding(8)
                     .width(36)
-                    .height(36)
+                    .height(theme::FILE_TABS_HEIGHT)
                     .style(theme::icon_action(collapsed))
                     .on_press(Message::ToggleUnchanged(app.preview().id)),
                     text(app.i18n.text(if collapsed {
@@ -1026,7 +1092,11 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
             .id("fold-unchanged"),
         );
     }
-    container(bar).style(theme::sidebar).into()
+    container(bar)
+        .id("file-tabs-header")
+        .height(theme::FILE_TABS_HEIGHT)
+        .style(theme::sidebar)
+        .into()
 }
 
 fn preview(app: &App) -> Element<'_, Message> {

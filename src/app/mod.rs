@@ -169,6 +169,7 @@ pub(crate) struct App {
     pub expanded: BTreeSet<PathBuf>,
     pub files: files::State,
     pub file_panel: FilePanel,
+    pub file_panel_visible: bool,
     pub git_actions: git_actions::State,
     pub project_menu: Option<(usize, PathBuf, iced::Point)>,
     pub collapsed_worktree_folders: BTreeSet<String>,
@@ -239,6 +240,8 @@ pub(crate) enum Message {
     LoadMoreHistory,
     ToggleFolder(PathBuf),
     SelectFilePanel(FilePanel),
+    ToggleFilePanel(FilePanel),
+    ResizeFilePanel(f32, bool),
     MoveFilePanel(usize, usize),
     ToggleWorktreeFolder(String),
     Files(files::Event),
@@ -319,6 +322,7 @@ impl App {
             expanded: BTreeSet::new(),
             files: files::State::default(),
             file_panel: FilePanel::Project,
+            file_panel_visible: true,
             git_actions: git_actions::State::default(),
             project_menu: None,
             collapsed_worktree_folders: BTreeSet::new(),
@@ -372,6 +376,8 @@ impl App {
                     | Message::SelectSettingsTab(_)
                     | Message::SelectProject(_, _)
                     | Message::SelectFilePanel(_)
+                    | Message::ToggleFilePanel(_)
+                    | Message::ResizeFilePanel(_, _)
                     | Message::MoveFilePanel(_, _)
                     | Message::Refresh
                     | Message::SelectTab(_)
@@ -498,13 +504,33 @@ impl App {
                 }
             }
             Message::Refresh => return self.load_directory(),
-            Message::SelectFilePanel(panel) => self.file_panel = panel,
+            Message::SelectFilePanel(panel) => {
+                self.file_panel = panel;
+                self.file_panel_visible = true;
+            }
+            Message::ToggleFilePanel(panel) => {
+                self.file_panel_visible = !self.file_panel_visible || self.file_panel != panel;
+                self.file_panel = panel;
+            }
+            Message::ResizeFilePanel(width, finished)
+                if self.file_panel_visible && width.is_finite() =>
+            {
+                use crate::domain::workspace::Preferences;
+                self.workspace.preferences.file_panel_width = width.clamp(
+                    Preferences::MIN_FILE_PANEL_WIDTH,
+                    Preferences::MAX_FILE_PANEL_WIDTH,
+                );
+                if finished {
+                    return self.save();
+                }
+            }
             Message::MoveFilePanel(from, to) => {
                 let panels = &mut self.workspace.preferences.file_panels;
                 if from < panels.len() && to < panels.len() && from != to {
                     let panel = panels.remove(from);
                     panels.insert(to, panel);
                     self.file_panel = panels[0];
+                    self.file_panel_visible = true;
                     return self.save();
                 }
             }
@@ -827,6 +853,7 @@ impl App {
         self.generation += 1;
         if !same_project {
             self.file_panel = self.workspace.preferences.file_panels[0];
+            self.file_panel_visible = true;
             self.collapsed_worktree_folders.clear();
             self.reset_jobs();
             self.repository = None;

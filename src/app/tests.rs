@@ -554,7 +554,7 @@ fn selecting_projects_immediately_opens_the_file_panel_without_reloading_on_repe
             .visible_bounds()
             .unwrap();
         assert_eq!(panel.x, theme::SIDEBAR_WIDTH + 1. + 48.);
-        assert_eq!(panel.width, theme::PROJECT_FILES_WIDTH);
+        assert_eq!(panel.width, app.workspace.preferences.file_panel_width);
         assert!(ui.find(Id::new("space-project-0-0")).is_ok());
         ui.click(Id::new("space-project-0-0")).unwrap();
         for message in ui.into_messages() {
@@ -656,6 +656,168 @@ fn shortcuts_are_visible_in_settings_in_every_language() {
                 .matches_image(output.join(format!("shortcuts-{suffix}")))
                 .unwrap();
         }
+    }
+}
+
+fn file_panel_app(language: Language) -> App {
+    let mut app = App::new(Rc::new(I18n::new(language)));
+    app.loaded = true;
+    app.workspace
+        .create_space("Work".into(), vec![PathBuf::from("project")]);
+    app.workspace.preferences.show_git = false;
+    app.sync_panels();
+    let _ = app.open_file(PathBuf::from("project/example.rs"));
+    let _ = app.finish_preview(
+        app.preview().id,
+        Ok(Document::new("let value = 42;\n".repeat(200), "rs")),
+    );
+    app.changes.loaded = true;
+    app
+}
+
+#[test]
+fn file_panel_buttons_toggle_without_changing_open_files() {
+    use iced::widget::Id;
+    let mut app = file_panel_app(Language::Russian);
+    let active = app.preview().id;
+    let document = app.preview().document.as_ref().unwrap().text.as_ptr();
+    app.preview_mut().scroll_y = 100.;
+    app.preview_mut().scroll_x = 40.;
+    let generation = app.generation;
+    for (button, visible, panel) in [
+        ("file-panel-project", false, FilePanel::Project),
+        ("file-panel-project", true, FilePanel::Project),
+        ("file-panel-changes", true, FilePanel::Changes),
+        ("file-panel-changes", false, FilePanel::Changes),
+        ("file-panel-project", true, FilePanel::Project),
+    ] {
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+        ui.click(Id::new(button)).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert_eq!(app.file_panel_visible, visible);
+        assert_eq!(app.file_panel, panel);
+        assert_eq!(app.preview().id, active);
+        assert_eq!(
+            app.preview().document.as_ref().unwrap().text.as_ptr(),
+            document
+        );
+        assert_eq!(
+            (app.preview().scroll_x, app.preview().scroll_y),
+            (40., 100.)
+        );
+        assert_eq!(app.generation, generation);
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+        let source = ui
+            .find(Id::new("source-preview"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let expected_x = theme::SIDEBAR_WIDTH
+            + 1.
+            + 48.
+            + if visible {
+                app.workspace.preferences.file_panel_width + 1.
+            } else {
+                0.
+            };
+        assert_eq!(source.x, expected_x);
+        assert_eq!(source.width, 1080. - expected_x);
+        let files = ui
+            .find(Id::new("project-files-panel"))
+            .ok()
+            .and_then(|target| target.visible_bounds());
+        assert_eq!(files.is_some_and(|bounds| bounds.width > 0.), visible);
+    }
+    let _ = app.update(Message::ToggleFilePanel(FilePanel::Project));
+    assert!(!app.file_panel_visible);
+    let _ = app.update(Message::SelectFilePanel(FilePanel::Project));
+    assert!(app.file_panel_visible);
+    let _ = app.update(Message::SelectFilePanel(FilePanel::Project));
+    assert!(app.file_panel_visible);
+}
+
+#[test]
+fn file_panel_resize_saves_on_release_and_preserves_source_room_and_header_alignment() {
+    use crate::domain::workspace::Preferences;
+    use iced::widget::Id;
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = file_panel_app(language);
+        let id = app.preview().id;
+        assert!(!app.saving);
+        let _ = app.update(Message::ResizeFilePanel(400., false));
+        assert_eq!(app.workspace.preferences.file_panel_width, 400.);
+        assert!(!app.saving);
+        let _ = app.update(Message::ResizeFilePanel(400., true));
+        assert!(app.saving);
+        assert_eq!(app.preview().id, id);
+        let _ = app.update(Message::Saved(Ok(())));
+        let _ = app.update(Message::ResizeFilePanel(f32::NAN, true));
+        assert_eq!(app.workspace.preferences.file_panel_width, 400.);
+        assert!(!app.saving);
+        for requested in [
+            Preferences::MIN_FILE_PANEL_WIDTH,
+            400.,
+            Preferences::MAX_FILE_PANEL_WIDTH,
+        ] {
+            let _ = app.update(Message::ResizeFilePanel(requested, false));
+            let _ = app.update(Message::SelectFilePanel(FilePanel::Changes));
+            for width in [1080., 1440.] {
+                let mut ui =
+                    iced_test::Simulator::with_size(ui_settings(), (width, 720.), app.view());
+                let files = ui
+                    .find(Id::new("project-files-panel"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                let source = ui
+                    .find(Id::new("source-preview"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                assert!(source.width >= theme::SOURCE_MIN_WIDTH);
+                assert_eq!(source.x, files.x + files.width + 1.);
+                assert!(files.width <= requested);
+                let heading = ui
+                    .find(Id::new("file-panel-header"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                let tabs = ui
+                    .find(Id::new("file-tabs-header"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                assert_eq!(heading.y, tabs.y);
+                assert_eq!(heading.y + heading.height + 1., tabs.y + tabs.height);
+                let title = ui
+                    .find(Id::new("file-panel-title"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                let filename = ui.find("example.rs").unwrap().visible_bounds().unwrap();
+                assert!((title.center_y() - filename.center_y()).abs() <= 1.);
+                if language == Language::Russian
+                    && width == 1440.
+                    && requested == 400.
+                    && let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from)
+                {
+                    for (theme, suffix) in [(Theme::Dark, "dark"), (Theme::Light, "light")] {
+                        ui.snapshot(&theme)
+                            .unwrap()
+                            .matches_image(output.join(format!("resized-file-panel-{suffix}")))
+                            .unwrap();
+                    }
+                }
+            }
+            assert_eq!(app.workspace.preferences.file_panel_width, requested);
+        }
+        let _ = app.update(Message::ToggleFilePanel(FilePanel::Changes));
+        let width = app.workspace.preferences.file_panel_width;
+        let _ = app.update(Message::ResizeFilePanel(200., true));
+        assert_eq!(app.workspace.preferences.file_panel_width, width);
+        assert!(!app.saving);
     }
 }
 
@@ -818,6 +980,122 @@ fn large_scrollbar_thumbs_remain_grabbable_and_reach_both_ends() {
 }
 
 #[tokio::test]
+async fn hiding_and_resizing_the_file_panel_preserves_scroll_widget_state() {
+    use iced::{
+        Rectangle, Vector,
+        widget::{Id, scrollable::AbsoluteOffset},
+    };
+    use iced_test::{
+        core::{
+            clipboard,
+            renderer::Headless,
+            widget::{Operation, operation},
+        },
+        runtime::{UserInterface, user_interface},
+    };
+    #[derive(Default)]
+    struct SourceOffset(Option<Vector>);
+    impl Operation for SourceOffset {
+        fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation)) {
+            operate(self);
+        }
+        fn scrollable(
+            &mut self,
+            id: Option<&Id>,
+            _: Rectangle,
+            _: Rectangle,
+            translation: Vector,
+            _: &mut dyn operation::Scrollable,
+        ) {
+            if id == Some(&Id::new("source-code")) {
+                self.0 = Some(translation);
+            }
+        }
+    }
+    let mut app = file_panel_app(Language::English);
+    let _ = app.finish_preview(
+        app.preview().id,
+        Ok(Document::plain(
+            format!("{}\n", "x".repeat(400)).repeat(200),
+        )),
+    );
+    let mut renderer =
+        iced_test::renderer::Renderer::new(theme::font(), 16.into(), Some("tiny-skia"))
+            .await
+            .unwrap();
+    // Initialize the pane grid before scrolling and rebuilding the view.
+    let mut cache = UserInterface::build(
+        app.view(),
+        iced::Size::new(1080., 720.),
+        user_interface::Cache::default(),
+        &mut renderer,
+    )
+    .into_cache();
+    for (index, action) in [
+        None,
+        None,
+        Some(Message::ToggleFilePanel(FilePanel::Project)),
+        Some(Message::ToggleFilePanel(FilePanel::Project)),
+        Some(Message::ResizeFilePanel(400., false)),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if let Some(action) = action {
+            let _ = app.update(action);
+        }
+        let mut ui = UserInterface::build(
+            app.view(),
+            iced::Size::new(1080., 720.),
+            cache,
+            &mut renderer,
+        );
+        let mut messages = Vec::new();
+        ui.update(
+            &[iced::Event::Window(window::Event::RedrawRequested(
+                iced::time::Instant::now(),
+            ))],
+            iced::mouse::Cursor::Unavailable,
+            &mut renderer,
+            &mut clipboard::Null,
+            &mut messages,
+        );
+        if index == 0 {
+            ui.operate(
+                &renderer,
+                &mut operation::scrollable::scroll_to(
+                    Id::new("source-code"),
+                    AbsoluteOffset {
+                        x: Some(90.),
+                        y: Some(300.),
+                    },
+                ),
+            );
+            ui.update(
+                &[iced::Event::Window(window::Event::RedrawRequested(
+                    iced::time::Instant::now(),
+                ))],
+                iced::mouse::Cursor::Unavailable,
+                &mut renderer,
+                &mut clipboard::Null,
+                &mut messages,
+            );
+        }
+        let mut offset = SourceOffset::default();
+        ui.operate(&renderer, &mut offset);
+        assert_eq!(
+            offset.0,
+            Some(Vector::new(90., 300.)),
+            "Layout step {index}"
+        );
+        cache = ui.into_cache();
+        for message in messages {
+            let _ = app.update(message);
+        }
+    }
+}
+
+#[tokio::test]
 async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
     use iced_test::{
         Selector,
@@ -894,11 +1172,11 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
         let sidebar = sidebar.visible_bounds().unwrap();
         assert_eq!(
             source.x,
-            theme::SIDEBAR_WIDTH + 48. + theme::PROJECT_FILES_WIDTH + 2.
+            theme::SIDEBAR_WIDTH + 48. + app.workspace.preferences.file_panel_width + 2.
         );
         assert_eq!(
             source.width,
-            width - theme::SIDEBAR_WIDTH - 48. - theme::PROJECT_FILES_WIDTH - 2.
+            width - theme::SIDEBAR_WIDTH - 48. - app.workspace.preferences.file_panel_width - 2.
         );
         assert_eq!(number.y, source.y);
         assert_eq!(number.x - source.x, 13.);

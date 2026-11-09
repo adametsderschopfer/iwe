@@ -10,5 +10,6 @@ pub(crate) mod graph;
 pub(crate) mod icons;
 pub(crate) mod notifications;
 pub(crate) mod reorder;
+pub(crate) mod resize;
 pub(crate) mod screens;
 pub(crate) mod theme;
