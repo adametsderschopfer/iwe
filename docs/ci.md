@@ -33,7 +33,9 @@ to refresh RustSec advisories.
 
 Windows x86 builds use the MSVC target on a 64-bit runner. Windows release binaries link the C
 runtime statically. Linux x86 builds install multilib compilers and i386 development libraries.
-Tests execute the selected architecture's binary, including both 32-bit targets.
+Tests execute the selected architecture's binary, including both 32-bit targets. Linked-worktree
+fixtures pass relative targets to Git. This avoids Windows verbatim-path prefixes during worktree
+creation.
 
 macOS packages target macOS 11 or newer. Each DMG includes an Applications shortcut. Linux packages
 target Ubuntu 22.04 or compatible systems with glibc 2.35 or newer. Linux users need a graphical

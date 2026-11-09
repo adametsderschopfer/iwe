@@ -58,9 +58,10 @@ async fn discovers_only_direct_children_and_supports_linked_worktrees() {
     repository(&root.join("backend"), 2, 1_700_000_000, 1);
     repository(&root.join("archive/too-deep"), 1, 1_700_000_000, 1);
     let front = root.join("front");
+    // Git cannot create worktrees through Windows verbatim paths. Keep the target relative to its repository.
     command(
         &root.join("backend"),
-        &["worktree", "add", "-b", "web", front.to_str().unwrap()],
+        &["worktree", "add", "-b", "web", "../front"],
     );
     assert!(front.join(".git").is_file());
     let loaded = load_project(root.clone(), None).await.unwrap();
