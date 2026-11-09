@@ -146,6 +146,18 @@ The preview cannot edit files. Only visible lines and nearby lines become widget
 follows the panel height. Stable line identities preserve text layout while scrolling. Long lines
 stay unwrapped and use horizontal scrolling.
 
+Press Command+L on macOS or Ctrl+G on Windows and Linux to open **Go to Line**.
+These shortcuts match [JetBrains defaults](https://blog.jetbrains.com/idea/2022/10/top-underrated-shortcuts/).
+Enter a positive line number and press Enter. The viewer reveals hidden lines, scrolls to the target,
+and selects its text. Invalid or missing numbers keep the dialog open with an explanation.
+Escape or **Cancel** closes the dialog. Settings lists the shortcut.
+
+Side-by-side comparisons use the selected source column, defaulting to the current version when it
+exists. Deleted files default to their previous version. Unified comparisons prefer current source
+line numbers. Large files load preceding parts in the background until the target is found.
+Only one part remains in memory during scanning. Line searches have a 45-second deadline.
+Cancelled searches cannot replace another file or a newer search result.
+
 Drag across source text to select characters or multiple lines. Copy with Command+C on macOS or
 Ctrl+C on Windows and Linux. Click the code before using Command+A or Ctrl+A to select its full text.
 Escape clears the selection. Selection works in ordinary previews, unified comparisons, and both

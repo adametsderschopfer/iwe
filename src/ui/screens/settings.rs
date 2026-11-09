@@ -126,6 +126,11 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .into(),
         SettingsTab::Shortcuts => column![
             setting(
+                t(Key::GoToLine),
+                t(Key::GoToLineDescription),
+                shortcut_badge("Command + L", "Ctrl + G"),
+            ),
+            setting(
                 t(Key::CopyCodeSelection),
                 t(Key::CopyCodeSelectionDescription),
                 shortcut_badge("Command + C", "Ctrl + C"),

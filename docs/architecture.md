@@ -69,6 +69,12 @@ coordinates. Documents retain original lines alongside displayed spans so clipbo
 tabs and empty lines. Selection revisions invalidate visible row layouts. Document fingerprints
 invalidate stale selections after refresh, and page requests use existing tab identifiers.
 
+`app/line_navigation.rs` coordinates numbered-line navigation and its localized modal dialog.
+It reveals folded targets through the existing folding projection and restores source scroll offsets.
+Large-file searches reuse bounded page reads with a 45-second overall deadline. Search identifiers,
+tab identifiers, and project generations reject stale results after cancellation or navigation.
+The dialog uses Command+L on macOS and Ctrl+G on Windows and Linux.
+
 The shared process launcher resolves Git for repository reads and explicit Git operations. On
 Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
 directories. Custom installations still require `PATH` configuration. The launcher does not install

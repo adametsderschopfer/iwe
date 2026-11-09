@@ -69,6 +69,27 @@ impl Source {
             .await.map_err(|_| Failure::Read)
     }
 
+    async fn read_line(self, line: usize) -> Result<Option<(Document, Vec<TextCursor>)>, Failure> {
+        tokio::time::timeout(std::time::Duration::from_secs(45), async move {
+            let mut cursor = TextCursor::default();
+            let mut version = None;
+            let mut history = Vec::new();
+            loop {
+                let document = self.clone().read_page(cursor, version).await?;
+                let page = document.page.ok_or(Failure::Read)?;
+                if page.cursor.offset != cursor.offset { history.clear(); }
+                if document.line_info.iter().any(|info| info.number == line) {
+                    return Ok(Some((document, history)));
+                }
+                let Some(next) = page.next else { return Ok(None); };
+                if next.offset <= page.cursor.offset { return Err(Failure::Read); }
+                history.push(page.cursor);
+                cursor = next;
+                version = page.version;
+            }
+        }).await.map_err(|_| Failure::Unavailable)?
+    }
+
     async fn compare(self, document: Arc<Document>) -> Result<Document, Failure> {
         let extension = self.extension();
         let text = document.text.clone();
@@ -139,6 +160,27 @@ impl Default for State {
 }
 
 impl App {
+    pub(super) fn load_line_preview(&self, id: u64, request: u64, line: usize) -> Task<Message> {
+        let Some(source) = self.preview().source.clone().filter(|_| self.preview().id == id) else {
+            return Task::none();
+        };
+        let generation = self.generation;
+        Task::perform(source.read_line(line), move |result| {
+            Message::GoToLine(super::line_navigation::Event::Loaded(generation, id, request, result))
+        })
+    }
+
+    pub(super) fn accept_line_preview(&mut self, document: Document, history: Vec<TextCursor>) -> Task<Message> {
+        self.file_request += 1;
+        let id = self.file_request;
+        let preview = &mut self.tabs.files[self.tabs.active];
+        preview.id = id;
+        preview.page_history = history;
+        preview.loading = true;
+        preview.preparation = Preparation::Text;
+        preview.scroll_x = 0.; preview.scroll_y = 0.;
+        self.continue_preview(id, Preparation::Text, Ok(document))
+    }
     pub(crate) fn preview(&self) -> &Preview {
         &self.tabs.files[self.tabs.active]
     }
@@ -578,7 +620,7 @@ impl App {
         Task::batch(reads.chain([self.restore_preview_scroll(), self.reveal_tab()]))
     }
 
-    fn restore_preview_scroll(&self) -> Task<Message> {
+    pub(super) fn restore_preview_scroll(&self) -> Task<Message> {
         if self.workspace.preferences.diff_view == DiffView::SideBySide
             && self
                 .preview()

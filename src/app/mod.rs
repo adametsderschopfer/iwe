@@ -5,6 +5,7 @@ pub(crate) mod changes;
 pub(crate) mod files;
 pub(crate) mod git_actions;
 pub(crate) mod jobs;
+pub(crate) mod line_navigation;
 pub(crate) mod notifications;
 mod pipeline_cache;
 mod repositories;
@@ -120,7 +121,13 @@ fn shortcut(event: iced::Event) -> Option<Message> {
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("w"));
     let reopen = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::KeyT)
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("t"));
-    if close && modifiers == keyboard::Modifiers::COMMAND {
+    let line_key = if cfg!(target_os = "macos") { keyboard::key::Code::KeyL } else { keyboard::key::Code::KeyG };
+    let line_character = if cfg!(target_os = "macos") { "l" } else { "g" };
+    let go_to_line = physical_key == keyboard::key::Physical::Code(line_key)
+        || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case(line_character));
+    if go_to_line && modifiers == keyboard::Modifiers::COMMAND {
+        Some(Message::GoToLine(line_navigation::Event::Open))
+    } else if close && modifiers == keyboard::Modifiers::COMMAND {
         Some(Message::CloseActiveTab)
     } else if reopen && modifiers == keyboard::Modifiers::COMMAND | keyboard::Modifiers::SHIFT {
         Some(Message::ReopenClosedTab)
@@ -210,6 +217,7 @@ pub(crate) struct App {
     pub jobs: jobs::State,
     pub auth_dialog: Option<auth::Dialog>,
     pub space_draft: Option<spaces::Draft>,
+    pub line_navigation: Option<line_navigation::Dialog>,
     pub account_username: Option<String>,
     pub disconnecting: bool,
     pub notifications: notifications::State,
@@ -285,6 +293,7 @@ pub(crate) enum Message {
     Files(files::Event),
     Worktree(changes::Event),
     OpenFile(PathBuf),
+    GoToLine(line_navigation::Event),
     CodeSelection(u64, crate::ui::code::selection::Action),
     ReadFilePart(u64, tabs::PageDirection),
     OpenCommitFile(usize),
@@ -381,6 +390,7 @@ impl App {
             jobs: jobs::State::default(),
             auth_dialog: None,
             space_draft: None,
+            line_navigation: None,
             account_username: None,
             disconnecting: false,
             notifications: notifications::State::default(),
@@ -430,6 +440,7 @@ impl App {
             return Task::none();
         }
         if (self.auth_dialog.is_some()
+            || self.line_navigation.is_some()
             || self.space_draft.is_some()
             || self.git_actions.dialog.is_some())
             && matches!(
@@ -466,6 +477,7 @@ impl App {
         }
         match message {
             Message::Update(event) => return self.update_release(event),
+            Message::GoToLine(event) => return self.update_line_navigation(event),
             Message::Git(message) => return self.update_git(message),
             Message::ProjectMenu(space, path, point)
                 if self.space_draft.is_none()
@@ -575,6 +587,7 @@ impl App {
             Message::SelectSettingsTab(tab) => self.settings_tab = tab,
             Message::Space(message) => return self.update_space(message),
             Message::DismissDialog => {
+                if self.line_navigation.take().is_some() { return Task::none(); }
                 if self.files.menu.take().is_some() { return Task::none(); }
                 self.project_menu = None;
                 if self.git_actions.menu.is_some() || self.git_actions.dialog.is_some() {
@@ -1021,6 +1034,7 @@ impl App {
     }
 
     fn load_directory(&mut self) -> Task<Message> {
+        self.line_navigation = None;
         self.git_actions.menu = None;
         self.project_menu = None;
         let directory = self.workspace.directory().cloned();

@@ -34,6 +34,7 @@ pub(crate) struct Selection {
 }
 
 impl Selection {
+    pub(crate) fn lane(&self) -> Option<Lane> { self.lane }
     pub(crate) fn update(&mut self, action: Action, document: &Document) {
         if self.fingerprint != Some(document.fingerprint) {
             *self = Self { revision: self.revision.wrapping_add(1), ..Self::default() };

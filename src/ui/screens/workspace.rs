@@ -71,6 +71,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
             git_actions::overlay(app, project_menu(app, super::file_menu::overlay(app, pipelines::overlay(app, base)))),
         ),
     );
+    let base = super::line_navigation::overlay(app, base);
     let base = crate::ui::notifications::overlay(
         &app.notifications,
         &app.i18n,
