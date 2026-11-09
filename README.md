@@ -90,3 +90,8 @@ Without Make, use the Cargo and dprint commands defined in [Makefile](Makefile).
 
 Read [the development rules](AGENTS.md) before changing the project. That guide lists mandatory
 rules and additional reading for each task.
+
+## License
+
+IWE is licensed under the [Apache License, Version 2.0](LICENSE). Third-party components retain
+their respective licenses.
