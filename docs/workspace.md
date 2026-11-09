@@ -104,13 +104,14 @@ file reuses its tab and preserves horizontal and vertical scroll positions. Comm
 separate tabs with revision identifiers. Hovering a tab shows its complete path and revision.
 
 The tab strip scrolls horizontally when needed and reveals the selected tab. Closing the active tab
-selects its neighbor. Command+W closes the active tab on macOS. Ctrl+W closes it on Windows and
-Linux. Middle-clicking a tab closes that tab. Command+Shift+T restores the last closed tab on macOS;
-Ctrl+Shift+T restores it on Windows and Linux. Repeated presses restore earlier closures, including
-commit versions, without duplicating open tabs. The latest 20 closed tabs retain their documents,
-scroll positions, and folded blocks in memory. Working files refresh after restoration. Settings
-lists both shortcuts. Refresh keeps tabs and closure history for the current project. Changing
-projects clears both. Closing the application clears this memory.
+selects its neighbor. Command+W closes the application on macOS, including from settings and
+dialogs. Ctrl+W closes the active tab on Windows and Linux. Middle-clicking a tab closes that tab.
+Command+Shift+T restores the last closed tab on macOS; Ctrl+Shift+T restores it on Windows and
+Linux. Repeated presses restore earlier closures, including commit versions, without duplicating
+open tabs. The latest 20 closed tabs retain their documents, scroll positions, and folded blocks in
+memory. Working files refresh after restoration. Settings lists both shortcuts. Refresh keeps tabs
+and closure history for the current project. Changing projects clears both. Closing the application
+clears this memory.
 
 The bottom bar shows the active file's full path. Clicking the path copies it to the clipboard. When
 no file is open, the bar shows the project path. Revision identifiers remain in commit tabs.

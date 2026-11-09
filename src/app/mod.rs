@@ -95,7 +95,11 @@ fn shortcut(event: iced::Event) -> Option<Message> {
     let reopen = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::KeyT)
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("t"));
     if close && modifiers == keyboard::Modifiers::COMMAND {
-        Some(Message::CloseActiveTab)
+        Some(if cfg!(target_os = "macos") {
+            Message::CloseApplication
+        } else {
+            Message::CloseActiveTab
+        })
     } else if reopen && modifiers == keyboard::Modifiers::COMMAND | keyboard::Modifiers::SHIFT {
         Some(Message::ReopenClosedTab)
     } else {
@@ -269,6 +273,7 @@ pub(crate) enum Message {
     SelectTab(u64),
     CloseTab(u64),
     CloseActiveTab,
+    CloseApplication,
     ReopenClosedTab,
     ToggleUnchanged(u64),
     ToggleDiffView(u64),
@@ -386,6 +391,7 @@ impl App {
             return Task::none();
         }
         match message {
+            Message::CloseApplication => return iced::exit(),
             Message::Git(message) => return self.update_git(message),
             Message::ProjectMenu(space, path, point)
                 if self.space_draft.is_none()

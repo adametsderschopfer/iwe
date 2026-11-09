@@ -886,6 +886,26 @@ fn middle_click_closes_only_its_tab_and_wheel_scrolling_keeps_tabs() {
 }
 
 #[test]
+fn closing_application_works_from_every_screen_and_dialog_without_closing_tabs() {
+    let mut app = app();
+    assert_eq!(app.update(Message::CloseApplication).units(), 1);
+    let active = open(&mut app, "first.rs");
+    for navigation in [
+        crate::app::Navigation::Projects,
+        crate::app::Navigation::Files,
+        crate::app::Navigation::Settings,
+    ] {
+        for dialog in [false, true] {
+            app.navigation = navigation;
+            app.space_draft = dialog.then(crate::app::spaces::Draft::default);
+            assert_eq!(app.update(Message::CloseApplication).units(), 1);
+            assert_eq!(app.preview().id, active);
+            assert_eq!(app.tabs.files.len(), 1);
+        }
+    }
+}
+
+#[test]
 fn closing_the_active_tab_keeps_tabs_during_dialogs_and_settings() {
     let mut app = app();
     let first = open(&mut app, "first.rs");

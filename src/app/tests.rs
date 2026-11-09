@@ -64,7 +64,11 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
             (
                 SettingsTab::Shortcuts,
                 "shortcuts",
-                Key::CloseActiveTabDescription,
+                if cfg!(target_os = "macos") {
+                    Key::CloseApplicationDescription
+                } else {
+                    Key::CloseActiveTabDescription
+                },
             ),
             (SettingsTab::About, "about", Key::AboutDescription),
         ] {
@@ -451,7 +455,7 @@ fn refresh_discards_confirmed_removed_repositories_and_does_not_reuse_other_proj
 }
 
 #[test]
-fn tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
+fn window_and_tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
     use iced::{
         Event,
         keyboard::{Event as KeyEvent, Key, Modifiers, key},
@@ -468,10 +472,12 @@ fn tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
         })
     };
     for name in ["w", "W", "ц"] {
-        assert!(matches!(
-            shortcut(event(name, key::Code::KeyW, Modifiers::COMMAND, false)),
-            Some(Message::CloseActiveTab)
-        ));
+        let message = shortcut(event(name, key::Code::KeyW, Modifiers::COMMAND, false));
+        if cfg!(target_os = "macos") {
+            assert!(matches!(message, Some(Message::CloseApplication)));
+        } else {
+            assert!(matches!(message, Some(Message::CloseActiveTab)));
+        }
     }
     for name in ["t", "T", "е"] {
         assert!(matches!(
@@ -501,16 +507,13 @@ fn tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
         ))
         .is_none()
     );
-    assert!(shortcut(event("w", key::Code::KeyW, Modifiers::NONE, false)).is_none());
-    assert!(
-        shortcut(event(
-            "w",
-            key::Code::KeyW,
-            Modifiers::COMMAND | Modifiers::SHIFT,
-            false
-        ))
-        .is_none()
-    );
+    for modifiers in [
+        Modifiers::NONE,
+        Modifiers::COMMAND | Modifiers::SHIFT,
+        Modifiers::COMMAND | Modifiers::ALT,
+    ] {
+        assert!(shortcut(event("w", key::Code::KeyW, modifiers, false)).is_none());
+    }
     assert!(shortcut(event("w", key::Code::KeyW, Modifiers::COMMAND, true)).is_none());
     for (name, code) in [
         ("1", key::Code::Digit1),
@@ -626,7 +629,11 @@ fn shortcuts_are_visible_in_settings_in_every_language() {
         })]);
         for label in [
             app.i18n.text(Key::KeyboardShortcuts),
-            app.i18n.text(Key::CloseActiveTabDescription),
+            app.i18n.text(if cfg!(target_os = "macos") {
+                Key::CloseApplicationDescription
+            } else {
+                Key::CloseActiveTabDescription
+            }),
             app.i18n.text(Key::ReopenClosedTabDescription),
             if cfg!(target_os = "macos") {
                 "Command + Shift + T"

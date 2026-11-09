@@ -126,8 +126,16 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .into(),
         SettingsTab::Shortcuts => column![
             setting(
-                t(Key::CloseTab),
-                t(Key::CloseActiveTabDescription),
+                t(if cfg!(target_os = "macos") {
+                    Key::CloseApplication
+                } else {
+                    Key::CloseTab
+                }),
+                t(if cfg!(target_os = "macos") {
+                    Key::CloseApplicationDescription
+                } else {
+                    Key::CloseActiveTabDescription
+                }),
                 shortcut_badge("Command + W", "Ctrl + W"),
             ),
             setting(

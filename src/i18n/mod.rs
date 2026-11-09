@@ -136,6 +136,8 @@ message_keys! {
     DiffAfter => "diff-after",
     KeyboardShortcuts => "keyboard-shortcuts",
     CloseActiveTabDescription => "close-active-tab-description",
+    CloseApplication => "close-application",
+    CloseApplicationDescription => "close-application-description",
     ReopenClosedTab => "reopen-closed-tab",
     ReopenClosedTabDescription => "reopen-closed-tab-description",
     EditSpace => "edit-space",
