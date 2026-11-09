@@ -5,6 +5,7 @@ pub(crate) mod changes;
 pub(crate) mod files;
 pub(crate) mod git_actions;
 pub(crate) mod jobs;
+pub(crate) mod notifications;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
 
@@ -65,6 +66,7 @@ fn application(
             app.change_subscription(),
             app.pipeline_subscription(),
             app.jobs_subscription(),
+            app.notifications.subscription().map(Message::Notification),
             window::open_events().map(Message::WindowOpened),
             iced::event::listen_with(|event, _, _| shortcut(event)),
         ])
@@ -183,7 +185,7 @@ pub(crate) struct App {
     pub space_draft: Option<spaces::Draft>,
     pub account_username: Option<String>,
     pub disconnecting: bool,
-    pub notice: Option<Key>,
+    pub notifications: notifications::State,
     pub picking: bool,
     pub loaded: bool,
     window_id: Option<window::Id>,
@@ -282,7 +284,7 @@ pub(crate) enum Message {
         x: f32,
         y: f32,
     },
-    ClearNotice,
+    Notification(notifications::Event),
 }
 
 impl App {
@@ -331,7 +333,7 @@ impl App {
             space_draft: None,
             account_username: None,
             disconnecting: false,
-            notice: None,
+            notifications: notifications::State::default(),
             picking: false,
             loaded: false,
             window_id: None,
@@ -433,7 +435,7 @@ impl App {
                         }
                     }
                     Err(_) => {
-                        self.notice = Some(Key::StorageLoadFailed);
+                        self.notifications.error(Key::StorageLoadFailed, None);
                         self.save_blocked = true;
                     }
                 }
@@ -443,7 +445,7 @@ impl App {
             Message::Saved(result) => {
                 self.saving = false;
                 if result.is_err() {
-                    self.notice = Some(Key::StorageSaveFailed);
+                    self.notifications.error(Key::StorageSaveFailed, None);
                 }
                 if self.save_pending {
                     self.save_pending = false;
@@ -736,7 +738,7 @@ impl App {
             Message::OpenUrl(url) => {
                 return Task::perform(pipelines::open_url(url), Message::Opened);
             }
-            Message::Opened(Err(_)) => self.notice = Some(Key::OpenFailed),
+            Message::Opened(Err(_)) => self.notifications.error(Key::OpenFailed, None),
             Message::SetLanguage(language) => {
                 self.workspace.preferences.language = (language != "auto").then_some(language);
                 self.apply_language();
@@ -777,7 +779,7 @@ impl App {
                     preview.scroll_y = y;
                 }
             }
-            Message::ClearNotice => self.notice = None,
+            Message::Notification(event) => self.notifications.update(event),
             _ => {}
         }
         Task::none()

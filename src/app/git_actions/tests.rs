@@ -46,6 +46,15 @@ fn actions_validate_branch_capabilities_and_preserve_failed_drafts() {
     let dialog = app.git_actions.dialog.as_ref().unwrap();
     assert_eq!(dialog.name, "topic");
     assert_eq!(dialog.error, Some(Error::Dirty));
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
+    ui.click(iced::widget::Id::new("notification-close-1"))
+        .unwrap();
+    for message in ui.into_messages() {
+        let _ = app.update(message);
+    }
+    assert!(app.notifications.items.is_empty());
+    assert!(app.git_actions.dialog.is_some());
 }
 
 #[test]
@@ -59,6 +68,141 @@ fn old_operation_results_cannot_replace_a_new_project() {
     assert!(!app.git_actions.pending);
     assert_eq!(app.generation, generation);
     assert_eq!(app.repository.unwrap().root, PathBuf::from("/another"));
+    assert!(app.notifications.items.is_empty());
+}
+
+#[test]
+fn git_results_notify_once_after_completion_and_keep_failures_visible() {
+    for (operation, key) in [
+        (Operation::Fetch, Key::GitFetchDone),
+        (
+            Operation::Checkout("refs/heads/main".into()),
+            Key::GitCheckoutDone,
+        ),
+        (
+            Operation::Update("refs/heads/main".into()),
+            Key::GitUpdateDone,
+        ),
+        (
+            Operation::Create {
+                source: "refs/heads/main".into(),
+                name: "topic".into(),
+                checkout: false,
+            },
+            Key::GitCreateDone,
+        ),
+        (
+            Operation::Rename {
+                source: "refs/heads/main".into(),
+                name: "topic".into(),
+            },
+            Key::GitRenameDone,
+        ),
+        (
+            Operation::Push {
+                source: "refs/heads/main".into(),
+                remote: "origin".into(),
+                name: "main".into(),
+            },
+            Key::GitPushDone,
+        ),
+        (
+            Operation::Delete("refs/heads/topic".into()),
+            Key::GitDeleteDone,
+        ),
+    ] {
+        let mut app = app();
+        app.notifications = Default::default();
+        let _ = app.run_git(operation);
+        assert!(app.notifications.items.is_empty());
+        let request = app.git_actions.request;
+        let _ = app.update_git(Message::Finished(request, "/test".into(), Ok(())));
+        assert_eq!(app.notifications.items.len(), 1);
+        assert_eq!(app.notifications.items[0].message, key);
+        let _ = app.update_git(Message::Finished(request, "/test".into(), Ok(())));
+        assert_eq!(app.notifications.items.len(), 1);
+    }
+    let mut app = app();
+    app.notifications = Default::default();
+    let _ = app.run_git(Operation::Fetch);
+    let _ = app.update_git(Message::Finished(
+        app.git_actions.request,
+        "/test".into(),
+        Err(Error::Failed),
+    ));
+    assert_eq!(
+        app.notifications.items[0].kind,
+        crate::app::notifications::Kind::Error
+    );
+    assert_eq!(app.notifications.items[0].message, Key::GitOperationFailed);
+}
+
+#[test]
+fn long_branch_and_folder_names_remain_on_one_line() {
+    use crate::{domain::repository::Commit, ui::theme};
+    use iced::widget::Id;
+    let mut app = app();
+    app.workspace
+        .create_space("Work".into(), vec!["/test".into()]);
+    let current = format!("feature/{}", "длинное-название-".repeat(8));
+    let folder = "длинное-название-группы-".repeat(8);
+    let nested = format!("{folder}/{}", "nested-branch-".repeat(8));
+    let repo = app.repository.as_mut().unwrap();
+    repo.branches[0].name = current.clone();
+    repo.branches[0].reference = format!("refs/heads/{current}");
+    repo.branches.push(Branch {
+        name: nested.clone(),
+        reference: format!("refs/heads/{nested}"),
+        current: false,
+        kind: ReferenceKind::Local,
+    });
+    repo.commits.push(Commit {
+        id: "a".repeat(40),
+        parents: vec![],
+        subject: "Preview".into(),
+        author: "Test".into(),
+        date: "2026-11-09".into(),
+        refs: String::new(),
+        graph: Default::default(),
+    });
+    app.expanded_branch_folders
+        .insert(format!("false/{folder}"));
+    app.workspace.preferences.show_git = true;
+    app.sync_panels();
+    for width in [1080., 1440.] {
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings {
+                default_font: theme::font(),
+                ..Default::default()
+            },
+            (width, 920.),
+            app.view(),
+        );
+        let panel = ui
+            .find(Id::new("git-branches"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        for name in [&current, &nested] {
+            let bounds = ui
+                .find(Id::from(format!("branch-refs/heads/{name}")))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            assert_eq!(bounds.height, 30.);
+            assert!(bounds.x + bounds.width <= panel.x + panel.width);
+            assert!(ui.find(name.as_str()).is_err());
+        }
+        if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+            ui.snapshot(&iced::Theme::Dark)
+                .unwrap()
+                .matches_image(output.join(format!("single-line-branches-{width}")))
+                .unwrap();
+        }
+        ui.click(Id::from(format!("branch-refs/heads/{nested}")))
+            .unwrap();
+        assert!(ui.into_messages().any(|message| matches!(message, AppMessage::SelectBranch(reference) if reference == format!("refs/heads/{nested}"))));
+    }
 }
 
 #[test]

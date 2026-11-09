@@ -131,6 +131,8 @@ impl App {
             }
             Message::Finished(request, result) if request == self.auth_request => match result {
                 Ok(username) => {
+                    self.notifications
+                        .success(Key::SignedIn, Some(username.clone()));
                     self.auth_cancel = None;
                     self.auth_dialog = None;
                     self.auth_request += 1;
@@ -213,11 +215,13 @@ impl App {
                 self.disconnecting = false;
                 match result {
                     Ok(()) => {
+                        self.notifications
+                            .success(Key::SignedOut, self.account_username.clone());
                         self.account_username = None;
                         return self.load_pipelines();
                     }
                     Err(error) => {
-                        self.notice = Some(error_key(error));
+                        self.notifications.error(error_key(error), None);
                         self.pipelines = PipelineState::Failed(error);
                     }
                 }

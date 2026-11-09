@@ -81,6 +81,10 @@ pub(crate) fn diff_row(
 }
 
 pub(crate) const SIDEBAR_WIDTH: f32 = 264.0;
+pub(crate) const NOTIFICATION_WIDTH: f32 = 380.0;
+pub(crate) const NOTIFICATION_INSET: f32 = 16.0;
+pub(crate) const NOTIFICATION_GAP: f32 = 8.0;
+pub(crate) const NOTIFICATION_PADDING: f32 = 14.0;
 pub(crate) const PROJECT_FILES_WIDTH: f32 = 280.0;
 pub(crate) const FILE_PANEL_TOOL_SIZE: f32 = 40.0;
 pub(crate) const FILE_PANEL_TOOL_INSET: f32 = 4.0;
@@ -297,6 +301,17 @@ pub(crate) fn tooltip(theme: &Theme) -> container::Style {
             radius: 10.0.into(),
         },
         ..Default::default()
+    }
+}
+
+pub(crate) fn notification(theme: &Theme) -> container::Style {
+    container::Style {
+        shadow: iced::Shadow {
+            color: Color::BLACK.scale_alpha(0.18),
+            offset: iced::Vector::new(0., 3.),
+            blur_radius: 12.,
+        },
+        ..tooltip(theme)
     }
 }
 

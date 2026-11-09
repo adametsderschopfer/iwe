@@ -46,7 +46,7 @@ impl Language {
 
 macro_rules! message_keys {
     ($($variant:ident => $id:literal),+ $(,)?) => {
-        #[derive(Debug, Clone, Copy)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub(crate) enum Key { $($variant),+ }
 
         impl Key {
@@ -86,6 +86,19 @@ message_keys! {
     GitMissingUpstream => "git-missing-upstream",
     GitDirty => "git-dirty",
     GitCurrentBranch => "git-current-branch",
+    GitFetchDone => "git-fetch-done",
+    GitCheckoutDone => "git-checkout-done",
+    GitCreateDone => "git-create-done",
+    GitUpdateDone => "git-update-done",
+    GitPushDone => "git-push-done",
+    GitRenameDone => "git-rename-done",
+    GitDeleteDone => "git-delete-done",
+    JobRunRequested => "job-run-requested",
+    JobRetryRequested => "job-retry-requested",
+    JobStopRequested => "job-stop-requested",
+    PipelineStopRequested => "pipeline-stop-requested",
+    SignedIn => "signed-in",
+    SignedOut => "signed-out",
     Workspace => "workspace",
     ProjectFiles => "project-files",
     WorkingChanges => "working-changes",

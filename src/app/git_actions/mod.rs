@@ -17,6 +17,7 @@ pub(crate) struct State {
     pub menu: Option<(Branch, Point)>,
     pub dialog: Option<Dialog>,
     pub pending: bool,
+    completion: Option<(Key, Option<String>)>,
     request: u64,
 }
 
@@ -55,8 +56,11 @@ pub(crate) enum Message {
 impl App {
     pub(super) fn update_git(&mut self, message: Message) -> Task<AppMessage> {
         match message {
-            Message::Finished(request, root, result) if request == self.git_actions.request => {
+            Message::Finished(request, root, result)
+                if self.git_actions.pending && request == self.git_actions.request =>
+            {
                 self.git_actions.pending = false;
+                let completion = self.git_actions.completion.take();
                 if self
                     .repository
                     .as_ref()
@@ -67,14 +71,19 @@ impl App {
                 }
                 match result {
                     Ok(()) => {
+                        if let Some((message, context)) = completion {
+                            self.notifications.success(message, context);
+                        }
                         self.git_actions.dialog = None;
                         return self.load_directory();
                     }
                     Err(error) => {
+                        self.notifications.error(
+                            error_key(error),
+                            completion.and_then(|(_, context)| context),
+                        );
                         if let Some(dialog) = &mut self.git_actions.dialog {
                             dialog.error = Some(error);
-                        } else {
-                            self.notice = Some(error_key(error));
                         }
                         return Task::batch([self.load_repository(), self.refresh_changes()]);
                     }
@@ -196,6 +205,26 @@ impl App {
             return Task::none();
         }
         let root = repo.root.clone();
+        let branch_name = |reference: &str| {
+            Some(
+                repo.branches
+                    .iter()
+                    .find(|branch| branch.reference == reference)
+                    .map_or_else(|| reference.to_owned(), |branch| branch.name.clone()),
+            )
+        };
+        self.git_actions.completion = Some(match &operation {
+            Operation::Fetch => (
+                Key::GitFetchDone,
+                self.workspace.project().map(|project| project.name.clone()),
+            ),
+            Operation::Checkout(reference) => (Key::GitCheckoutDone, branch_name(reference)),
+            Operation::Update(reference) => (Key::GitUpdateDone, branch_name(reference)),
+            Operation::Delete(reference) => (Key::GitDeleteDone, branch_name(reference)),
+            Operation::Create { name, .. } => (Key::GitCreateDone, Some(name.clone())),
+            Operation::Rename { name, .. } => (Key::GitRenameDone, Some(name.clone())),
+            Operation::Push { name, .. } => (Key::GitPushDone, Some(name.clone())),
+        });
         self.git_actions.pending = true;
         self.git_actions.request += 1;
         let request = self.git_actions.request;

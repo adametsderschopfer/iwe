@@ -1714,7 +1714,12 @@ fn corrupted_storage_is_not_silently_overwritten() {
     let _ = app.update(Message::SetCodeSize(18));
     assert!(app.save_blocked);
     assert!(!app.saving);
-    assert!(matches!(app.notice, Some(Key::StorageLoadFailed)));
+    assert!(
+        app.notifications
+            .items
+            .iter()
+            .any(|item| item.message == Key::StorageLoadFailed)
+    );
 }
 
 #[test]

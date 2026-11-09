@@ -161,13 +161,13 @@ fn header(app: &App, width: f32) -> Element<'_, Message> {
 }
 
 fn branches(app: &App, width: f32) -> Element<'_, Message> {
-    let label_limit = ((width - 76.) / 7.).max(6.) as usize;
     let mut items = column![
         text(app.i18n.text(Key::Branches))
             .size(11)
             .style(theme::FAINT.text()),
     ]
-    .spacing(6);
+    .spacing(6)
+    .width(Length::Fill);
     if let Some(repo) = &app.repository {
         for (kind, group, label) in [
             (ReferenceKind::Local, "false", Key::LocalBranches),
@@ -189,9 +189,12 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                 button(
                     row![
                         file_icons::chevron(!collapsed),
-                        text(app.i18n.text(label))
-                            .size(11)
-                            .style(theme::FAINT.text()),
+                        container(ellipsis::text(app.i18n.text(label), 11.)).style(|theme| {
+                            container::Style {
+                                text_color: Some(theme::FAINT.resolve(theme)),
+                                ..Default::default()
+                            }
+                        }),
                     ]
                     .spacing(4)
                     .align_y(Alignment::Center),
@@ -232,11 +235,7 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                                         theme::FAINT
                                     ),
                                     icon(Icon::Folder, theme::MUTED),
-                                    text(short(
-                                        folder,
-                                        label_limit.saturating_sub(visual_depth * 2).max(4)
-                                    ))
-                                    .size(12)
+                                    ellipsis::text(*folder, 12.)
                                 ]
                                 .spacing(3)
                                 .align_y(Alignment::Center),
@@ -271,11 +270,7 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                             theme::MUTED
                         }
                     ),
-                    text(short(
-                        components.last().copied().unwrap_or(&branch.name),
-                        label_limit.saturating_sub(folders.len().min(5) * 2).max(4)
-                    ))
-                    .size(12)
+                    ellipsis::text(components.last().copied().unwrap_or(&branch.name), 12.)
                 ]
                 .spacing(7)
                 .align_y(Alignment::Center);
@@ -357,12 +352,18 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
             .style(theme::tooltip),
         );
     }
-    container(row![tools, scrollable(items).style(theme::scroll)].spacing(8))
-        .width(width)
-        .height(Length::Fill)
-        .padding(16)
-        .style(theme::surface)
-        .into()
+    container(
+        row![
+            tools,
+            scrollable(items).width(Length::Fill).style(theme::scroll)
+        ]
+        .spacing(8),
+    )
+    .width(width)
+    .height(Length::Fill)
+    .padding(16)
+    .style(theme::surface)
+    .into()
 }
 
 fn branch_order(branch: &Branch) -> (bool, Vec<(u8, &str)>) {

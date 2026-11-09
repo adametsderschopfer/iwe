@@ -174,8 +174,9 @@ valid comparisons do not show this button.
 ## Git
 
 Drag either vertical separator to resize the branches, history, and changed-files columns. Column
-widths remain available during the current application session. Commit titles keep their truncation
-marker on one line.
+widths remain available during the current application session. Commit titles and branch names keep
+their truncation marker on one line. Branch names fit the available width, including folder names.
+Hover over a branch to see its full name.
 
 History opens without a selected commit. Selecting a commit opens its changed-files column. Close
 that column with its cross to clear the selection. Open file tabs remain available. Selecting
@@ -191,6 +192,15 @@ Right-click a branch for **Checkout**, **New branch from…**, **Update**, **Pus
 **Delete**. Each operation targets that branch. Unavailable actions remain disabled. Creation,
 renaming, pushing, and deletion use dialogs. See [Git actions](git-actions.md) for operation
 behavior.
+
+Operation results appear in the lower-right corner without resizing workspace panels. Git
+operations, pipeline actions, sign-in, and sign-out report their results. Background refreshes do
+not announce successful reads. Errors opening links or saving workspace data also appear here.
+
+The application shows up to three notifications. Repeated identical results replace their previous
+notification. Successful results disappear after five seconds. Hovering pauses their timers. Errors
+remain until dismissed or replaced by newer notifications. Each notification has a close button.
+Pipeline confirmations describe accepted requests, not completed jobs.
 
 Opening or refreshing a project selects the checked-out branch and shows its history. Detached
 checkouts show history from HEAD.

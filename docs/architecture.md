@@ -7,6 +7,8 @@ settings.
 | ----------------------------------- | ---------------------------------------------------------------------------------------- |
 | `main.rs`                           | Select the language and start the graphics launcher                                      |
 | `app/`                              | Configure the window, own interface state, and process native material results           |
+| `app/notifications.rs`              | Bound operation notifications, coalesce duplicates, and manage dismissal timers          |
+| `ui/notifications.rs`               | Overlay localized result cards without resizing the workspace                            |
 | `domain/`                           | Model spaces, projects, preferences, accounts, remotes, commits, and graph relationships |
 | `ui/screens/`                       | Compose workspace, Git, pipeline, and settings screens                                   |
 | `ui/code.rs`, `ui/code/`            | Prepare highlighted source lines and preserve their text layout                          |
@@ -45,6 +47,13 @@ Views do not access the operating system. Source contents are never indexed or p
 metadata uses Serde and atomic temporary-file replacement. Native directory selection uses `rfd`.
 Syntect highlights source with bundled `two-face` grammars and the Gerry Darcula palette. `open`
 delegates approved links to the system browser.
+
+Notifications keep typed message keys and optional user context in application memory. They never
+persist with workspace settings. Successful action responses enqueue notifications after request and
+project checks. Error messages use existing localized mappings. Timers run only while unpaused
+successful notifications remain visible. Hovering pauses all notification timers, including new
+arrivals. The notification stack captures clicks inside its cards and preserves workspace clicks
+outside them. Modal dialogs keep their existing error messages.
 
 Git status uses NUL-delimited records and preserves renamed paths. Application state aggregates file
 status into folder decorations. Background polling refreshes status, affected directories, and the

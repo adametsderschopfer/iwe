@@ -1,4 +1,17 @@
 app-title = Iwe
+git-fetch-done = Получение веток завершено
+git-checkout-done = Переключение выполнено
+git-create-done = Ветка создана
+git-update-done = Ветка обновлена
+git-push-done = Ветка отправлена
+git-rename-done = Ветка переименована
+git-delete-done = Ветка удалена
+job-run-requested = Запуск задания запрошен
+job-retry-requested = Повторный запуск задания запрошен
+job-stop-requested = Остановка задания запрошена
+pipeline-stop-requested = Остановка пайплайна запрошена
+signed-in = Вход выполнен
+signed-out = Выход выполнен
 spaces = Пространства
 workspace = Рабочее пространство
 project-files = Файлы проекта

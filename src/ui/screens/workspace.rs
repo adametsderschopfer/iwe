@@ -47,21 +47,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         }
         body.into()
     };
-    let mut main = column![content].height(Length::Fill).width(Length::Fill);
-    if let Some(notice) = app.notice {
-        main = main.push(
-            container(
-                row![
-                    text(app.i18n.text(notice)).size(13).width(Length::Fill),
-                    icon_button(app, Icon::Close, Key::Dismiss, Message::ClearNotice, false)
-                ]
-                .align_y(Alignment::Center)
-                .spacing(12),
-            )
-            .padding([8, 16])
-            .style(theme::badge),
-        );
-    }
+    let main = column![content].height(Length::Fill).width(Length::Fill);
     let base = container(row![
         column![sidebar_header(), sidebar(app)]
             .width(theme::SIDEBAR_WIDTH)
@@ -75,13 +61,14 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .height(Length::Fill)
     .style(theme::surface)
     .into();
-    super::space_form::overlay(
+    let base = super::space_form::overlay(
         app,
         auth::overlay(
             app,
             git_actions::overlay(app, project_menu(app, pipelines::overlay(app, base))),
         ),
-    )
+    );
+    crate::ui::notifications::overlay(&app.notifications, &app.i18n, base, Message::Notification)
 }
 
 fn header(app: &App) -> Element<'_, Message> {

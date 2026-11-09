@@ -1,4 +1,17 @@
 app-title = Iwe
+git-fetch-done = Remote refresh complete
+git-checkout-done = Checkout complete
+git-create-done = Branch created
+git-update-done = Branch updated
+git-push-done = Branch pushed
+git-rename-done = Branch renamed
+git-delete-done = Branch deleted
+job-run-requested = Job start requested
+job-retry-requested = Job rerun requested
+job-stop-requested = Job stop requested
+pipeline-stop-requested = Pipeline stop requested
+signed-in = Signed in
+signed-out = Signed out
 spaces = Spaces
 workspace = Workspace
 project-files = Project files

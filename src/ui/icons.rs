@@ -9,6 +9,8 @@ use iced::{
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Icon {
+    Check,
+    Warning,
     CollapseLines,
     ExpandLines,
     SplitDiff,
@@ -67,6 +69,14 @@ impl<Message> canvas::Program<Message> for Drawing {
             frame.stroke(&path, stroke);
         };
         match self.0 {
+            Icon::Check => {
+                line(&[(3., 10.), (8., 15.), (17., 5.)]);
+            }
+            Icon::Warning => {
+                line(&[(10., 2.), (19., 18.), (1., 18.), (10., 2.)]);
+                line(&[(10., 7.), (10., 11.)]);
+                line(&[(10., 14.), (10., 15.)]);
+            }
             Icon::SplitDiff => {
                 line(&[(2., 3.), (18., 3.), (18., 17.), (2., 17.), (2., 3.)]);
                 line(&[(10., 3.), (10., 17.)]);

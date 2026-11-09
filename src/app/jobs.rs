@@ -3,9 +3,10 @@
 use super::{App, Message, Navigation, PipelineState};
 use crate::domain::{
     Failure,
-    jobs::{Action, Details},
+    jobs::{Action, Details, JobAction},
     repository::Pipeline,
 };
+use crate::i18n::Key;
 use iced::{Subscription, Task};
 use std::{collections::BTreeSet, time::Duration};
 
@@ -202,20 +203,52 @@ impl App {
                         .pending
                         .is_some_and(|(pipeline, _)| pipeline == id) =>
             {
-                self.jobs.pending = None;
+                let action = self.jobs.pending.take().map(|(_, action)| action);
+                let context = action.and_then(|action| match action {
+                    Action::Job(job, _) => self
+                        .job_details(id)
+                        .and_then(|details| {
+                            details
+                                .stages
+                                .iter()
+                                .flat_map(|stage| &stage.jobs)
+                                .find(|item| item.id == job)
+                        })
+                        .map(|job| job.name.clone()),
+                    Action::CancelPipeline => self
+                        .jobs
+                        .selected
+                        .as_ref()
+                        .filter(|run| run.id == id)
+                        .map(|run| run.title.clone()),
+                });
                 let selected = self.jobs.selected.as_ref().is_some_and(|run| run.id == id);
                 match result {
                     Ok(()) => {
+                        if let Some(action) = action {
+                            self.notifications.success(
+                                match action {
+                                    Action::Job(_, JobAction::Play) => Key::JobRunRequested,
+                                    Action::Job(_, JobAction::Retry) => Key::JobRetryRequested,
+                                    Action::Job(_, JobAction::Cancel) => Key::JobStopRequested,
+                                    Action::CancelPipeline => Key::PipelineStopRequested,
+                                },
+                                context,
+                            );
+                        }
                         return Task::batch([
                             self.load_pipelines(),
                             self.refresh_jobs(),
                             self.refresh_pipeline_overviews(false),
                         ]);
                     }
-                    Err(error) if selected => self.jobs.action_error = Some(error),
                     Err(error) => {
+                        self.notifications.error(super::error_key(error), context);
+                        if selected {
+                            self.jobs.action_error = Some(error);
+                            return Task::none();
+                        }
                         self.jobs.overview.failed(id, error);
-                        self.notice = Some(super::error_key(error));
                         return Task::batch([
                             self.refresh_jobs(),
                             self.refresh_pipeline_overviews(false),

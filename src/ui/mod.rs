@@ -8,6 +8,7 @@ pub(crate) mod ellipsis;
 pub(crate) mod file_icons;
 pub(crate) mod graph;
 pub(crate) mod icons;
+pub(crate) mod notifications;
 pub(crate) mod reorder;
 pub(crate) mod screens;
 pub(crate) mod theme;

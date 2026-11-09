@@ -1,4 +1,17 @@
 app-title = Iwe
+git-fetch-done = Actualización de ramas remotas completada
+git-checkout-done = Cambio de revisión completado
+git-create-done = Rama creada
+git-update-done = Rama actualizada
+git-push-done = Rama enviada
+git-rename-done = Rama renombrada
+git-delete-done = Rama eliminada
+job-run-requested = Inicio de tarea solicitado
+job-retry-requested = Repetición de tarea solicitada
+job-stop-requested = Detención de tarea solicitada
+pipeline-stop-requested = Detención del pipeline solicitada
+signed-in = Sesión iniciada
+signed-out = Sesión cerrada
 spaces = Espacios
 workspace = Espacio de trabajo
 project-files = Archivos del proyecto

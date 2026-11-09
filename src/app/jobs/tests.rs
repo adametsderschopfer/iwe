@@ -93,6 +93,32 @@ fn selected() -> App {
 }
 
 #[test]
+fn job_action_notifications_wait_for_provider_acceptance_and_ignore_duplicate_results() {
+    for (action, key) in [
+        (Action::Job(3, JobAction::Play), Key::JobRunRequested),
+        (Action::Job(1, JobAction::Retry), Key::JobRetryRequested),
+        (Action::Job(2, JobAction::Cancel), Key::JobStopRequested),
+        (Action::CancelPipeline, Key::PipelineStopRequested),
+    ] {
+        let mut app = selected();
+        let _ = app.update_jobs(Event::Control(500, action));
+        assert!(app.notifications.items.is_empty());
+        let event = Event::Controlled(app.jobs.epoch, app.jobs.action_request, 500, Ok(()));
+        let _ = app.update_jobs(event.clone());
+        assert_eq!(app.notifications.items.len(), 1);
+        assert_eq!(app.notifications.items[0].message, key);
+        let _ = app.update_jobs(event);
+        assert_eq!(app.notifications.items.len(), 1);
+    }
+    let mut app = selected();
+    let _ = app.update_jobs(Event::Control(500, Action::Job(3, JobAction::Play)));
+    let event = Event::Controlled(app.jobs.epoch, app.jobs.action_request, 500, Ok(()));
+    app.reset_jobs();
+    let _ = app.update_jobs(event);
+    assert!(app.notifications.items.is_empty());
+}
+
+#[test]
 fn job_refresh_keeps_details_and_collapse_state_and_rejects_old_selection_results() {
     let mut app = selected();
     let _ = app.update_jobs(Event::ToggleStage("build".into()));
@@ -197,7 +223,12 @@ fn action_results_do_not_replace_a_different_pipeline_or_project() {
     assert_eq!(app.jobs.selected.as_ref().unwrap().id, 501);
     assert!(app.jobs.loading);
     assert!(app.jobs.action_error.is_none());
-    assert!(app.notice.is_some());
+    assert!(
+        app.notifications
+            .items
+            .iter()
+            .any(|item| item.kind == crate::app::notifications::Kind::Error)
+    );
     app.reset_jobs();
     let _ = app.update_jobs(Event::Controlled(epoch, request, 500, Ok(())));
     assert!(app.jobs.selected.is_none());

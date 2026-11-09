@@ -29,6 +29,10 @@ Pending actions disable further Git actions. Failures retain dialog inputs and n
 operation automatically. Refresh repository state before retrying an ambiguous failure. Subprocesses
 use a 180-second deadline and bounded output. A timeout can occur after a remote accepts an action.
 
+Completed operations show a notification with the affected branch or project. Failed operations show
+a localized error notification and preserve any open dialog. Obsolete or duplicate responses never
+produce new notifications.
+
 Git uses existing local configuration, SSH agents, and credential helpers. Pipeline account sign-in
 does not configure Git authentication. Interactive terminal prompts are disabled. Configure Git
 access outside Iwe before using remotes.
