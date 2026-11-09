@@ -115,8 +115,8 @@ fn header(app: &App) -> Element<'_, Message> {
     if let Some(repo) = app.active_repository()
         && !is_settings
     {
-        heading = heading.push(
-            container(
+        heading = heading.push(tooltip::view(
+            container(button(
                 row![
                     icon(Icon::Branch, theme::MUTED),
                     text(if repo.head.is_empty() {
@@ -142,9 +142,13 @@ fn header(app: &App) -> Element<'_, Message> {
                 .spacing(6)
                 .align_y(Alignment::Center),
             )
+            .on_press(Message::RevealGitBranches)
             .padding([4, 10])
-            .style(theme::badge),
-        );
+            .style(theme::branch_badge))
+            .id("window-branch-button"),
+            text(app.i18n.text(Key::ShowBranches)).size(12),
+            tooltip::Position::Bottom,
+        ));
     }
     let action = if is_settings {
         icon_button(

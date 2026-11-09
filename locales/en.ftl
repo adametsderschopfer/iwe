@@ -151,6 +151,7 @@ settings-saved = Changes are saved automatically on this device.
 back-to-workspace = Back to workspace
 refresh = Refresh
 refresh-working-changes = Refresh uncommitted files
+show-branches = Show branches
 go-to-line = Go to Line
 go-to-line-description = Enter a line number in the open file.
 line-number = Line number

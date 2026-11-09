@@ -151,6 +151,7 @@ settings-saved = Los cambios se guardan automáticamente en este dispositivo.
 back-to-workspace = Volver al espacio
 refresh = Actualizar
 refresh-working-changes = Actualizar archivos sin confirmar
+show-branches = Mostrar ramas
 go-to-line = Ir a la línea
 go-to-line-description = Introduzca un número de línea del archivo abierto.
 line-number = Número de línea

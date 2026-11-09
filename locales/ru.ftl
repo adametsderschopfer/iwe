@@ -151,6 +151,7 @@ settings-saved = Изменения сохраняются автоматиче�
 back-to-workspace = Вернуться к проектам
 refresh = Обновить
 refresh-working-changes = Обновить незакоммиченные файлы
+show-branches = Показать ветки
 go-to-line = Перейти к строке
 go-to-line-description = Введите номер строки в открытом файле.
 line-number = Номер строки

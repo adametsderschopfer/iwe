@@ -205,6 +205,8 @@ pub(crate) struct App {
     pub changes: changes::State,
     pub tabs: tabs::State,
     pub branch: Option<BranchKey>,
+    pub branch_attention: Option<u64>,
+    branch_attention_request: u64,
     pub query: String,
     pub selected_commit: Option<CommitKey>,
     pub changed_files: Vec<ChangedFile>,
@@ -253,6 +255,8 @@ pub(crate) enum Message {
     Update(updates::Event),
     DragWindow,
     ToggleWindowMaximized,
+    RevealGitBranches,
+    ClearBranchAttention(u64),
     WindowMaximized(bool),
     #[cfg(target_os = "windows")]
     WindowResized(window::Id),
@@ -378,6 +382,8 @@ impl App {
             changes: changes::State::default(),
             tabs: tabs::State::default(),
             branch: None,
+            branch_attention: None,
+            branch_attention_request: 0,
             query: String::new(),
             selected_commit: None,
             changed_files: Vec::new(),
@@ -448,6 +454,7 @@ impl App {
                 Message::Navigate(_)
                     | Message::SelectSettingsTab(_)
                     | Message::SelectProject(_, _)
+                    | Message::RevealGitBranches
                     | Message::RemoveProjectFromSpace
                     | Message::SelectFilePanel(_)
                     | Message::ToggleFilePanel(_)
@@ -849,7 +856,23 @@ impl App {
                     Err(error) => self.changes_error = Some(error),
                 }
             }
+            Message::RevealGitBranches => {
+                if self.workspace.directory().is_none() { return Task::none(); }
+                if !self.workspace.preferences.show_git {
+                    return self.update(Message::TogglePanel(Panel::Git));
+                }
+                self.branch_attention_request = self.branch_attention_request.wrapping_add(1);
+                let request = self.branch_attention_request;
+                self.branch_attention = Some(request);
+                return Task::perform(async {
+                    tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+                }, move |_| Message::ClearBranchAttention(request));
+            }
+            Message::ClearBranchAttention(request) => {
+                if self.branch_attention == Some(request) { self.branch_attention = None; }
+            }
             Message::TogglePanel(panel) => {
+                self.branch_attention = None;
                 self.jobs.overview.popup = None;
                 match panel {
                     Panel::Git => {
@@ -1034,6 +1057,7 @@ impl App {
     }
 
     fn load_directory(&mut self) -> Task<Message> {
+        self.branch_attention = None;
         self.line_navigation = None;
         self.git_actions.menu = None;
         self.project_menu = None;

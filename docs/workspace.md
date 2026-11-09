@@ -16,6 +16,10 @@ unchanged. Removing a project only detaches its folder. The application never de
 The header shows **Space • Project** whenever a project is selected. Without a selected project,
 it shows only the space name. Settings keeps its own heading.
 
+Click the branch badge in the header to open Git history when its panel is closed.
+If Git history is already open, the branches block shows a blue outline for 700 milliseconds.
+Clicking again restarts that interval. The action preserves the selected branch and history filter.
+
 Right-click a file or directory in the project tree to open its context menu. Click **Copy** to copy
 its absolute path. Hover **Copy** to choose an absolute path or a path relative to its repository
 root. Nested repositories use their own root. Paths outside detected repositories use the project

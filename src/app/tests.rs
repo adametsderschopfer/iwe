@@ -16,6 +16,38 @@ fn ui_settings() -> iced::Settings {
 }
 
 #[test]
+fn header_branch_action_opens_git_without_toggling_an_open_panel() {
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    app.workspace.create_space("Work".into(), vec![PathBuf::from("project")]);
+    app.workspace.preferences.show_git = false;
+    app.workspace.preferences.show_pipelines = true;
+    let _ = app.update(Message::RevealGitBranches);
+    assert!(app.workspace.preferences.show_git);
+    assert!(!app.workspace.preferences.show_pipelines);
+    assert!(app.panes.iter().any(|(_, panel)| *panel == Panel::Git));
+    assert!(app.branch_attention.is_none());
+    let _ = app.update(Message::RevealGitBranches);
+    assert!(app.workspace.preferences.show_git);
+    assert!(app.branch_attention.is_some());
+}
+
+#[test]
+fn repeated_branch_attention_rejects_an_older_timeout() {
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    app.workspace.create_space("Work".into(), vec![PathBuf::from("project")]);
+    app.workspace.preferences.show_git = true;
+    let _ = app.update(Message::RevealGitBranches);
+    let first = app.branch_attention.unwrap();
+    let _ = app.update(Message::RevealGitBranches);
+    let second = app.branch_attention.unwrap();
+    assert_ne!(first, second);
+    let _ = app.update(Message::ClearBranchAttention(first));
+    assert_eq!(app.branch_attention, Some(second));
+    let _ = app.update(Message::ClearBranchAttention(second));
+    assert!(app.branch_attention.is_none());
+}
+
+#[test]
 fn appearance_switch_applies_immediately_in_every_language() {
     for (language, suffix) in [
         (Language::English, "en"),

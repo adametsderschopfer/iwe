@@ -119,6 +119,7 @@ message_keys! {
     ProjectFiles => "project-files",
     WorkingChanges => "working-changes",
     RefreshWorkingChanges => "refresh-working-changes",
+    ShowBranches => "show-branches",
     GoToLine => "go-to-line",
     GoToLineDescription => "go-to-line-description",
     LineNumber => "line-number",

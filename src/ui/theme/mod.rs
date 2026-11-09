@@ -351,6 +351,27 @@ pub(crate) fn badge(theme: &Theme) -> container::Style {
     }
 }
 
+pub(crate) fn branch_badge(theme: &Theme, status: button::Status) -> button::Style {
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+    button::Style {
+        background: Some(if hovered { SELECTED } else { ELEVATED }.resolve(theme).into()),
+        text_color: if hovered { TEXT } else { MUTED }.resolve(theme),
+        border: Border { radius: 999.0.into(), ..Default::default() },
+        ..Default::default()
+    }
+}
+
+pub(crate) fn branch_attention(active: bool) -> impl Fn(&Theme) -> container::Style {
+    move |theme| container::Style {
+        border: Border {
+            width: if active { 2.0 } else { 0.0 },
+            color: BLUE.resolve(theme),
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
 pub(crate) fn dialog(theme: &Theme) -> container::Style {
     container::Style {
         background: Some(DIALOG.resolve(theme).into()),
