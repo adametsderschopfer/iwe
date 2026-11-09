@@ -393,7 +393,7 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
         ),
         (
             "git-update",
-            Icon::Down,
+            Icon::UpdateBranch,
             Key::GitUpdateSelected,
             selected
                 .filter(|(_, branch)| branch.kind != ReferenceKind::Tag)

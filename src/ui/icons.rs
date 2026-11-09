@@ -26,6 +26,7 @@ pub(crate) enum Icon {
     Drag,
     Changes,
     Fetch,
+    UpdateBranch,
     Upload,
     Update,
     Pin,
@@ -127,6 +128,26 @@ impl<Message> canvas::Program<Message> for Drawing {
                 line(&[(6., 9.), (10., 13.), (14., 9.)]);
                 line(&[(3., 14.), (3., 18.), (17., 18.), (17., 14.)]);
             }
+            Icon::UpdateBranch => {
+                let path = Path::new(|builder| {
+                    builder.move_to(Point::new(5., 5.));
+                    builder.line_to(Point::new(5., 15.));
+                    builder.move_to(Point::new(15., 3.));
+                    builder.line_to(Point::new(15., 7.));
+                    builder.bezier_curve_to(
+                        Point::new(15., 11.), Point::new(5., 8.), Point::new(5., 12.),
+                    );
+                    builder.move_to(Point::new(2., 9.));
+                    builder.line_to(Point::new(5., 12.));
+                    builder.line_to(Point::new(8., 9.));
+                });
+                let rounded = stroke.with_line_cap(canvas::LineCap::Round)
+                    .with_line_join(canvas::LineJoin::Round);
+                frame.stroke(&path, rounded);
+                for y in [3., 17.] {
+                    frame.stroke(&Path::circle(Point::new(5., y), 2.), rounded);
+                }
+            }
             Icon::Upload => {
                 line(&[(10., 14.), (10., 3.)]);
                 line(&[(6., 7.), (10., 3.), (14., 7.)]);
@@ -226,17 +247,30 @@ impl<Message> canvas::Program<Message> for Drawing {
                 frame.stroke(&Path::circle(Point::new(6., 7.), 1.5), stroke);
             }
             Icon::Refresh => {
-                line(&[(16., 3.), (16., 8.), (11., 8.)]);
-                line(&[
-                    (16., 8.),
-                    (13., 4.),
-                    (8., 3.),
-                    (4., 6.),
-                    (3., 11.),
-                    (6., 16.),
-                    (12., 17.),
-                    (16., 14.),
-                ]);
+                let arc = Path::new(|builder| {
+                    builder.move_to(Point::new(16., 7.));
+                    builder.bezier_curve_to(
+                        Point::new(14.9, 4.7), Point::new(12.6, 3.2), Point::new(10., 3.2),
+                    );
+                    builder.bezier_curve_to(
+                        Point::new(6.2, 3.2), Point::new(3.2, 6.2), Point::new(3.2, 10.),
+                    );
+                    builder.bezier_curve_to(
+                        Point::new(3.2, 13.8), Point::new(6.2, 16.8), Point::new(10., 16.8),
+                    );
+                    builder.bezier_curve_to(
+                        Point::new(12.6, 16.8), Point::new(14.8, 15.4), Point::new(16., 13.2),
+                    );
+                });
+                let rounded = stroke.with_line_cap(canvas::LineCap::Round)
+                    .with_line_join(canvas::LineJoin::Round);
+                frame.stroke(&arc, rounded);
+                let arrow = Path::new(|builder| {
+                    builder.move_to(Point::new(16., 3.));
+                    builder.line_to(Point::new(16., 7.));
+                    builder.line_to(Point::new(12., 7.));
+                });
+                frame.stroke(&arrow, rounded);
             }
             Icon::Settings => {
                 let cog = Path::new(|builder| {
