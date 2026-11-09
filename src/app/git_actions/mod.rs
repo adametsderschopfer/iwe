@@ -4,7 +4,7 @@ use super::{App, Message as AppMessage};
 use crate::{
     domain::{
         git::{Error, Operation},
-        repository::{Branch, ReferenceKind},
+        repository::{Branch, ReferenceKind, project::BranchKey},
     },
     i18n::Key,
     infrastructure::git,
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 #[derive(Default)]
 pub(crate) struct State {
-    pub menu: Option<(Branch, Point)>,
+    pub menu: Option<(BranchKey, Branch, Point)>,
     pub dialog: Option<Dialog>,
     pub pending: bool,
     completion: Option<(Key, Option<String>)>,
@@ -32,6 +32,7 @@ pub(crate) enum Action {
 }
 
 pub(crate) struct Dialog {
+    pub root: PathBuf,
     pub action: Action,
     pub branch: Branch,
     pub name: String,
@@ -42,20 +43,39 @@ pub(crate) struct Dialog {
 
 #[derive(Clone, Debug)]
 pub(crate) enum Message {
-    Menu(String, Point),
+    Menu(BranchKey, Point),
     Close,
     Fetch,
-    Choose(Action, String),
+    Choose(Action, BranchKey),
     Name(String),
     Remote(String),
     Checkout(bool),
     Submit,
     Finished(u64, PathBuf, Result<(), Error>),
+    Fetched(u64, u64, Vec<(PathBuf, Result<(), Error>)>),
 }
 
 impl App {
     pub(super) fn update_git(&mut self, message: Message) -> Task<AppMessage> {
         match message {
+            Message::Fetched(request, generation, results)
+                if self.git_actions.pending && request == self.git_actions.request =>
+            {
+                self.git_actions.pending = false;
+                if generation != self.generation {
+                    return Task::none();
+                }
+                for (root, result) in results {
+                    let context = root
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned());
+                    match result {
+                        Ok(()) => self.notifications.success(Key::GitFetchDone, context),
+                        Err(error) => self.notifications.error(error_key(error), context),
+                    }
+                }
+                return self.load_directory();
+            }
             Message::Finished(request, root, result)
                 if self.git_actions.pending && request == self.git_actions.request =>
             {
@@ -64,7 +84,7 @@ impl App {
                 if self
                     .repository
                     .as_ref()
-                    .is_none_or(|repo| repo.root != root)
+                    .is_none_or(|repos| repos.get(&root).is_none())
                 {
                     self.git_actions.dialog = None;
                     return Task::none();
@@ -96,31 +116,36 @@ impl App {
             _ if self.git_actions.pending
                 || self.space_draft.is_some()
                 || self.auth_dialog.is_some() => {}
-            Message::Menu(reference, position) => {
+            Message::Menu(key, position) => {
                 if let Some(branch) = self
                     .repository
                     .as_ref()
+                    .and_then(|repos| repos.get(&key.root))
                     .and_then(|repo| {
                         repo.branches
                             .iter()
-                            .find(|branch| branch.reference == reference)
+                            .find(|branch| branch.reference == key.reference)
                     })
                     .cloned()
                 {
                     self.project_menu = None;
-                    self.git_actions.menu = Some((branch, position));
+                    self.git_actions.menu = Some((key, branch, position));
                 }
             }
-            Message::Fetch => return self.run_git(Operation::Fetch),
-            Message::Choose(action, reference) => {
+            Message::Fetch => return self.fetch_repositories(),
+            Message::Choose(action, key) => {
                 self.git_actions.menu = None;
-                let Some(repo) = &self.repository else {
+                let Some(repo) = self
+                    .repository
+                    .as_ref()
+                    .and_then(|repos| repos.get(&key.root))
+                else {
                     return Task::none();
                 };
                 let Some(branch) = repo
                     .branches
                     .iter()
-                    .find(|branch| branch.reference == reference)
+                    .find(|branch| branch.reference == key.reference)
                     .cloned()
                 else {
                     return Task::none();
@@ -129,10 +154,15 @@ impl App {
                     return Task::none();
                 }
                 match action {
-                    Action::Checkout => return self.run_git(Operation::Checkout(reference)),
-                    Action::Update => return self.run_git(Operation::Update(reference)),
+                    Action::Checkout => {
+                        return self.run_git(key.root, Operation::Checkout(key.reference));
+                    }
+                    Action::Update => {
+                        return self.run_git(key.root, Operation::Update(key.reference));
+                    }
                     _ => {
                         self.git_actions.dialog = Some(Dialog {
+                            root: key.root,
                             name: if action == Action::Create {
                                 String::new()
                             } else {
@@ -190,28 +220,27 @@ impl App {
                     Action::Delete => Operation::Delete(source),
                     _ => return Task::none(),
                 };
-                return self.run_git(operation);
+                return self.run_git(dialog.root.clone(), operation);
             }
             _ => {}
         }
         Task::none()
     }
 
-    fn run_git(&mut self, operation: Operation) -> Task<AppMessage> {
-        let Some(repo) = &self.repository else {
+    fn run_git(&mut self, root: PathBuf, operation: Operation) -> Task<AppMessage> {
+        let Some(repo) = self.repository.as_ref().and_then(|repos| repos.get(&root)) else {
             return Task::none();
         };
         if self.git_actions.pending {
             return Task::none();
         }
-        let root = repo.root.clone();
         let branch_name = |reference: &str| {
-            Some(
-                repo.branches
-                    .iter()
-                    .find(|branch| branch.reference == reference)
-                    .map_or_else(|| reference.to_owned(), |branch| branch.name.clone()),
-            )
+            let name = repo
+                .branches
+                .iter()
+                .find(|branch| branch.reference == reference)
+                .map_or_else(|| reference.to_owned(), |branch| branch.name.clone());
+            Some(name)
         };
         self.git_actions.completion = Some(match &operation {
             Operation::Fetch => (
@@ -225,12 +254,51 @@ impl App {
             Operation::Rename { name, .. } => (Key::GitRenameDone, Some(name.clone())),
             Operation::Push { name, .. } => (Key::GitPushDone, Some(name.clone())),
         });
+        if self
+            .repository
+            .as_ref()
+            .is_some_and(|repos| repos.repositories.len() > 1)
+            && let Some((_, Some(context))) = &mut self.git_actions.completion
+        {
+            *context = format!(
+                "{} · {context}",
+                root.file_name().unwrap_or_default().to_string_lossy()
+            );
+        }
         self.git_actions.pending = true;
         self.git_actions.request += 1;
         let request = self.git_actions.request;
         Task::perform(git::execute(root.clone(), operation), move |result| {
             AppMessage::Git(Message::Finished(request, root.clone(), result))
         })
+    }
+
+    fn fetch_repositories(&mut self) -> Task<AppMessage> {
+        let Some(repos) = &self.repository else {
+            return Task::none();
+        };
+        if repos.repositories.len() == 1 {
+            return self.run_git(repos.active_root.clone(), Operation::Fetch);
+        }
+        let roots: Vec<_> = repos
+            .repositories
+            .iter()
+            .map(|repo| repo.root.clone())
+            .collect();
+        self.git_actions.pending = true;
+        self.git_actions.request += 1;
+        let (request, generation) = (self.git_actions.request, self.generation);
+        Task::perform(
+            async move {
+                let mut results = Vec::new();
+                for root in roots {
+                    let result = git::execute(root.clone(), Operation::Fetch).await;
+                    results.push((root, result));
+                }
+                results
+            },
+            move |results| AppMessage::Git(Message::Fetched(request, generation, results)),
+        )
     }
 }
 

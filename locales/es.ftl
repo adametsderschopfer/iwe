@@ -204,3 +204,5 @@ git-invalid-name = Elige una referencia existente y un nombre de rama válido y 
 git-missing-upstream = Esta rama no sigue una rama remota. Envíala primero para configurar el seguimiento.
 git-dirty = El proyecto tiene cambios sin confirmar. Guárdalos antes de cambiar o actualizar la rama.
 git-current-branch = Cambia a otra rama antes de eliminar esta.
+
+all-repositories = Todos los repositorios

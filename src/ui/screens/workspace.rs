@@ -106,7 +106,7 @@ fn header(app: &App) -> Element<'_, Message> {
     ]
     .spacing(12)
     .align_y(Alignment::Center);
-    if let Some(repo) = &app.repository
+    if let Some(repo) = app.active_repository()
         && !is_settings
     {
         heading = heading.push(
@@ -115,6 +115,19 @@ fn header(app: &App) -> Element<'_, Message> {
                     icon(Icon::Branch, theme::MUTED),
                     text(if repo.head.is_empty() {
                         app.i18n.text(Key::DetachedHead)
+                    } else if app
+                        .repository
+                        .as_ref()
+                        .is_some_and(|repos| repos.repositories.len() > 1)
+                    {
+                        short(
+                            &format!(
+                                "{}: {}",
+                                repo.root.file_name().unwrap_or_default().to_string_lossy(),
+                                repo.head
+                            ),
+                            32,
+                        )
                     } else {
                         short(&repo.head, 24)
                     })
@@ -524,57 +537,7 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
                 .fold(260., f32::max);
             file_tree(app, root, 0, Column::new()).width(width).into()
         }
-        FilePanel::Changes => {
-            let root = app.workspace.directory().unwrap();
-            let entries = app
-                .changes
-                .status
-                .files
-                .iter()
-                .map(|(path, change)| changed_tree::Entry {
-                    path: path
-                        .strip_prefix(root)
-                        .unwrap_or(path)
-                        .components()
-                        .map(|part| part.as_os_str().to_string_lossy())
-                        .collect::<Vec<_>>()
-                        .join("/"),
-                    status: change.status,
-                    open: Message::OpenFile(path.clone()),
-                })
-                .collect::<Vec<_>>();
-            if entries.is_empty() {
-                text(app.i18n.text(if let Some(error) = app.changes.error {
-                    error_key(error)
-                } else if !app.changes.loaded {
-                    Key::Loading
-                } else {
-                    Key::NoWorkingChanges
-                }))
-                .size(13)
-                .style(theme::MUTED.text())
-                .into()
-            } else {
-                let tree = changed_tree::view(
-                    entries,
-                    &app.collapsed_worktree_folders,
-                    &app.i18n,
-                    Message::ToggleWorktreeFolder,
-                );
-                if let Some(error) = app.changes.error {
-                    column![
-                        text(app.i18n.text(error_key(error)))
-                            .size(13)
-                            .style(theme::MUTED.text()),
-                        tree
-                    ]
-                    .spacing(8)
-                    .into()
-                } else {
-                    tree
-                }
-            }
-        }
+        FilePanel::Changes => super::working_changes::view(app),
     };
     let title = app.i18n.text(match app.file_panel {
         FilePanel::Project => Key::ProjectFiles,
@@ -830,7 +793,17 @@ fn file_tree<'a>(
             } else {
                 space().width(10).into()
             };
-            let symbol = if entry.directory {
+            let repository_index = app
+                .changes
+                .status
+                .roots
+                .iter()
+                .position(|root| root == &entry.path);
+            let symbol = if entry.directory
+                && let Some(index) = repository_index
+            {
+                icon(Icon::Branch, theme::repository_color(index))
+            } else if entry.directory {
                 let package = app
                     .tree
                     .get(&entry.path)
@@ -846,7 +819,9 @@ fn file_tree<'a>(
                 text(&entry.name)
                     .size(theme::FILE_TREE_TEXT_SIZE)
                     .style(
-                        (if entry.directory {
+                        (if let Some(index) = repository_index {
+                            theme::repository_color(index)
+                        } else if entry.directory {
                             theme::MUTED
                         } else {
                             status.map(theme::file_status).unwrap_or(theme::TEXT)

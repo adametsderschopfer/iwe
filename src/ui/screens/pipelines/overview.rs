@@ -48,8 +48,7 @@ pub(super) fn chain<'a>(app: &'a App, run: &'a Pipeline) -> Element<'a, Message>
         };
     };
     let github = app
-        .repository
-        .as_ref()
+        .active_repository()
         .and_then(|repo| repo.remote.as_ref())
         .is_some_and(|remote| remote.provider == Some(Provider::GitHub));
     let mut nodes: Vec<Element<'a, Message>> = Vec::new();
@@ -291,8 +290,7 @@ pub(in crate::ui::screens) fn overlay<'a>(
 
 fn job_row<'a>(app: &'a App, pipeline: u64, job: &'a Job) -> Element<'a, Message> {
     let provider = app
-        .repository
-        .as_ref()
+        .active_repository()
         .and_then(|repo| repo.remote.as_ref())
         .and_then(|remote| remote.provider);
     let value = Status::from_provider(&job.status);

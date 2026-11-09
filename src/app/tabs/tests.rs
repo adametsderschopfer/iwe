@@ -763,7 +763,10 @@ fn selecting_the_open_project_does_not_refresh_or_reset_its_state() {
     let mut app = app();
     let id = open(&mut app, "src/main.rs");
     loaded(&mut app, id, "current source");
-    app.branch = Some("refs/heads/feature".to_owned());
+    app.branch = Some(crate::domain::repository::project::BranchKey {
+        root: PathBuf::from("project"),
+        reference: "refs/heads/feature".to_owned(),
+    });
     app.query = "search".to_owned();
     app.history_scroll_y = 450.;
     let before = (app.generation, app.repo_request, app.file_request);
@@ -774,7 +777,10 @@ fn selecting_the_open_project_does_not_refresh_or_reset_its_state() {
         app.preview().document.as_ref().unwrap().text,
         "current source"
     );
-    assert_eq!(app.branch.as_deref(), Some("refs/heads/feature"));
+    assert_eq!(
+        app.branch.as_ref().map(|key| key.reference.as_str()),
+        Some("refs/heads/feature")
+    );
     assert_eq!(app.query, "search");
     assert_eq!(app.history_scroll_y, 450.);
     assert!(!app.saving);
@@ -1070,6 +1076,7 @@ fn commit_versions_have_separate_tabs_from_working_files() {
         subject: "Snapshot".to_owned(),
         author: "Author".to_owned(),
         date: "2026-11-08".to_owned(),
+        timestamp: 0,
         refs: String::new(),
         graph: GraphRow::default(),
     };

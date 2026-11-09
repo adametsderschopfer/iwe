@@ -11,15 +11,18 @@ use std::rc::Rc;
 fn app() -> App {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
     app.workspace.preferences.show_pipelines = true;
-    app.repository = Some(Repository {
-        root: "/fixture".into(),
-        head: "main".into(),
-        branches: Vec::new(),
-        commits: Vec::new(),
-        next_history: None,
-        remotes: vec!["origin".into()],
-        remote: Remote::parse("https://github.com/example/fixture.git"),
-    });
+    app.repository = Some(
+        Repository {
+            root: "/fixture".into(),
+            head: "main".into(),
+            branches: Vec::new(),
+            commits: Vec::new(),
+            next_history: None,
+            remotes: vec!["origin".into()],
+            remote: Remote::parse("https://github.com/example/fixture.git"),
+        }
+        .into(),
+    );
     app.pipelines = PipelineState::Ready(
         (1..=8)
             .map(|id| Pipeline {

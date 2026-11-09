@@ -58,15 +58,18 @@ fn app(language: Language) -> App {
     app.workspace
         .create_space("Work".into(), vec![PathBuf::from("/project")]);
     app.project_directory = app.workspace.directory().cloned();
-    app.repository = Some(Repository {
-        remotes: vec!["origin".to_owned()],
-        root: "/project".into(),
-        branches: Vec::new(),
-        commits: Vec::new(),
-        next_history: None,
-        remote: Remote::parse("https://gitlab.example.test/team/app.git"),
-        head: "main".into(),
-    });
+    app.repository = Some(
+        Repository {
+            remotes: vec!["origin".to_owned()],
+            root: "/project".into(),
+            branches: Vec::new(),
+            commits: Vec::new(),
+            next_history: None,
+            remote: Remote::parse("https://gitlab.example.test/team/app.git"),
+            head: "main".into(),
+        }
+        .into(),
+    );
     app.pipelines = PipelineState::Ready(vec![run(500), run(501)]);
     app.workspace.preferences.show_git = false;
     app.workspace.preferences.show_pipelines = true;
@@ -285,6 +288,8 @@ fn pipeline_rows_show_commits_and_open_the_provider_page() {
         app.repository
             .as_mut()
             .unwrap()
+            .active_mut()
+            .unwrap()
             .remote
             .as_mut()
             .unwrap()
@@ -390,6 +395,8 @@ fn github_retry_labels_include_dependents_and_errors_keep_job_rows_visible() {
     app.repository
         .as_mut()
         .unwrap()
+        .active_mut()
+        .unwrap()
         .remote
         .as_mut()
         .unwrap()
@@ -429,6 +436,8 @@ fn pipeline_stage_popovers_support_both_providers_themes_and_languages() {
                 app.workspace.preferences.appearance = appearance;
                 app.repository
                     .as_mut()
+                    .unwrap()
+                    .active_mut()
                     .unwrap()
                     .remote
                     .as_mut()
@@ -583,6 +592,8 @@ fn long_pipeline_chains_and_stage_popovers_scroll_to_the_last_job() {
     app.repository
         .as_mut()
         .unwrap()
+        .active_mut()
+        .unwrap()
         .remote
         .as_mut()
         .unwrap()
@@ -621,6 +632,8 @@ fn long_pipeline_chains_and_stage_popovers_scroll_to_the_last_job() {
     assert!(app.jobs.overview.popup.is_none());
     app.repository
         .as_mut()
+        .unwrap()
+        .active_mut()
         .unwrap()
         .remote
         .as_mut()

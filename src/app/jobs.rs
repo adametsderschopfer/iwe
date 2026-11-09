@@ -82,8 +82,7 @@ impl App {
             return Task::none();
         };
         let Some(remote) = self
-            .repository
-            .as_ref()
+            .active_repository()
             .and_then(|repo| repo.remote.clone())
         else {
             return Task::none();
@@ -185,8 +184,7 @@ impl App {
                     return Task::none();
                 }
                 let Some(remote) = self
-                    .repository
-                    .as_ref()
+                    .active_repository()
                     .and_then(|repo| repo.remote.clone())
                 else {
                     return Task::none();

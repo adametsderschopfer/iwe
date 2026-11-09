@@ -24,7 +24,7 @@ pub(super) fn label(app: &App, action: Action, branch: &str) -> String {
 }
 
 pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Message> {
-    let base = if let Some((branch, point)) = &app.git_actions.menu {
+    let base = if let Some((key, branch, point)) = &app.git_actions.menu {
         context_menu::overlay(
             base,
             *point,
@@ -49,10 +49,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                                     (git_actions::allowed(action, branch)
                                         && !app.git_actions.pending)
                                         .then(|| {
-                                            Message::Git(GitMessage::Choose(
-                                                action,
-                                                branch.reference.clone(),
-                                            ))
+                                            Message::Git(GitMessage::Choose(action, key.clone()))
                                         }),
                                 ),
                         )
@@ -81,6 +78,24 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         .style(theme::tooltip),
     ]
     .spacing(16);
+    if app
+        .repository
+        .as_ref()
+        .is_some_and(|repos| repos.repositories.len() > 1)
+    {
+        content = content.push(
+            text(
+                dialog
+                    .root
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+            )
+            .size(13)
+            .style(theme::MUTED.text()),
+        );
+    }
     if dialog.action != Action::Delete {
         content = content
             .push(text(app.i18n.text(Key::GitBranchName)).size(13))
@@ -117,6 +132,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         let remotes = app
             .repository
             .as_ref()
+            .and_then(|repos| repos.get(&dialog.root))
             .map(|repo| repo.remotes.clone())
             .unwrap_or_default();
         content = content

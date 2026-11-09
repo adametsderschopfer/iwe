@@ -44,8 +44,7 @@ pub(crate) enum Message {
 impl App {
     fn account(&self) -> Result<Account, Failure> {
         Account::from_remote(
-            self.repository
-                .as_ref()
+            self.active_repository()
                 .and_then(|repo| repo.remote.as_ref())
                 .ok_or(Failure::Read)?,
         )

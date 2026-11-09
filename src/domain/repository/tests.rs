@@ -69,6 +69,7 @@ fn graph_tracks_merges_and_closes_parent_lanes() {
         subject: String::new(),
         author: String::new(),
         date: String::new(),
+        timestamp: 0,
         refs: String::new(),
         graph: GraphRow::default(),
     };

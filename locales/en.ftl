@@ -204,3 +204,5 @@ git-invalid-name = Choose an existing reference and a valid, unused branch name.
 git-missing-upstream = This branch has no tracked remote branch. Push it first to set up tracking.
 git-dirty = The project has uncommitted changes. Save them before switching or updating branches.
 git-current-branch = Switch to another branch before deleting this one.
+
+all-repositories = All repositories

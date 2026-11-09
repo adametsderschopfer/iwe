@@ -7,4 +7,5 @@ mod pipelines;
 pub(crate) mod settings;
 mod space_form;
 mod unified;
+mod working_changes;
 pub(crate) mod workspace;

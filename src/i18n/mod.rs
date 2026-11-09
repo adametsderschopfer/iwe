@@ -154,6 +154,7 @@ message_keys! {
     Log => "log",
     Branches => "branches",
     LocalBranches => "local-branches",
+    AllRepositories => "all-repositories",
     RemoteBranches => "remote-branches",
     Tags => "tags",
     SearchCommits => "search-commits",

@@ -1,6 +1,6 @@
 //! Read working-tree status and bounded source versions for comparison.
 
-use super::{blob, git, valid_id, workspace};
+use super::{blob, discovery, git, valid_id, workspace};
 use crate::domain::{
     Failure,
     changes::{FileChange, FileStatus, Source, Worktree},
@@ -10,22 +10,6 @@ use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
-
-async fn root(directory: &Path) -> Result<PathBuf, Failure> {
-    let bytes = git(directory, &["rev-parse", "--show-toplevel"])
-        .await
-        .map_err(|error| {
-            if error == Failure::MissingTool {
-                error
-            } else {
-                Failure::NotRepository
-            }
-        })?;
-    let value = String::from_utf8(bytes).map_err(|_| Failure::Read)?;
-    tokio::fs::canonicalize(PathBuf::from(value.trim_end_matches(['\r', '\n'])))
-        .await
-        .map_err(|_| Failure::Read)
-}
 
 fn parse_status(bytes: &[u8], root: &Path) -> BTreeMap<PathBuf, FileChange> {
     let mut result = BTreeMap::new();
@@ -65,28 +49,49 @@ fn parse_status(bytes: &[u8], root: &Path) -> BTreeMap<PathBuf, FileChange> {
 }
 
 pub(crate) async fn working_status(directory: PathBuf) -> Result<Worktree, Failure> {
-    let scope = tokio::fs::canonicalize(&directory)
+    let discovery = discovery::discover(&directory).await?;
+    let mut files = BTreeMap::new();
+    let mut roots = Vec::new();
+    let mut failures = discovery.failures;
+    for root in &discovery.roots {
+        let bytes = match git(
+            root,
+            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+        )
         .await
-        .map_err(|_| Failure::Read)?;
-    let root = root(&scope).await?;
-    let bytes = git(
-        &root,
-        &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
-    )
-    .await?;
-    let files = parse_status(&bytes, &root)
-        .into_iter()
-        .filter_map(|(path, mut change)| {
-            let relative = path.strip_prefix(&scope).ok()?;
+        {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                failures.push((root.clone(), error));
+                continue;
+            }
+        };
+        roots.push(
+            root.strip_prefix(&discovery.scope)
+                .map_or_else(|_| directory.clone(), |path| directory.join(path)),
+        );
+        for (path, mut change) in parse_status(&bytes, root) {
+            if discovery::owner(&discovery.roots, &path) != Some(root) {
+                continue;
+            }
+            let Ok(relative) = path.strip_prefix(&discovery.scope) else {
+                continue;
+            };
             change.original = change.original.and_then(|path| {
-                path.strip_prefix(&scope)
+                path.strip_prefix(&discovery.scope)
                     .ok()
                     .map(|path| directory.join(path))
             });
-            Some((directory.join(relative), change))
-        })
-        .collect();
-    Ok(Worktree::new(&directory, files))
+            files.insert(directory.join(relative), change);
+        }
+    }
+    if roots.is_empty() {
+        return Err(failures.first().map_or(Failure::Read, |(_, error)| *error));
+    }
+    let mut status = Worktree::new(&directory, files);
+    status.roots = roots;
+    status.failures = failures;
+    Ok(status)
 }
 
 async fn baseline(root: &Path, revision: &str, path: &str) -> Result<Option<String>, Failure> {
@@ -115,19 +120,21 @@ async fn baseline(root: &Path, revision: &str, path: &str) -> Result<Option<Stri
 }
 
 async fn working_baseline(directory: &Path, path: &Path) -> Result<Option<String>, Failure> {
-    let root = match root(directory).await {
-        Ok(root) => root,
+    let discovery = match discovery::discover(directory).await {
+        Ok(discovery) => discovery,
         Err(Failure::NotRepository | Failure::MissingTool) => return Ok(None),
         Err(error) => return Err(error),
     };
-    let scope = tokio::fs::canonicalize(directory)
-        .await
-        .map_err(|_| Failure::Read)?;
-    let absolute = scope.join(path.strip_prefix(directory).map_err(|_| Failure::Read)?);
-    absolute.strip_prefix(&root).map_err(|_| Failure::Read)?;
+    let absolute = discovery
+        .scope
+        .join(path.strip_prefix(directory).map_err(|_| Failure::Read)?);
+    let Some(root) = discovery::owner(&discovery.roots, &absolute) else {
+        return Ok(None);
+    };
+    absolute.strip_prefix(root).map_err(|_| Failure::Read)?;
     // A path filter hides the deleted side of staged renames.
     let status = git(
-        &root,
+        root,
         &[
             "--literal-pathspecs",
             "status",
@@ -137,9 +144,9 @@ async fn working_baseline(directory: &Path, path: &Path) -> Result<Option<String
         ],
     )
     .await?;
-    let changes = parse_status(&status, &root);
+    let changes = parse_status(&status, root);
     let change = changes.get(&absolute);
-    let head = git(&root, &["rev-parse", "--revs-only", "HEAD"]).await?;
+    let head = git(root, &["rev-parse", "--revs-only", "HEAD"]).await?;
     let head = String::from_utf8(head).map_err(|_| Failure::Read)?;
     let Some(head) = head.lines().find(|line| valid_id(line)) else {
         return Ok(change.map(|_| String::new()));
@@ -148,13 +155,13 @@ async fn working_baseline(directory: &Path, path: &Path) -> Result<Option<String
         .and_then(|change| change.original.as_ref())
         .unwrap_or(&absolute);
     let old_path = old_path
-        .strip_prefix(&root)
+        .strip_prefix(root)
         .map_err(|_| Failure::Read)?
         .components()
         .map(|part| part.as_os_str().to_str().ok_or(Failure::Read))
         .collect::<Result<Vec<_>, _>>()?
         .join("/");
-    let before = baseline(&root, head, &old_path).await?;
+    let before = baseline(root, head, &old_path).await?;
     Ok(before.or_else(|| change.map(|_| String::new())))
 }
 

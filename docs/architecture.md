@@ -3,40 +3,43 @@
 The application provides named spaces, projects, source previews, Git history, pipelines, and
 settings.
 
-| Module                              | Responsibility                                                                           |
-| ----------------------------------- | ---------------------------------------------------------------------------------------- |
-| `main.rs`                           | Select the language and start the graphics launcher                                      |
-| `app/`                              | Configure the window, own interface state, and process native material results           |
-| `app/notifications.rs`              | Bound operation notifications, coalesce duplicates, and manage dismissal timers          |
-| `ui/notifications.rs`               | Overlay localized result cards without resizing the workspace                            |
-| `domain/`                           | Model spaces, projects, preferences, accounts, remotes, commits, and graph relationships |
-| `ui/screens/`                       | Compose workspace, Git, pipeline, and settings screens                                   |
-| `ui/code.rs`, `ui/code/`            | Prepare highlighted source lines and preserve their text layout                          |
-| `ui/icons.rs`, `ui/file_icons.rs`   | Draw interface icons and compact file-type symbols                                       |
-| `ui/graph.rs`                       | Draw commit ancestry                                                                     |
-| `ui/theme/`                         | Define interface colors, syntax colors, and the native material fallback                 |
-| `i18n/`                             | Format embedded Fluent translations and recover from missing messages                    |
-| `infrastructure/locale.rs`          | Read `IWE_LANG` and the system locale                                                    |
-| `infrastructure/workspace.rs`       | Save workspace metadata and read bounded local previews                                  |
-| `infrastructure/project_index.rs`   | Cache directory metadata and prioritize background folder reads                          |
-| `infrastructure/repository.rs`      | Read Git history, branches, changed paths, and historical blobs                          |
-| `domain/git.rs`, `app/git_actions/` | Define Git operations and coordinate dialogs, pending actions, and results               |
-| `infrastructure/git/`               | Validate references and execute explicit Git operations                                  |
-| `ui/context_menu/`                  | Detect right-clicks and anchor menus inside the window                                   |
-| `ui/resize/`                        | Resize the file panel while preserving child widget state                                |
-| `ui/changed_tree/`                  | Display compact changed-file trees with counts and status colors                         |
-| `infrastructure/pipelines.rs`       | Read GitHub Actions and GitLab pipeline APIs                                             |
-| `domain/jobs.rs`                    | Model stages, jobs, and provider-supported actions                                       |
-| `app/jobs.rs`                       | Coordinate job selection, cached details, refresh, and pending actions                   |
-| `app/jobs/overview.rs`              | Cache visible pipeline summaries and coordinate stage or job popups                      |
-| `infrastructure/pipelines/jobs.rs`  | Load paginated jobs and submit explicit provider actions                                 |
-| `infrastructure/auth/`              | Implement GitHub device authorization and GitLab PKCE callbacks                          |
-| `infrastructure/auth.rs`            | Validate accounts, refresh tokens, and serialize credential operations                   |
-| `infrastructure/credentials.rs`     | Store provider credentials in the operating system vault and share session reads         |
-| `infrastructure/http.rs`            | Enforce HTTPS, response bounds, request deadlines, and redirect restrictions             |
-| `infrastructure/process.rs`         | Bound asynchronous subprocess time and output                                            |
-| `infrastructure/graphics/`          | Start graphics backends in platform priority order                                       |
-| `infrastructure/window_effect/`     | Place native Liquid Glass below the renderer on supported macOS versions                 |
+| Module                                                | Responsibility                                                                           |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `main.rs`                                             | Select the language and start the graphics launcher                                      |
+| `app/`                                                | Configure the window, own interface state, and process native material results           |
+| `app/notifications.rs`                                | Bound operation notifications, coalesce duplicates, and manage dismissal timers          |
+| `ui/notifications.rs`                                 | Overlay localized result cards without resizing the workspace                            |
+| `domain/`                                             | Model spaces, projects, preferences, accounts, remotes, commits, and graph relationships |
+| `ui/screens/`                                         | Compose workspace, Git, pipeline, and settings screens                                   |
+| `ui/code.rs`, `ui/code/`                              | Prepare highlighted source lines and preserve their text layout                          |
+| `ui/icons.rs`, `ui/file_icons.rs`                     | Draw interface icons and compact file-type symbols                                       |
+| `ui/graph.rs`                                         | Draw commit ancestry                                                                     |
+| `ui/theme/`                                           | Define interface colors, syntax colors, and the native material fallback                 |
+| `i18n/`                                               | Format embedded Fluent translations and recover from missing messages                    |
+| `infrastructure/locale.rs`                            | Read `IWE_LANG` and the system locale                                                    |
+| `infrastructure/workspace.rs`                         | Save workspace metadata and read bounded local previews                                  |
+| `infrastructure/project_index.rs`                     | Cache directory metadata and prioritize background folder reads                          |
+| `infrastructure/repository.rs`                        | Read Git history, branches, changed paths, and historical blobs                          |
+| `infrastructure/repository/discovery.rs`              | Discover containing and direct child Git repositories                                    |
+| `infrastructure/repository/project.rs`                | Merge bounded history streams from discovered repositories                               |
+| `domain/repository/project.rs`, `app/repositories.rs` | Preserve repository identities across history and source navigation                      |
+| `domain/git.rs`, `app/git_actions/`                   | Define Git operations and coordinate dialogs, pending actions, and results               |
+| `infrastructure/git/`                                 | Validate references and execute explicit Git operations                                  |
+| `ui/context_menu/`                                    | Detect right-clicks and anchor menus inside the window                                   |
+| `ui/resize/`                                          | Resize the file panel while preserving child widget state                                |
+| `ui/changed_tree/`                                    | Display compact changed-file trees with counts and status colors                         |
+| `infrastructure/pipelines.rs`                         | Read GitHub Actions and GitLab pipeline APIs                                             |
+| `domain/jobs.rs`                                      | Model stages, jobs, and provider-supported actions                                       |
+| `app/jobs.rs`                                         | Coordinate job selection, cached details, refresh, and pending actions                   |
+| `app/jobs/overview.rs`                                | Cache visible pipeline summaries and coordinate stage or job popups                      |
+| `infrastructure/pipelines/jobs.rs`                    | Load paginated jobs and submit explicit provider actions                                 |
+| `infrastructure/auth/`                                | Implement GitHub device authorization and GitLab PKCE callbacks                          |
+| `infrastructure/auth.rs`                              | Validate accounts, refresh tokens, and serialize credential operations                   |
+| `infrastructure/credentials.rs`                       | Store provider credentials in the operating system vault and share session reads         |
+| `infrastructure/http.rs`                              | Enforce HTTPS, response bounds, request deadlines, and redirect restrictions             |
+| `infrastructure/process.rs`                           | Bound asynchronous subprocess time and output                                            |
+| `infrastructure/graphics/`                            | Start graphics backends in platform priority order                                       |
+| `infrastructure/window_effect/`                       | Place native Liquid Glass below the renderer on supported macOS versions                 |
 
 Composition connects the interface, localization, and infrastructure. Interface modules never import
 infrastructure. Translation logic performs no operating-system access. Add application and domain
@@ -154,6 +157,20 @@ branches, remote branches, and tags share validated reference reads. Nested pane
 Git columns. The changed-files column exists only while a commit is selected. Closing the column
 invalidates pending file-list requests. Commit titles use measured single-line truncation with
 cached text layouts.
+
+Repository discovery inspects the opened directory and its immediate child directories. Child
+directory links are excluded. Worktree metadata files remain supported. Each working change belongs
+to the deepest discovered root. Parent repository status cannot duplicate a child's changes.
+
+Project history merges repository streams in bounded pages. The merge compares commit timestamps
+while preserving each repository's topology. It refills an exhausted stream before selecting the
+next row. Every cursor freezes revision hashes and retains unread rows. Branch keys, commit keys,
+and graph lanes include repository paths. Clones with identical hashes retain separate identities.
+Partial repository failures remain visible without replacing successful repository data.
+
+Multiple repositories initially show all references in one history. Selecting a branch filters
+history to its repository. The all-repositories control restores the merged history. Pipeline
+accounts follow the selected repository; the first discovered repository is the default.
 
 Git actions use typed operations and validated full references. Dialog drafts remain available after
 failures. One pending operation blocks duplicate submissions. Request identifiers and repository

@@ -21,6 +21,11 @@ pub(crate) fn file_status(status: crate::domain::changes::FileStatus) -> Tone {
     }
 }
 
+pub(crate) fn repository_color(index: usize) -> Tone {
+    const COLORS: [Tone; 6] = [BLUE, PURPLE, GREEN, YELLOW, PINK, ICON_CYAN];
+    COLORS[index % COLORS.len()]
+}
+
 pub(crate) fn line_change(change: crate::ui::code::LineChange) -> Tone {
     use crate::ui::code::LineChange;
     match change {

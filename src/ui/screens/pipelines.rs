@@ -20,8 +20,7 @@ use iced::{
 
 pub(super) fn view(app: &App) -> Element<'_, Message> {
     let Some(remote) = app
-        .repository
-        .as_ref()
+        .active_repository()
         .and_then(|repo| repo.remote.as_ref())
     else {
         return space().into();

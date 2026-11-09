@@ -6,21 +6,23 @@ pub(crate) mod files;
 pub(crate) mod git_actions;
 pub(crate) mod jobs;
 pub(crate) mod notifications;
+mod repositories;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
 
 use crate::domain::{
     Failure,
-    repository::{ChangedFile, HistoryPage, Pipeline, Provider, Repository},
+    repository::{
+        ChangedFile, Pipeline, Provider,
+        project::{BranchKey, CommitKey, ProjectHistoryPage as HistoryPage, RepositorySet},
+    },
     workspace::{Appearance, FileEntry, FilePanel, Workspace},
 };
 use crate::i18n::{I18n, Key, Language};
-use crate::infrastructure::{pipelines, repository, window_effect, workspace};
+use crate::infrastructure::{pipelines, window_effect, workspace};
 use crate::ui::{code::Document, screens, theme};
 use iced::{
-    Element, Program, Size, Subscription, Task, Theme, keyboard,
-    widget::{operation, pane_grid},
-    window,
+    Element, Program, Size, Subscription, Task, Theme, keyboard, widget::pane_grid, window,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -159,7 +161,7 @@ pub(crate) struct App {
     pub settings_tab: SettingsTab,
     pub panes: pane_grid::State<Panel>,
     pub git_panes: pane_grid::State<GitPanel>,
-    pub repository: Option<Repository>,
+    pub repository: Option<RepositorySet>,
     pub repository_error: Option<Failure>,
     pub loading: bool,
     pub history_loading: bool,
@@ -175,9 +177,9 @@ pub(crate) struct App {
     pub collapsed_worktree_folders: BTreeSet<String>,
     pub changes: changes::State,
     pub tabs: tabs::State,
-    pub branch: Option<String>,
+    pub branch: Option<BranchKey>,
     pub query: String,
-    pub selected_commit: Option<String>,
+    pub selected_commit: Option<CommitKey>,
     pub changed_files: Vec<ChangedFile>,
     pub collapsed_commit_folders: BTreeSet<String>,
     pub expanded_branch_folders: BTreeSet<String>,
@@ -231,7 +233,7 @@ pub(crate) enum Message {
     SelectProject(usize, usize),
     ToggleSpace(usize),
     Refresh,
-    RepositoryLoaded(u64, u64, Result<Repository, Failure>),
+    RepositoryLoaded(u64, u64, Result<RepositorySet, Failure>),
     HistoryLoaded(u64, u64, usize, Result<HistoryPage, Failure>),
     HistoryScrolled {
         offset: f32,
@@ -250,9 +252,10 @@ pub(crate) enum Message {
     OpenCommitFile(usize),
     FileLoaded(u64, u64, Result<Document, Failure>),
     FilePrepared(u64, u64, tabs::Preparation, Result<Document, Failure>),
-    SelectBranch(String),
+    SelectBranch(BranchKey),
+    AllRepositories,
     Search(String),
-    SelectCommit(String),
+    SelectCommit(CommitKey),
     CloseCommitFiles,
     ToggleCommitFolder(String),
     ToggleBranchFolder(String),
@@ -380,6 +383,9 @@ impl App {
                     | Message::ResizeFilePanel(_, _)
                     | Message::MoveFilePanel(_, _)
                     | Message::Refresh
+                    | Message::SelectBranch(_)
+                    | Message::AllRepositories
+                    | Message::SelectCommit(_)
                     | Message::SelectTab(_)
                     | Message::CloseTab(_)
                     | Message::CloseActiveTab
@@ -546,16 +552,28 @@ impl App {
                 let reload_pipelines = std::mem::take(&mut self.pipeline_reload_after_repository);
                 match result {
                     Ok(mut repo) => {
-                        if let Some(remote) = repo.remote.as_mut()
-                            && let Some(provider) = self.workspace.providers.get(&remote.host)
-                        {
-                            remote.provider = Some(*provider);
+                        let multiple = repo.repositories.len() > 1;
+                        for member in &mut repo.repositories {
+                            if let Some(remote) = member.remote.as_mut()
+                                && let Some(provider) = self.workspace.providers.get(&remote.host)
+                            {
+                                remote.provider = Some(*provider);
+                            }
+                            let known = self.repository.as_ref().is_some_and(|previous| {
+                                previous.repositories.len() > 1
+                                    && previous.get(&member.root).is_some()
+                            });
+                            if multiple && !known {
+                                self.expanded_branch_folders
+                                    .insert(format!("repo:{}", member.root.display()));
+                                self.expanded_branch_folders
+                                    .insert(format!("{}:false", member.root.display()));
+                            }
                         }
                         let changed_remote = self
-                            .repository
-                            .as_ref()
+                            .active_repository()
                             .and_then(|repo| repo.remote.as_ref())
-                            != repo.remote.as_ref();
+                            != repo.active().and_then(|repo| repo.remote.as_ref());
                         if changed_remote {
                             self.reset_jobs();
                             self.pipelines = PipelineState::Idle;
@@ -563,12 +581,26 @@ impl App {
                             self.pipeline_request += 1;
                             self.pipeline_refreshing = false;
                         }
-                        if self.branch.is_none() {
-                            self.branch = repo
-                                .branches
-                                .iter()
-                                .find(|branch| branch.current)
-                                .map(|branch| branch.reference.clone());
+                        if self.branch.as_ref().is_some_and(|key| {
+                            repo.get(&key.root).is_none_or(|member| {
+                                !member
+                                    .branches
+                                    .iter()
+                                    .any(|branch| branch.reference == key.reference)
+                            })
+                        }) {
+                            self.branch = None;
+                        }
+                        if self.branch.is_none() && repo.repositories.len() == 1 {
+                            self.branch =
+                                repo.active().and_then(|member| {
+                                    member.branches.iter().find(|branch| branch.current).map(
+                                        |branch| BranchKey {
+                                            root: member.root.clone(),
+                                            reference: branch.reference.clone(),
+                                        },
+                                    )
+                                });
                         }
                         self.repository = Some(repo);
                         self.repository_error = None;
@@ -647,7 +679,25 @@ impl App {
                 return self.finish_preview(request, result);
             }
             Message::SelectBranch(reference) => {
+                if self
+                    .repository
+                    .as_ref()
+                    .and_then(|repos| repos.get(&reference.root))
+                    .is_none_or(|repo| {
+                        !repo
+                            .branches
+                            .iter()
+                            .any(|branch| branch.reference == reference.reference)
+                    })
+                {
+                    return Task::none();
+                }
                 self.branch = Some(reference);
+                self.close_commit_files();
+                return self.load_repository();
+            }
+            Message::AllRepositories => {
+                self.branch = None;
                 self.close_commit_files();
                 return self.load_repository();
             }
@@ -757,6 +807,7 @@ impl App {
                 if let Some(remote) = self
                     .repository
                     .as_mut()
+                    .and_then(RepositorySet::active_mut)
                     .and_then(|repo| repo.remote.as_mut())
                 {
                     remote.provider = Some(provider);
@@ -869,6 +920,16 @@ impl App {
         self.query.clear();
         self.close_commit_files();
         self.expanded_branch_folders = BTreeSet::from(["false".to_owned()]);
+        if let Some(repos) = &self.repository
+            && repos.repositories.len() > 1
+        {
+            for repo in &repos.repositories {
+                self.expanded_branch_folders
+                    .insert(format!("repo:{}", repo.root.display()));
+                self.expanded_branch_folders
+                    .insert(format!("{}:false", repo.root.display()));
+            }
+        }
         self.collapsed_commit_folders.clear();
         self.changed_files.clear();
         self.changes_loading = false;
@@ -889,67 +950,6 @@ impl App {
             self.loading = false;
             Task::none()
         }
-    }
-
-    fn load_repository(&mut self) -> Task<Message> {
-        let Some(path) = self.workspace.directory().cloned() else {
-            return Task::none();
-        };
-        self.loading = true;
-        self.history_loading = false;
-        self.history_error = None;
-        self.repo_request += 1;
-        let (generation, request) = (self.generation, self.repo_request);
-        let load = Task::perform(repository::load(path, self.branch.clone()), move |result| {
-            Message::RepositoryLoaded(generation, request, result)
-        });
-        Task::batch([load, self.reset_history_scroll()])
-    }
-
-    fn reset_history_scroll(&mut self) -> Task<Message> {
-        self.history_scroll_y = 0.;
-        operation::scroll_to("commit-history", operation::AbsoluteOffset { x: 0., y: 0. })
-    }
-
-    fn load_more_history(&mut self) -> Task<Message> {
-        if self.loading || self.history_loading {
-            return Task::none();
-        }
-        let Some(repo) = self.repository.as_ref() else {
-            return Task::none();
-        };
-        let Some(cursor) = repo.next_history.clone() else {
-            return Task::none();
-        };
-        let root = repo.root.clone();
-        let offset = cursor.offset;
-        let (generation, request) = (self.generation, self.repo_request);
-        self.history_loading = true;
-        self.history_error = None;
-        Task::perform(repository::load_history(root, cursor), move |result| {
-            Message::HistoryLoaded(generation, request, offset, result)
-        })
-    }
-
-    fn select_commit(&mut self, id: String) -> Task<Message> {
-        let Some(repo) = &self.repository else {
-            return Task::none();
-        };
-        let Some(commit) = repo.commits.iter().find(|commit| commit.id == id).cloned() else {
-            return Task::none();
-        };
-        let root = repo.root.clone();
-        self.selected_commit = Some(id);
-        self.show_commit_files();
-        self.collapsed_commit_folders.clear();
-        self.changed_files.clear();
-        self.changes_error = None;
-        self.changes_loading = true;
-        self.commit_request += 1;
-        let (generation, request) = (self.generation, self.commit_request);
-        Task::perform(repository::changed_files(root, commit), move |result| {
-            Message::ChangesLoaded(generation, request, result)
-        })
     }
 
     fn show_commit_files(&mut self) {
@@ -999,8 +999,7 @@ impl App {
             return Task::none();
         }
         let Some(remote) = self
-            .repository
-            .as_ref()
+            .active_repository()
             .and_then(|repo| repo.remote.clone())
             .filter(|remote| remote.provider.is_some())
         else {
@@ -1050,8 +1049,7 @@ impl App {
     }
 
     pub(crate) fn has_remote(&self) -> bool {
-        self.repository
-            .as_ref()
+        self.active_repository()
             .is_some_and(|repo| repo.remote.is_some())
     }
 

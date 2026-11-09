@@ -66,6 +66,15 @@ the order and opens the first panel after reordering, restarting, or selecting a
 **Project files** comes first by default. Missing deleted files open their previous committed
 contents.
 
+Iwe checks the opened directory and its immediate subdirectories for Git repositories. It does not
+scan deeper directories or follow child directory links. Linked worktrees are supported. Opening a
+folder inside a repository still uses that containing repository.
+
+For a parent folder containing `backend` and `front`, each repository has its own colored group in
+**Uncommitted files**. The project tree marks repository directories with the same colors. File
+comparisons use their owning repository, including deleted files and identical relative filenames.
+An unavailable repository does not hide other repositories. Refresh the project after repairing it.
+
 Selecting a project starts a background directory index. Cached folders appear immediately while
 their listings refresh. Recently visited projects also retain their expanded folders in memory.
 Opening a folder prioritizes its refresh before speculative reads. Refresh keeps existing listings
@@ -211,8 +220,14 @@ notification. Successful results disappear after five seconds. Hovering pauses t
 remain until dismissed or replaced by newer notifications. Each notification has a close button.
 Pipeline confirmations describe accepted requests, not completed jobs.
 
-Opening or refreshing a project selects the checked-out branch and shows its history. Detached
-checkouts show history from HEAD.
+For one repository, opening or refreshing a project selects the checked-out branch and shows its
+history. Detached checkouts show history from HEAD.
+
+For multiple repositories, history initially includes references from every repository. Colored
+labels identify each commit's repository. Branches appear under separate repository headings.
+Selecting a branch shows that repository's branch history. **All repositories** restores the
+combined history. Search also matches repository names. Pipeline data follows the selected
+repository.
 
 Local branches, remote branches, and tags have separate groups. Click a group heading to collapse or
 expand it. Each heading shows a small expansion arrow. Groups collapse independently and preserve
@@ -232,12 +247,14 @@ references. A failed page keeps loaded history and offers a retry. Search loads 
 the background. Clearing search stops further background loading. Only visible rows and nearby rows
 become widgets.
 
-The graph uses actual parent hashes and preserves branch lanes across pages. Commit file changes
-compare against the first parent. Root commits compare against an empty tree. Commit previews
-highlight changes against that same parent. Deleted files show their previous contents in red. The
-file tab identifies the selected commit. Other files open their selected commit revision. History
-and source previews remain read-only. Only explicit Git actions change branches, files, or remotes.
-Iwe does not create commits.
+The combined history compares commit timestamps while preserving each repository's ancestry order.
+Identical hashes in different repositories remain separate entries. The graph uses actual parent
+hashes and preserves separate repository lanes across pages. Commit file changes compare against the
+first parent. Root commits compare against an empty tree. Commit previews highlight changes against
+that same parent. Deleted files show their previous contents in red. The file tab identifies the
+selected commit. Other files open their selected commit revision. History and source previews remain
+read-only. Only explicit Git actions change branches, files, or remotes. Iwe does not create
+commits.
 
 Commit titles follow the active graph lanes in each row. Wider sections elsewhere do not add empty
 space before titles. Author and date columns remain aligned. Dates include hours and minutes in the

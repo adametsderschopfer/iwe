@@ -1,7 +1,13 @@
 # Git actions
 
-Git actions operate on the selected project's repository. Selecting history references alone never
-changes the checked-out branch. Use the branch toolbar or right-click a branch to execute an action.
+Git actions operate on the repository that owns the selected branch. Selecting history references
+alone never changes the checked-out branch. Use the branch toolbar or right-click a branch to
+execute an action. Dialogs retain the original repository when other selections change.
+
+Projects can contain repositories in immediate subdirectories. Their branch groups and history rows
+identify the owning repository. **Fetch all remotes** visits every discovered repository. Each
+repository receives its own completion notification. Other actions affect only the selected branch's
+repository.
 
 The branch toolbar places equally sized action buttons above the branch tree. It stays visible while
 the tree scrolls. The scrollbar reaches the panel's right edge without covering branch names.

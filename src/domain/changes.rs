@@ -37,6 +37,8 @@ pub(crate) struct FileChange {
 pub(crate) struct Worktree {
     pub files: BTreeMap<PathBuf, FileChange>,
     pub folders: BTreeMap<PathBuf, FileStatus>,
+    pub roots: Vec<PathBuf>,
+    pub failures: Vec<(PathBuf, crate::domain::Failure)>,
 }
 
 impl Worktree {
@@ -54,7 +56,11 @@ impl Worktree {
                     .or_insert(change.status);
             }
         }
-        Self { files, folders }
+        Self {
+            files,
+            folders,
+            ..Self::default()
+        }
     }
 
     pub(crate) fn status(&self, path: &Path, directory: bool) -> Option<FileStatus> {

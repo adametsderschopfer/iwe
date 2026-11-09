@@ -1,9 +1,12 @@
 //! Read Git metadata and historical blobs without modifying the working tree.
 
 mod changes;
+mod discovery;
+mod project;
 pub(crate) use changes::{
     commit_comparison, commit_text, working_comparison, working_file, working_status, working_text,
 };
+pub(crate) use project::{load_project, load_project_history};
 
 use super::{
     process::{self, Failure},
@@ -34,16 +37,15 @@ pub(crate) async fn load(
     directory: PathBuf,
     reference: Option<String>,
 ) -> Result<Repository, Failure> {
-    let root = git(&directory, &["rev-parse", "--show-toplevel"])
-        .await
-        .map_err(|error| {
-            if error == Failure::MissingTool {
-                error
-            } else {
-                Failure::NotRepository
-            }
-        })?;
-    let root = PathBuf::from(String::from_utf8_lossy(&root).trim());
+    load_reference(directory, reference, false).await
+}
+
+async fn load_reference(
+    directory: PathBuf,
+    reference: Option<String>,
+    all: bool,
+) -> Result<Repository, Failure> {
+    let root = discovery::root(&directory).await?;
     let branches = git(
         &root,
         &[
@@ -91,6 +93,8 @@ pub(crate) async fn load(
             return Err(Failure::Read);
         }
         args.push(reference);
+    } else if all {
+        args.extend(["--all", "HEAD"]);
     } else {
         args.push("HEAD");
     }
@@ -160,7 +164,7 @@ pub(crate) async fn load_history(
         &limit,
         "--skip",
         &skip,
-        "--format=%H%x00%P%x00%s%x00%an%x00%ad%x00%D%x00",
+        "--format=%H%x00%P%x00%s%x00%an%x00%ad%x00%D%x00%ct%x00",
     ];
     args.extend(cursor.revisions.iter().map(String::as_str));
     args.push("--");
@@ -183,7 +187,16 @@ fn parse_log(bytes: &[u8]) -> Vec<Commit> {
     let text = String::from_utf8_lossy(bytes);
     let mut fields = text.split('\0');
     let mut result = Vec::new();
-    while let (Some(id), Some(parents), Some(subject), Some(author), Some(date), Some(refs)) = (
+    while let (
+        Some(id),
+        Some(parents),
+        Some(subject),
+        Some(author),
+        Some(date),
+        Some(refs),
+        Some(timestamp),
+    ) = (
+        fields.next(),
         fields.next(),
         fields.next(),
         fields.next(),
@@ -201,6 +214,7 @@ fn parse_log(bytes: &[u8]) -> Vec<Commit> {
             subject: subject.to_owned(),
             author: author.to_owned(),
             date: date.to_owned(),
+            timestamp: timestamp.parse().unwrap_or_default(),
             refs: refs.to_owned(),
             graph: GraphRow::default(),
         });

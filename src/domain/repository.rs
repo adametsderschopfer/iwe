@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub(crate) mod project;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Provider {
     GitHub,
@@ -108,6 +110,7 @@ pub(crate) struct Commit {
     pub subject: String,
     pub author: String,
     pub date: String,
+    pub timestamp: i64,
     pub refs: String,
     pub graph: GraphRow,
 }

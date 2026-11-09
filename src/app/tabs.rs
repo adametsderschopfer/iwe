@@ -142,15 +142,14 @@ impl App {
         let Some(repo) = &self.repository else {
             return Task::none();
         };
-        let Some(commit) = repo
-            .commits
-            .iter()
-            .find(|commit| Some(&commit.id) == self.selected_commit.as_ref())
-        else {
+        let Some(key) = self.selected_commit.as_ref() else {
+            return Task::none();
+        };
+        let Some(commit) = repo.commit(key) else {
             return Task::none();
         };
         self.open_source(Source::Commit {
-            root: repo.root.clone(),
+            root: key.root.clone(),
             commit: Box::new(commit.clone()),
             file: file.clone(),
         })

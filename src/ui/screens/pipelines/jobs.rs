@@ -28,8 +28,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         run.title.clone()
     };
     let provider = app
-        .repository
-        .as_ref()
+        .active_repository()
         .and_then(|repo| repo.remote.as_ref())
         .and_then(|remote| remote.provider);
     let busy = app.jobs.pending.is_some()

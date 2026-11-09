@@ -1,4 +1,12 @@
 use super::*;
+use crate::{domain::repository::Repository, infrastructure::repository};
+use iced::widget::operation;
+fn branch_key(reference: impl Into<String>) -> crate::domain::repository::project::BranchKey {
+    crate::domain::repository::project::BranchKey {
+        root: PathBuf::from("project"),
+        reference: reference.into(),
+    }
+}
 
 fn ui_settings() -> iced::Settings {
     iced::Settings {
@@ -105,7 +113,12 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
 fn branch_folders_remotes_and_tags_start_collapsed() {
     use crate::domain::repository::{Branch, ReferenceKind};
     let mut app = history_state(3, false);
-    app.repository.as_mut().unwrap().branches = [
+    app.repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .branches = [
         (
             "feature/current",
             "refs/heads/feature/current",
@@ -180,11 +193,11 @@ fn commit_dates_with_time_fit_one_line_and_remain_visible() {
                 .unwrap();
         }
         drop(ui);
-        let id = app.repository.as_ref().unwrap().commits[0].id.clone();
+        let id = app.repository.as_ref().unwrap().commits[0].key();
         let _ = app.update(Message::SelectCommit(id.clone()));
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (width, 720.), app.view());
         assert!(
-            ui.find(format!("{} · 2026-11-08 14:37", &id[..8]))
+            ui.find(format!("{} · 2026-11-08 14:37", &id.id[..8]))
                 .unwrap()
                 .visible_bounds()
                 .is_some()
@@ -207,7 +220,7 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
     assert!(app.selected_commit.is_none());
     assert_eq!(app.git_panes.len(), 2);
     capture(&app, "commit-unselected");
-    let id = app.repository.as_ref().unwrap().commits[0].id.clone();
+    let id = app.repository.as_ref().unwrap().commits[0].key();
     let _ = app.update(Message::SelectCommit(id.clone()));
     assert_eq!(app.git_panes.len(), 3);
     let _ = app.update(Message::ChangesLoaded(
@@ -240,7 +253,7 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
     assert!(app.selected_commit.is_none());
     assert_eq!(app.git_panes.len(), 2);
     assert_eq!(app.preview().id, preview);
-    assert_eq!(app.preview().revision.as_ref(), Some(&id));
+    assert_eq!(app.preview().revision.as_ref(), Some(&id.id));
     let _ = app.update(Message::FileLoaded(
         app.generation,
         preview,
@@ -262,7 +275,7 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
     assert!(!app.changes_loading);
     let _ = app.update(Message::SelectCommit(id));
     assert_eq!(app.git_panes.len(), 3);
-    let _ = app.update(Message::SelectBranch("refs/heads/main".into()));
+    let _ = app.update(Message::SelectBranch(branch_key("refs/heads/main")));
     assert_eq!(app.git_panes.len(), 2);
     assert!(app.selected_commit.is_none());
 }
@@ -271,8 +284,16 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
 fn pipeline_badges_match_full_commits_and_refresh_without_flicker() {
     use crate::domain::repository::Remote;
     let mut app = history_state(3, false);
-    app.repository.as_mut().unwrap().remote = Remote::parse("https://github.com/team/app.git");
-    let commit = app.repository.as_ref().unwrap().commits[0].id.clone();
+    app.repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .remote = Remote::parse("https://github.com/team/app.git");
+    let commit = app.repository.as_ref().unwrap().commits[0]
+        .commit
+        .id
+        .clone();
     let run = |id, sha: String, status: &str| Pipeline {
         id,
         number: None,
@@ -344,7 +365,12 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
     // A project can point inside the repository instead of its Git root.
     app.workspace.spaces[0].projects[0].directory = PathBuf::from("project/nested");
     app.project_directory = app.workspace.directory().cloned();
-    app.repository.as_mut().unwrap().remote = Remote::parse("https://github.com/team/app.git");
+    app.repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .remote = Remote::parse("https://github.com/team/app.git");
     let repo = app.repository.as_ref().unwrap().clone();
     app.pipelines = PipelineState::Ready(Vec::new());
     app.account_username = Some("account".into());
@@ -408,10 +434,10 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
     let _ = app.update(Message::RepositoryLoaded(
         app.generation,
         app.repo_request,
-        Ok(Repository {
-            remotes: vec!["origin".to_owned()],
-            remote: None,
-            ..repo
+        Ok({
+            let mut repo = repo;
+            repo.active_mut().unwrap().remote = None;
+            repo
         }),
     ));
     assert!(!app.has_remote());
@@ -427,7 +453,12 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
 fn refresh_discards_confirmed_removed_repositories_and_does_not_reuse_other_projects() {
     use crate::domain::repository::Remote;
     let mut app = history_state(1, false);
-    app.repository.as_mut().unwrap().remote = Remote::parse("https://github.com/team/app.git");
+    app.repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .remote = Remote::parse("https://github.com/team/app.git");
     app.pipelines = PipelineState::Ready(Vec::new());
     let repo = app.repository.as_ref().unwrap().clone();
     let _ = app.update(Message::Refresh);
@@ -853,8 +884,13 @@ fn checkout_precedes_main_master_and_alphabetical_branches() {
             kind,
         }));
     }
-    app.repository.as_mut().unwrap().branches = branches;
-    app.branch = Some("refs/heads/master".to_owned());
+    app.repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .branches = branches;
+    app.branch = Some(branch_key("refs/heads/master"));
     app.expanded_branch_folders
         .extend(["true".to_owned(), "true/origin".to_owned()]);
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1440., 920.), app.view());
@@ -1340,6 +1376,7 @@ fn history_state(count: usize, more: bool) -> App {
             subject: format!("Commit {number:04}"),
             author: "Test Author".to_owned(),
             date: "2026-11-08 14:37".to_owned(),
+            timestamp: 0,
             refs: String::new(),
             graph: GraphRow::default(),
         })
@@ -1352,19 +1389,27 @@ fn history_state(count: usize, more: bool) -> App {
         .create_space("Work".to_owned(), vec![PathBuf::from("project")]);
     state.panes = pane_grid::State::new(Panel::Git).0;
     state.project_directory = state.workspace.directory().cloned();
-    state.repository = Some(Repository {
-        remotes: vec!["origin".to_owned()],
-        root: PathBuf::from("project"),
-        branches: Vec::new(),
-        remote: None,
-        head: "main".to_owned(),
-        next_history: more.then_some(HistoryCursor {
-            revisions: vec![id(count + 1)],
-            offset: count,
-            lanes,
-        }),
-        commits,
-    });
+    state.repository = Some(
+        Repository {
+            remotes: vec!["origin".to_owned()],
+            root: PathBuf::from("project"),
+            branches: vec![crate::domain::repository::Branch {
+                name: "main".into(),
+                reference: "refs/heads/main".into(),
+                current: true,
+                kind: crate::domain::repository::ReferenceKind::Local,
+            }],
+            remote: None,
+            head: "main".to_owned(),
+            next_history: more.then_some(HistoryCursor {
+                revisions: vec![id(count + 1)],
+                offset: count,
+                lanes,
+            }),
+            commits,
+        }
+        .into(),
+    );
     state
 }
 
@@ -1378,10 +1423,10 @@ fn repository_load_focuses_checkout_and_preserves_selected_branches() {
         Some("refs/remotes/origin/main"),
     ] {
         let mut state = history_state(2, false);
-        state.branch = selected.map(str::to_owned);
+        state.branch = selected.map(branch_key);
         let mut repo = state.repository.take().unwrap();
-        repo.head = "work/current".to_owned();
-        repo.branches = [
+        repo.active_mut().unwrap().head = "work/current".to_owned();
+        repo.active_mut().unwrap().branches = [
             ("main", "refs/heads/main", false, false),
             ("work/current", "refs/heads/work/current", true, false),
             ("origin/main", "refs/remotes/origin/main", false, true),
@@ -1401,7 +1446,7 @@ fn repository_load_focuses_checkout_and_preserves_selected_branches() {
         let _ = state.update(Message::RepositoryLoaded(0, 0, Ok(repo)));
 
         assert_eq!(
-            state.branch.as_deref(),
+            state.branch.as_ref().map(|key| key.reference.as_str()),
             Some(selected.unwrap_or("refs/heads/work/current"))
         );
         assert!(state.selected_commit.is_none());
@@ -1412,7 +1457,13 @@ fn repository_load_focuses_checkout_and_preserves_selected_branches() {
 fn tags_select_history_and_collapse_independently() {
     use crate::domain::repository::{Branch, ReferenceKind};
     let mut state = history_state(3, false);
-    state.repository.as_mut().unwrap().branches = [
+    state
+        .repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .branches = [
         ("main", "refs/heads/main", ReferenceKind::Local),
         ("v1.0", "refs/tags/v1.0", ReferenceKind::Tag),
     ]
@@ -1428,7 +1479,7 @@ fn tags_select_history_and_collapse_independently() {
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
     ui.click("v1.0").unwrap();
     assert!(
-        matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::SelectBranch(reference)] if reference == "refs/tags/v1.0")
+        matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::SelectBranch(reference)] if reference.reference == "refs/tags/v1.0")
     );
     let _ = state.update(Message::ToggleBranchFolder("tags".to_owned()));
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
@@ -1440,7 +1491,7 @@ fn tags_select_history_and_collapse_independently() {
 fn git_columns_resize_by_dragging_both_separators() {
     use iced::{Event, mouse};
     let mut state = history_state(3, false);
-    let id = state.repository.as_ref().unwrap().commits[0].id.clone();
+    let id = state.repository.as_ref().unwrap().commits[0].key();
     let _ = state.update(Message::SelectCommit(id));
     let bounds = |state: &App, id| {
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1440., 920.), state.view());
@@ -1491,7 +1542,7 @@ fn commit_search_remains_above_history_when_columns_and_window_resize() {
                     state.i18n = Rc::new(I18n::new(Language::Russian));
                     state.loading = loading;
                     if with_files {
-                        let id = state.repository.as_ref().unwrap().commits[0].id.clone();
+                        let id = state.repository.as_ref().unwrap().commits[0].key();
                         let _ = state.update(Message::SelectCommit(id));
                     }
                     let split = *state.git_panes.layout().splits().next().unwrap();
@@ -1547,7 +1598,7 @@ fn commit_search_input_filters_history_from_the_column_header() {
 #[test]
 fn history_loading_preserves_rows_and_position_and_rejects_stale_pages() {
     let mut state = history_state(250, true);
-    state.selected_commit = Some(state.repository.as_ref().unwrap().commits[0].id.clone());
+    state.selected_commit = Some(state.repository.as_ref().unwrap().commits[0].key());
     let selected = state.selected_commit.clone();
     let _ = state.update(Message::HistoryScrolled {
         offset: 6900.,
@@ -1606,7 +1657,7 @@ fn history_search_preloads_pages_and_branch_changes_invalidate_pending_reads() {
         .next_history
         .clone()
         .unwrap();
-    next.offset += 1;
+    next.sources[0].next.as_mut().unwrap().offset += 1;
     let page = HistoryPage {
         commits: history_state(1, false).repository.unwrap().commits,
         next: Some(next),
@@ -1632,7 +1683,20 @@ fn history_search_preloads_pages_and_branch_changes_invalidate_pending_reads() {
     );
     let _ = state.update(Message::LoadMoreHistory);
     assert!(state.history_loading);
-    let _ = state.update(Message::SelectBranch("refs/heads/other".to_owned()));
+    state
+        .repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .branches
+        .push(crate::domain::repository::Branch {
+            name: "other".into(),
+            reference: "refs/heads/other".into(),
+            current: false,
+            kind: crate::domain::repository::ReferenceKind::Local,
+        });
+    let _ = state.update(Message::SelectBranch(branch_key("refs/heads/other")));
     assert!(!state.history_loading);
     assert_eq!(state.history_scroll_y, 0.);
     let _ = state.update(Message::HistoryLoaded(0, 0, 251, Err(Failure::Read)));
@@ -1711,6 +1775,7 @@ fn commit_titles_follow_the_graph_in_each_row() {
             subject,
             author: format!("Author {number}"),
             date: format!("2026-10-{number:02} 09:05"),
+            timestamp: 0,
             refs: String::new(),
             graph: GraphRow::default(),
         })
@@ -1719,15 +1784,18 @@ fn commit_titles_follow_the_graph_in_each_row() {
     let mut state = App::new(Rc::new(I18n::new(Language::English)));
     state.loaded = true;
     state.panes = pane_grid::State::new(Panel::Git).0;
-    state.repository = Some(Repository {
-        remotes: vec!["origin".to_owned()],
-        root: PathBuf::new(),
-        branches: Vec::new(),
-        commits,
-        next_history: None,
-        remote: None,
-        head: "main".to_owned(),
-    });
+    state.repository = Some(
+        Repository {
+            remotes: vec!["origin".to_owned()],
+            root: PathBuf::new(),
+            branches: Vec::new(),
+            commits,
+            next_history: None,
+            remote: None,
+            head: "main".to_owned(),
+        }
+        .into(),
+    );
     for (name, size) in [
         ("history", (1440., 920.)),
         ("history-compact", (1080., 720.)),
@@ -1764,7 +1832,7 @@ fn commit_titles_follow_the_graph_in_each_row() {
         }
         ui.click("Recent change").unwrap();
         assert!(matches!(ui.into_messages().collect::<Vec<_>>().as_slice(),
-            [Message::SelectCommit(selected)] if selected == &id(1)));
+            [Message::SelectCommit(selected)] if selected.id == id(1)));
     }
     state.query = "Update".to_owned();
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
@@ -1951,15 +2019,18 @@ fn git_and_pipeline_panels_open_exclusively_and_can_both_close() {
             .iter()
             .any(|(_, panel)| *panel == Panel::Pipelines)
     );
-    app.repository = Some(Repository {
-        remotes: vec!["origin".to_owned()],
-        root: PathBuf::from("project"),
-        branches: vec![],
-        commits: vec![],
-        next_history: None,
-        remote: crate::domain::repository::Remote::parse("git@github.com:team/app.git"),
-        head: "main".to_owned(),
-    });
+    app.repository = Some(
+        Repository {
+            remotes: vec!["origin".to_owned()],
+            root: PathBuf::from("project"),
+            branches: vec![],
+            commits: vec![],
+            next_history: None,
+            remote: crate::domain::repository::Remote::parse("git@github.com:team/app.git"),
+            head: "main".to_owned(),
+        }
+        .into(),
+    );
     app.sync_panels();
     assert_eq!(app.panes.len(), 2);
     assert!(!app.workspace.preferences.show_git);
@@ -2060,8 +2131,12 @@ fn cancelled_authentication_cannot_update_the_selected_account() {
 #[test]
 fn authentication_replaces_an_inflight_pipeline_refresh() {
     let mut app = history_state(1, false);
-    app.repository.as_mut().unwrap().remote =
-        crate::domain::repository::Remote::parse("https://github.com/team/app.git");
+    app.repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .remote = crate::domain::repository::Remote::parse("https://github.com/team/app.git");
     let _ = app.update(Message::RefreshPipelines);
     let previous = app.pipeline_request;
     assert!(app.pipeline_refreshing);
@@ -2171,7 +2246,7 @@ async fn render_for_visual_review_when_requested() {
     let mut long_titles = history_state(4, false);
     long_titles.i18n = Rc::new(I18n::new(Language::Russian));
     for commit in &mut long_titles.repository.as_mut().unwrap().commits {
-        commit.subject =
+        commit.commit.subject =
             "Исправлен пересчёт размеров интерфейса при изменении ширины окна и открытии файлов"
                 .to_owned();
     }
@@ -2203,12 +2278,15 @@ async fn render_for_visual_review_when_requested() {
         .create_space("Work".to_owned(), vec![root.clone()]);
     let repo = repository::load(root.clone(), None).await.unwrap();
     if let Some(commit) = repo.commits.first() {
-        state.selected_commit = Some(commit.id.clone());
+        state.selected_commit = Some(CommitKey {
+            root: root.clone(),
+            id: commit.id.clone(),
+        });
         state.changed_files = repository::changed_files(root.clone(), commit.clone())
             .await
             .unwrap();
     }
-    state.repository = Some(repo);
+    state.repository = Some(repo.into());
     if state.selected_commit.is_some() {
         state.show_commit_files();
     }
@@ -2385,7 +2463,13 @@ async fn render_for_visual_review_when_requested() {
 
     let mut state = history_state(3, false);
     state.i18n = Rc::new(I18n::new(Language::Russian));
-    state.repository.as_mut().unwrap().branches = [
+    state
+        .repository
+        .as_mut()
+        .unwrap()
+        .active_mut()
+        .unwrap()
+        .branches = [
         ("backup/old-feature", false),
         ("dev", false),
         ("origin/dev", true),
@@ -2405,14 +2489,17 @@ async fn render_for_visual_review_when_requested() {
     .collect();
     let mut repo = state.repository.take().unwrap();
     for name in ["v1.0", "v2.0"] {
-        repo.branches.push(crate::domain::repository::Branch {
-            name: name.to_owned(),
-            reference: format!("refs/tags/{name}"),
-            current: false,
-            kind: crate::domain::repository::ReferenceKind::Tag,
-        });
+        repo.active_mut()
+            .unwrap()
+            .branches
+            .push(crate::domain::repository::Branch {
+                name: name.to_owned(),
+                reference: format!("refs/tags/{name}"),
+                current: false,
+                kind: crate::domain::repository::ReferenceKind::Tag,
+            });
     }
-    repo.head = "dev".to_owned();
+    repo.active_mut().unwrap().head = "dev".to_owned();
     let _ = state.update(Message::RepositoryLoaded(0, 0, Ok(repo)));
     capture(&state, "branches-checkout", (1080., 720.));
     for (key, name) in [

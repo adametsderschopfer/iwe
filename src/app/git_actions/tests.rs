@@ -5,32 +5,114 @@ use crate::{
 };
 use std::rc::Rc;
 
+fn branch_key(reference: impl Into<String>) -> crate::domain::repository::project::BranchKey {
+    crate::domain::repository::project::BranchKey {
+        root: PathBuf::from("/test"),
+        reference: reference.into(),
+    }
+}
+
 fn app() -> App {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
     app.loaded = true;
-    app.repository = Some(Repository {
-        root: PathBuf::from("/test"),
-        branches: vec![Branch {
-            name: "main".into(),
-            reference: "refs/heads/main".into(),
-            current: true,
-            kind: ReferenceKind::Local,
-        }],
-        commits: Vec::new(),
-        next_history: None,
-        remote: None,
-        remotes: vec!["origin".into()],
-        head: "main".into(),
-    });
+    app.repository = Some(
+        Repository {
+            root: PathBuf::from("/test"),
+            branches: vec![Branch {
+                name: "main".into(),
+                reference: "refs/heads/main".into(),
+                current: true,
+                kind: ReferenceKind::Local,
+            }],
+            commits: Vec::new(),
+            next_history: None,
+            remote: None,
+            remotes: vec!["origin".into()],
+            head: "main".into(),
+        }
+        .into(),
+    );
     app
+}
+
+#[test]
+fn scoped_dialog_uses_its_root_even_when_another_repository_is_active() {
+    let mut app = app();
+    let repos = app.repository.as_mut().unwrap();
+    let mut other = repos.repositories[0].clone();
+    other.root = PathBuf::from("/front");
+    repos.repositories.push(other);
+    repos.active_root = PathBuf::from("/front");
+    let _ = app.update_git(Message::Choose(
+        Action::Create,
+        branch_key("refs/heads/main"),
+    ));
+    let _ = app.update_git(Message::Name("topic".into()));
+    assert_eq!(
+        app.git_actions.dialog.as_ref().unwrap().root,
+        PathBuf::from("/test")
+    );
+    let _ = app.update_git(Message::Submit);
+    let request = app.git_actions.request;
+    let _ = app.update_git(Message::Finished(
+        request,
+        PathBuf::from("/test"),
+        Err(Error::Dirty),
+    ));
+    assert_eq!(
+        app.git_actions.dialog.as_ref().unwrap().error,
+        Some(Error::Dirty)
+    );
+    assert_eq!(
+        app.active_repository().unwrap().root,
+        PathBuf::from("/front")
+    );
+    assert_eq!(app.notifications.items.len(), 1);
+}
+
+#[test]
+fn fetch_reports_each_repository_and_ignores_duplicate_or_obsolete_results() {
+    for obsolete in [false, true] {
+        let mut app = app();
+        let repos = app.repository.as_mut().unwrap();
+        let mut other = repos.repositories[0].clone();
+        other.root = PathBuf::from("/front");
+        repos.repositories.push(other);
+        let generation = app.generation;
+        let _ = app.update_git(Message::Fetch);
+        let request = app.git_actions.request;
+        assert!(app.git_actions.pending);
+        if obsolete {
+            app.generation += 1;
+        }
+        let message = Message::Fetched(
+            request,
+            generation,
+            vec![
+                (PathBuf::from("/test"), Ok(())),
+                (PathBuf::from("/front"), Err(Error::Failed)),
+            ],
+        );
+        let _ = app.update_git(message.clone());
+        assert!(!app.git_actions.pending);
+        assert_eq!(app.notifications.items.len(), if obsolete { 0 } else { 2 });
+        let _ = app.update_git(message);
+        assert_eq!(app.notifications.items.len(), if obsolete { 0 } else { 2 });
+    }
 }
 
 #[test]
 fn actions_validate_branch_capabilities_and_preserve_failed_drafts() {
     let mut app = app();
-    let _ = app.update_git(Message::Choose(Action::Delete, "refs/heads/main".into()));
+    let _ = app.update_git(Message::Choose(
+        Action::Delete,
+        branch_key("refs/heads/main"),
+    ));
     assert!(app.git_actions.dialog.is_none());
-    let _ = app.update_git(Message::Choose(Action::Create, "refs/heads/main".into()));
+    let _ = app.update_git(Message::Choose(
+        Action::Create,
+        branch_key("refs/heads/main"),
+    ));
     let _ = app.update_git(Message::Name("topic".into()));
     let _ = app.update_git(Message::Submit);
     assert!(app.git_actions.pending);
@@ -62,12 +144,15 @@ fn old_operation_results_cannot_replace_a_new_project() {
     let mut app = app();
     let _ = app.update_git(Message::Fetch);
     let request = app.git_actions.request;
-    app.repository.as_mut().unwrap().root = PathBuf::from("/another");
+    app.repository.as_mut().unwrap().repositories[0].root = PathBuf::from("/another");
     let generation = app.generation;
     let _ = app.update_git(Message::Finished(request, PathBuf::from("/test"), Ok(())));
     assert!(!app.git_actions.pending);
     assert_eq!(app.generation, generation);
-    assert_eq!(app.repository.unwrap().root, PathBuf::from("/another"));
+    assert_eq!(
+        app.repository.unwrap().repositories[0].root,
+        PathBuf::from("/another")
+    );
     assert!(app.notifications.items.is_empty());
 }
 
@@ -113,7 +198,7 @@ fn git_results_notify_once_after_completion_and_keep_failures_visible() {
     ] {
         let mut app = app();
         app.notifications = Default::default();
-        let _ = app.run_git(operation);
+        let _ = app.run_git(PathBuf::from("/test"), operation);
         assert!(app.notifications.items.is_empty());
         let request = app.git_actions.request;
         let _ = app.update_git(Message::Finished(request, "/test".into(), Ok(())));
@@ -124,7 +209,7 @@ fn git_results_notify_once_after_completion_and_keep_failures_visible() {
     }
     let mut app = app();
     app.notifications = Default::default();
-    let _ = app.run_git(Operation::Fetch);
+    let _ = app.run_git(PathBuf::from("/test"), Operation::Fetch);
     let _ = app.update_git(Message::Finished(
         app.git_actions.request,
         "/test".into(),
@@ -148,23 +233,28 @@ fn long_branch_and_folder_names_remain_on_one_line() {
     let folder = "длинное-название-группы-".repeat(8);
     let nested = format!("{folder}/{}", "nested-branch-".repeat(8));
     let repo = app.repository.as_mut().unwrap();
-    repo.branches[0].name = current.clone();
-    repo.branches[0].reference = format!("refs/heads/{current}");
-    repo.branches.push(Branch {
+    repo.active_mut().unwrap().branches[0].name = current.clone();
+    repo.active_mut().unwrap().branches[0].reference = format!("refs/heads/{current}");
+    repo.active_mut().unwrap().branches.push(Branch {
         name: nested.clone(),
         reference: format!("refs/heads/{nested}"),
         current: false,
         kind: ReferenceKind::Local,
     });
-    repo.commits.push(Commit {
-        id: "a".repeat(40),
-        parents: vec![],
-        subject: "Preview".into(),
-        author: "Test".into(),
-        date: "2026-11-09".into(),
-        refs: String::new(),
-        graph: Default::default(),
-    });
+    repo.commits
+        .push(crate::domain::repository::project::ScopedCommit {
+            root: PathBuf::from("/test"),
+            commit: Commit {
+                id: "a".repeat(40),
+                parents: vec![],
+                subject: "Preview".into(),
+                author: "Test".into(),
+                date: "2026-11-09".into(),
+                timestamp: 0,
+                refs: String::new(),
+                graph: Default::default(),
+            },
+        });
     app.expanded_branch_folders
         .insert(format!("false/{folder}"));
     app.workspace.preferences.show_git = true;
@@ -219,7 +309,7 @@ fn long_branch_and_folder_names_remain_on_one_line() {
         }
         ui.click(Id::from(format!("branch-refs/heads/{nested}")))
             .unwrap();
-        assert!(ui.into_messages().any(|message| matches!(message, AppMessage::SelectBranch(reference) if reference == format!("refs/heads/{nested}"))));
+        assert!(ui.into_messages().any(|message| matches!(message, AppMessage::SelectBranch(reference) if reference.reference == format!("refs/heads/{nested}"))));
     }
 }
 
@@ -233,19 +323,24 @@ fn branch_toolbar_and_scrollbar_fit_the_minimum_pane_width() {
     let mut app = app();
     app.workspace
         .create_space("Work".into(), vec!["/test".into()]);
-    app.branch = Some("refs/heads/main".into());
+    app.branch = Some(branch_key("refs/heads/main"));
     let repo = app.repository.as_mut().unwrap();
-    repo.commits.push(Commit {
-        id: "a".repeat(40),
-        parents: vec![],
-        subject: "Preview".into(),
-        author: "Test".into(),
-        date: "2026-11-09".into(),
-        refs: String::new(),
-        graph: Default::default(),
-    });
+    repo.commits
+        .push(crate::domain::repository::project::ScopedCommit {
+            root: PathBuf::from("/test"),
+            commit: Commit {
+                id: "a".repeat(40),
+                parents: vec![],
+                subject: "Preview".into(),
+                author: "Test".into(),
+                date: "2026-11-09".into(),
+                timestamp: 0,
+                refs: String::new(),
+                graph: Default::default(),
+            },
+        });
     for index in 0..60 {
-        repo.branches.push(Branch {
+        repo.active_mut().unwrap().branches.push(Branch {
             name: format!("branch-{index:02}"),
             reference: format!("refs/heads/branch-{index:02}"),
             current: false,
@@ -343,16 +438,22 @@ fn branch_context_actions_and_translated_dialogs_fit_and_block_background_clicks
         app.workspace
             .create_space("Team".into(), vec![PathBuf::from("/test")]);
         app.workspace.preferences.show_git = true;
-        app.branch = Some("refs/heads/main".into());
-        app.repository.as_mut().unwrap().commits.push(Commit {
-            id: "a".repeat(40),
-            parents: vec![],
-            subject: "Add branch tools".into(),
-            author: "Test".into(),
-            date: "2026-11-09".into(),
-            refs: "HEAD -> main".into(),
-            graph: Default::default(),
-        });
+        app.branch = Some(branch_key("refs/heads/main"));
+        app.repository.as_mut().unwrap().commits.push(
+            crate::domain::repository::project::ScopedCommit {
+                root: PathBuf::from("/test"),
+                commit: Commit {
+                    id: "a".repeat(40),
+                    parents: vec![],
+                    subject: "Add branch tools".into(),
+                    author: "Test".into(),
+                    date: "2026-11-09".into(),
+                    timestamp: 0,
+                    refs: "HEAD -> main".into(),
+                    graph: Default::default(),
+                },
+            },
+        );
         app.sync_panels();
         let settings = || iced::Settings {
             default_font: theme::font(),
@@ -400,14 +501,20 @@ fn branch_context_actions_and_translated_dialogs_fit_and_block_background_clicks
         let _ = app.update_git(Message::Close);
         let name = format!("feature/{}", "long-branch-name-".repeat(12));
         let reference = format!("refs/heads/{name}");
-        app.repository.as_mut().unwrap().branches.push(Branch {
-            name,
-            reference: reference.clone(),
-            current: false,
-            kind: ReferenceKind::Local,
-        });
+        app.repository
+            .as_mut()
+            .unwrap()
+            .active_mut()
+            .unwrap()
+            .branches
+            .push(Branch {
+                name,
+                reference: reference.clone(),
+                current: false,
+                kind: ReferenceKind::Local,
+            });
         for action in [Action::Create, Action::Rename, Action::Push, Action::Delete] {
-            let _ = app.update_git(Message::Choose(action, reference.clone()));
+            let _ = app.update_git(Message::Choose(action, branch_key(reference.clone())));
             let _ = app.update_git(Message::Name("feature/new-name".into()));
             let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
             let bounds = ui
