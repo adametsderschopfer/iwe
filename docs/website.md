@@ -37,6 +37,8 @@ npm run typecheck
 npm audit --audit-level=moderate
 npm run generate
 npm test
+npx playwright install chromium
+npm run test:browser
 ```
 
 Generation writes static files to `website/.output/public`. The generated-page tests require that
@@ -73,7 +75,9 @@ matching package receive a compatibility note. Detection never starts a download
 
 Selected sections appear once when they enter the viewport. The reveal uses CSS transitions and
 `IntersectionObserver`. The website honors reduced-motion preferences and reveals keyboard-focused
-content immediately. Content remains visible without JavaScript or observer support.
+content immediately. Content remains visible without JavaScript or observer support. The image
+reveal clips its image, while the observed container remains unclipped. Browser regression tests
+cover scrolling, navigation links, reduced motion, and keyboard focus.
 
 ## Dependency security
 
@@ -98,7 +102,7 @@ The workflow runs these stages:
 
 1. Check formatting, lint, TypeScript types, and dependency advisories in separate jobs.
 2. Generate static files after every check passes.
-3. Verify generated pages and their local assets.
+3. Verify generated pages, local assets, and browser interactions.
 4. Upload the static files and deploy them from `main`.
 
 Pull requests run checks and generation without deploying. Deployment uses the `github-pages`

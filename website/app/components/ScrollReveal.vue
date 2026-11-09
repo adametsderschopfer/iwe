@@ -78,20 +78,25 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(var(--distance-reveal));
 }
-.reveal-wipe {
+.reveal-wipe :deep(img) {
   clip-path: inset(0 0 0 0);
   transition: clip-path var(--duration-reveal) var(--ease-in-out);
 }
-.reveal-wipe[data-reveal-state='pending'] {
+.reveal-wipe[data-reveal-state='pending'] :deep(img) {
   clip-path: inset(0 0 100% 0);
 }
-.reveal-immediate {
+.reveal-immediate,
+.reveal-immediate :deep(img) {
   transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .scroll-reveal {
     opacity: 1;
     transform: none;
+    clip-path: none;
+    transition: none;
+  }
+  .scroll-reveal :deep(img) {
     clip-path: none;
     transition: none;
   }

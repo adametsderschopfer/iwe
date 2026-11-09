@@ -4,3 +4,6 @@ node_modules/
 .data/
 .cache/
 /dist
+test-results/
+playwright-report/
+.playwright-cli/
