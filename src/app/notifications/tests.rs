@@ -113,7 +113,10 @@ fn notification_cards_fit_all_languages_and_preserve_workspace_interactions() {
                 .visible_bounds()
                 .unwrap();
             assert_eq!(bounds.width, theme::NOTIFICATION_WIDTH);
-            assert_eq!(bounds.x + bounds.width, 1080. - theme::NOTIFICATION_INSET);
+            assert_eq!(
+                bounds.x + bounds.width,
+                crate::app::tests::content_width(&app, 1080.) - theme::NOTIFICATION_INSET
+            );
             assert_eq!(bounds.y + bounds.height, 720. - theme::NOTIFICATION_INSET);
             assert!(bounds.y > 0.);
             for key in [

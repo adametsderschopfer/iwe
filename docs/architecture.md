@@ -277,7 +277,8 @@ the application header. `ui/window_chrome.rs` keeps these controls above dialogs
 and corner resize handles. Window tasks use safe Iced APIs. Resize events update the maximize icon.
 Maximized windows disable resize handles without replacing the content widget tree. Restored Windows
 windows reserve the right resize strip outside content. This keeps scrollbar clicks and wheel events
-outside that strip. Maximized windows return the strip's width to content.
+outside that strip. Maximized windows return the strip's width to content. Layout tests exclude
+this strip from the expected content width on Windows. Other platforms retain the full window width.
 
 On macOS, renderer layers anchor their contents at the top left instead of stretching the previous
 frame during resizing. AppKit requests redraws during live resizing. This policy preserves display

@@ -15,6 +15,20 @@ fn ui_settings() -> iced::Settings {
     }
 }
 
+pub(super) fn content_width(app: &App, window_width: f32) -> f32 {
+    if app.window_maximized {
+        return window_width;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        window_width - theme::WINDOW_RESIZE_GRIP
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        window_width
+    }
+}
+
 #[test]
 fn header_branch_action_opens_git_without_toggling_an_open_panel() {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
@@ -776,7 +790,7 @@ fn file_panel_buttons_toggle_without_changing_open_files() {
                 0.
             };
         assert_eq!(source.x, expected_x);
-        assert_eq!(source.width, 1080. - expected_x);
+        assert_eq!(source.width, content_width(&app, 1080.) - expected_x);
         let files = ui
             .find(Id::new("project-files-panel"))
             .ok()
@@ -1234,7 +1248,11 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
         );
         assert_eq!(
             source.width,
-            width - theme::SIDEBAR_WIDTH - 48. - app.workspace.preferences.file_panel_width - 2.
+            content_width(&app, width)
+                - theme::SIDEBAR_WIDTH
+                - 48.
+                - app.workspace.preferences.file_panel_width
+                - 2.
         );
         assert_eq!(number.y, source.y);
         assert_eq!(number.x - source.x, 13.);
