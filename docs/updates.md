@@ -1,9 +1,17 @@
 # Application updates
 
-IWE Code checks GitHub Releases at startup and every six hours. Checks never use repository accounts
-or tokens. It selects stable releases for the current operating system, with shared releases as a
-compatibility fallback. Only versions newer than the running version qualify. Failed checks stop until
-another scheduled or explicit check. Open **Settings → About** to check manually.
+IWE Code checks GitHub Releases at startup and once per hour while running. Returning to the window
+also checks when at least 15 minutes have passed since the last attempt. Failed checks become eligible
+for another automatic attempt after 15 minutes. A lightweight local timer evaluates eligibility once
+per minute. It does not send a network request every minute. Wall-clock timestamps account for time
+spent suspended. Clock changes can trigger one early attempt before the cooldown starts again.
+
+Checks never use repository accounts or tokens. The updater selects stable releases for the current
+operating system, with shared releases as a compatibility fallback. Only newer versions qualify.
+Automatic checks stop while an update is available, downloading, downloaded, or installing.
+This keeps a discovered update visible until the user acts. Open **Settings → About** to check
+manually without the automatic cooldown. Duplicate checks cannot overlap, including during startup
+and focus events. Downloading and installation still require explicit actions.
 
 A download row with a dark blue icon appears near the sidebar settings button when an update becomes
 available. Choose **Download update** to download the package for the current operating system and

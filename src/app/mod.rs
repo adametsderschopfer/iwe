@@ -46,7 +46,7 @@ fn application(
                 App::new(Rc::clone(&i18n)),
                 Task::batch([
                     Task::perform(workspace::load(), Message::Loaded),
-                    Task::done(Message::Update(updates::Event::Check)),
+                    Task::done(Message::Update(updates::Event::Automatic(updates::Trigger::Periodic))),
                 ]),
             )
         },
@@ -72,8 +72,12 @@ fn application(
     .subscription(|app| {
         Subscription::batch([
             app.change_subscription(),
-            iced::time::every(std::time::Duration::from_secs(6 * 60 * 60))
-                .map(|_| Message::Update(updates::Event::Check)),
+            iced::time::every(std::time::Duration::from_secs(60))
+                .map(|_| Message::Update(updates::Event::Automatic(updates::Trigger::Periodic))),
+            window::events().filter_map(|(_, event)| match event {
+                window::Event::Focused => Some(Message::Update(updates::Event::Automatic(updates::Trigger::Focused))),
+                _ => None,
+            }),
             app.pipeline_subscription(),
             app.jobs_subscription(),
             app.notifications.subscription().map(Message::Notification),
@@ -210,6 +214,7 @@ pub(crate) struct App {
     pub disconnecting: bool,
     pub notifications: notifications::State,
     pub updates: updates::State,
+    update_schedule: updates::Schedule,
     pub picking: bool,
     pub loaded: bool,
     window_id: Option<window::Id>,
@@ -385,6 +390,7 @@ impl App {
                 updates::State::default()
             },
             picking: false,
+            update_schedule: updates::Schedule::default(),
             loaded: false,
             window_id: None,
             window_maximized: false,

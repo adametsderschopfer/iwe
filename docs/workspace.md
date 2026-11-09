@@ -438,7 +438,8 @@ Keyboard shortcuts:
 
 ## Application updates
 
-IWE Code checks for new releases at startup and every six hours. A blue sidebar button offers
+IWE Code checks for new releases at startup and hourly. Returning to the window can also trigger a
+check after a 15-minute cooldown. Failed checks retry after 15 minutes. A blue sidebar button offers
 available updates. Download the update, then choose **Install and restart**. Settings also offers a
 manual check under **About**. IWE Code verifies signed packages before installation. See
 [application updates](updates.md) for supported installations and recovery behavior.

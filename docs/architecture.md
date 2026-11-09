@@ -321,6 +321,10 @@ not bundle those runtimes. Normal macOS startup uses Metal.
 ## Application updates
 
 `app/updates` coordinates release checks, downloads, workspace persistence, and restart requests.
+Its session schedule checks hourly and allows focus-triggered checks after a 15-minute cooldown.
+Failed checks use the same 15-minute retry delay. A minute subscription evaluates wall-clock deadlines
+locally, including after suspension. Manual checks bypass cooldowns but retain in-flight guards.
+Automatic checks preserve available updates and never interrupt download, save, or installation states.
 `domain/update` carries verified release metadata without operating-system access.
 `infrastructure/updates` verifies signed manifests, stages packages, and installs updates after
 shutdown. `ui/updates` presents localized actions in the sidebar and About settings. The startup

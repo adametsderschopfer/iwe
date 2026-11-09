@@ -6,7 +6,28 @@ use crate::{
     infrastructure::updates::{self, Error, Prepared},
 };
 use iced::Task;
-use std::sync::Arc;
+use std::{sync::Arc, time::{Duration, SystemTime}};
+
+const CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
+const RETRY_INTERVAL: Duration = Duration::from_secs(15 * 60);
+
+#[derive(Default)]
+pub(super) struct Schedule {
+    last_attempt: Option<SystemTime>,
+    retry: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Trigger { Periodic, Focused }
+
+impl Schedule {
+    fn due(&self, trigger: Trigger, now: SystemTime) -> bool {
+        let interval = if self.retry || matches!(trigger, Trigger::Focused) {
+            RETRY_INTERVAL
+        } else { CHECK_INTERVAL };
+        self.last_attempt.is_none_or(|last| now.duration_since(last).map_or(true, |elapsed| elapsed >= interval))
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub(crate) enum State {
@@ -24,6 +45,7 @@ pub(crate) enum State {
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
     Check,
+    Automatic(Trigger),
     Checked(Result<Option<Release>, Error>),
     Download,
     Downloaded(Result<Arc<Prepared>, Error>),
@@ -34,18 +56,28 @@ pub(crate) enum Event {
 impl App {
     pub(super) fn update_release(&mut self, event: Event) -> Task<Message> {
         match event {
+            Event::Automatic(trigger) => {
+                if matches!(self.updates, State::Idle | State::Current | State::Failed(Error::Network | Error::Invalid))
+                    && self.update_schedule.due(trigger, SystemTime::now())
+                {
+                    return self.update_release(Event::Check);
+                }
+            }
             Event::Check
                 if matches!(
                     self.updates,
                     State::Idle | State::Current | State::Available(_) | State::Failed(_)
                 ) =>
             {
+                self.update_schedule.last_attempt = Some(SystemTime::now());
+                self.update_schedule.retry = false;
                 self.updates = State::Checking;
                 return Task::perform(updates::check(), |result| {
                     Message::Update(Event::Checked(result))
                 });
             }
             Event::Checked(result) if matches!(self.updates, State::Checking) => {
+                self.update_schedule.retry = result.is_err();
                 self.updates = match result {
                     Ok(Some(release)) => State::Available(release),
                     Ok(None) => State::Current,

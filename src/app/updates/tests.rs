@@ -5,6 +5,35 @@ use std::rc::Rc;
 fn app() -> App {
     App::new(Rc::new(I18n::new(Language::English)))
 }
+
+#[test]
+fn automatic_checks_throttle_focus_and_retry_failures_after_fifteen_minutes() {
+    let now = SystemTime::UNIX_EPOCH + Duration::from_secs(10_000);
+    let mut schedule = Schedule::default();
+    assert!(schedule.due(Trigger::Periodic, now));
+    schedule.last_attempt = Some(now);
+    assert!(!schedule.due(Trigger::Focused, now + Duration::from_secs(899)));
+    assert!(schedule.due(Trigger::Focused, now + RETRY_INTERVAL));
+    assert!(!schedule.due(Trigger::Periodic, now + RETRY_INTERVAL));
+    assert!(schedule.due(Trigger::Periodic, now + CHECK_INTERVAL));
+    schedule.retry = true;
+    assert!(!schedule.due(Trigger::Periodic, now + Duration::from_secs(899)));
+    assert!(schedule.due(Trigger::Periodic, now + RETRY_INTERVAL));
+    assert!(schedule.due(Trigger::Periodic, now - Duration::from_secs(1)));
+}
+
+#[test]
+fn manual_checks_bypass_cooldown_and_automatic_checks_preserve_available_updates() {
+    let mut app = app();
+    assert!(app.update_release(Event::Check).units() > 0);
+    let _ = app.update_release(Event::Checked(Ok(None)));
+    assert_eq!(app.update_release(Event::Automatic(Trigger::Focused)).units(), 0);
+    assert!(app.update_release(Event::Check).units() > 0);
+    let _ = app.update_release(Event::Checked(Ok(Some(release()))));
+    app.update_schedule.last_attempt = None;
+    assert_eq!(app.update_release(Event::Automatic(Trigger::Periodic)).units(), 0);
+    assert!(matches!(app.updates, State::Available(_)));
+}
 fn release() -> Release {
     Release {
         version: "0.1.11".into(),
