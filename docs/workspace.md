@@ -13,7 +13,8 @@ discards its name, folder choices, and project order.
 Use the settings button beside a space name to edit that space in the same form. Change its name,
 add project folders, or remove projects, then choose **Save changes**. Cancel keeps the saved space
 unchanged. Removing a project only detaches its folder. The application never deletes the folder.
-The header shows the selected space. The files view shows **Space • Project**.
+The header shows **Space • Project** whenever a project is selected. Without a selected project,
+it shows only the space name. Settings keeps its own heading.
 
 Right-click a project and choose the red **Remove project from space** action to detach it immediately.
 The action appears below **Pin project** or **Unpin project** and also works in the pinned list.

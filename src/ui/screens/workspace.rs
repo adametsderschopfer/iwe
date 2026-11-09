@@ -91,14 +91,10 @@ fn header(app: &App) -> Element<'_, Message> {
     let title = if is_settings {
         app.i18n.text(Key::Settings)
     } else if let Some(space) = selected_space {
-        if app.navigation == Navigation::Files {
-            app.workspace
-                .project()
-                .map(|project| format!("{} • {}", short(&space.name, 24), short(&project.name, 28)))
-                .unwrap_or_else(|| short(&space.name, 42))
-        } else {
-            short(&space.name, 42)
-        }
+        app.workspace
+            .project()
+            .map(|project| format!("{} • {}", short(&space.name, 24), short(&project.name, 28)))
+            .unwrap_or_else(|| short(&space.name, 42))
     } else {
         app.i18n.text(Key::Workspace)
     };
