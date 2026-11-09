@@ -1308,26 +1308,35 @@ fn preview(app: &App) -> Element<'_, Message> {
         .spacing(16)
         .align_x(Alignment::Center)
         .max_width(520);
-        if !no_project || !has_spaces {
+        let show_action = if no_project {
+            !has_spaces
+        } else {
+            !app.file_panel_visible
+                || app.file_panel != crate::domain::workspace::FilePanel::Project
+        };
+        if show_action {
             content = content.push(space().height(8)).push(
-                button(
-                    text(app.i18n.text(if no_project {
-                        Key::NewSpace
+                container(
+                    button(
+                        text(app.i18n.text(if no_project {
+                            Key::NewSpace
+                        } else {
+                            Key::ProjectFiles
+                        }))
+                        .size(14),
+                    )
+                    .on_press_maybe(if no_project {
+                        (app.loaded && !app.picking)
+                            .then_some(Message::Space(crate::app::spaces::Message::New))
                     } else {
-                        Key::ProjectFiles
-                    }))
-                    .size(14),
+                        Some(Message::SelectFilePanel(
+                            crate::domain::workspace::FilePanel::Project,
+                        ))
+                    })
+                    .padding([12, 24])
+                    .style(theme::primary),
                 )
-                .on_press_maybe(if no_project {
-                    (app.loaded && !app.picking)
-                        .then_some(Message::Space(crate::app::spaces::Message::New))
-                } else {
-                    Some(Message::SelectFilePanel(
-                        crate::domain::workspace::FilePanel::Project,
-                    ))
-                })
-                .padding([12, 24])
-                .style(theme::primary),
+                .id("preview-empty-action"),
             );
         }
         container(content).padding(40).center(Length::Fill).into()

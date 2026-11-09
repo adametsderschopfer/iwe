@@ -49,9 +49,11 @@ One click selects a project and immediately displays its files beside the projec
 panel sits between its vertical toolbar and the source preview. The files view lists project
 contents directly, without a collapsible project row. Nested folders keep their expansion arrows.
 The sidebar always retains its projects. Use the file toolbar to select **Project files** directly.
-The panel heading aligns with the first toolbar button. Panel content and status messages share the
-heading's left inset. The scroll area fills the file panel. Scrollbars stay at its edges, regardless
-of filename length.
+The empty preview hides its **Project files** button while that panel is already visible. The button
+remains available when the panel is hidden or **Uncommitted files** is selected. The panel heading
+aligns with the first toolbar button. Panel content and status messages share the heading's left
+inset. The scroll area fills the file panel. Scrollbars stay at its edges, regardless of filename
+length.
 
 Click the active file toolbar icon again to hide its panel. The source preview fills the available
 width while the toolbar remains visible. Click either icon to reopen its panel. Open files, source

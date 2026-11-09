@@ -2537,3 +2537,84 @@ fn empty_spaces_text_aligns_with_the_spaces_heading_in_all_languages() {
         assert!(empty.y > heading.y + heading.height);
     }
 }
+
+#[test]
+fn empty_preview_offers_project_files_only_when_that_panel_is_not_visible() {
+    use iced::widget::Id;
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        for (panel, visible, show_action) in [
+            (FilePanel::Project, true, false),
+            (FilePanel::Project, false, true),
+            (FilePanel::Changes, true, true),
+            (FilePanel::Changes, false, true),
+        ] {
+            let mut app = App::new(Rc::new(I18n::new(language)));
+            app.loaded = true;
+            app.workspace
+                .create_space("Work".into(), vec![PathBuf::from("project")]);
+            app.workspace.preferences.show_git = false;
+            app.sync_panels();
+            app.file_panel = panel;
+            app.file_panel_visible = visible;
+            let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+            assert!(
+                ui.find(app.i18n.text(Key::ChooseFile))
+                    .unwrap()
+                    .visible_bounds()
+                    .is_some()
+            );
+            assert_eq!(
+                ui.find(Id::new("preview-empty-action")).is_ok(),
+                show_action
+            );
+            if panel == FilePanel::Project
+                && let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from)
+            {
+                for (theme, suffix) in [(Theme::Dark, "dark"), (Theme::Light, "light")] {
+                    ui.snapshot(&theme)
+                        .unwrap()
+                        .matches_image(
+                            output.join(format!("empty-preview-{language:?}-{visible}-{suffix}")),
+                        )
+                        .unwrap();
+                }
+            }
+            if show_action {
+                ui.click(Id::new("preview-empty-action")).unwrap();
+                let messages = ui.into_messages().collect::<Vec<_>>();
+                assert!(matches!(
+                    messages.as_slice(),
+                    [Message::SelectFilePanel(FilePanel::Project)]
+                ));
+                for message in messages {
+                    let _ = app.update(message);
+                }
+                assert_eq!(app.file_panel, FilePanel::Project);
+                assert!(app.file_panel_visible);
+                assert!(app.preview().path.is_none());
+                let mut ui =
+                    iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+                assert!(ui.find(Id::new("preview-empty-action")).is_err());
+            }
+        }
+    }
+}
+
+#[test]
+fn empty_preview_preserves_space_creation_and_project_selection_guidance() {
+    use iced::widget::Id;
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = App::new(Rc::new(I18n::new(language)));
+        app.loaded = true;
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+        ui.click(Id::new("preview-empty-action")).unwrap();
+        assert!(matches!(
+            ui.into_messages().collect::<Vec<_>>().as_slice(),
+            [Message::Space(spaces::Message::New)]
+        ));
+        app.workspace.create_space("Empty".into(), vec![]);
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+        assert!(ui.find(app.i18n.text(Key::ChooseProject)).is_ok());
+        assert!(ui.find(Id::new("preview-empty-action")).is_err());
+    }
+}
