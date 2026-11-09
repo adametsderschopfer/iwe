@@ -1,12 +1,13 @@
 # Workspace
 
-IWE provides a native workspace for local directories, source previews, Git history, and CI runs.
+IWE Code provides a native workspace for local directories, source previews, Git history, and CI
+runs.
 
 ## Spaces, projects, and files
 
 Use the plus beside **Spaces** and enter its name. Add existing project folders in the form, then
-choose **Create space**. Select several folders in one directory dialog. IWE keeps each folder once
-within the space. You can also create an empty space and add projects later. Canceling the form
+choose **Create space**. Select several folders in one directory dialog. IWE Code keeps each folder
+once within the space. You can also create an empty space and add projects later. Canceling the form
 discards its name, folder choices, and project order.
 
 Use the settings button beside a space name to edit that space in the same form. Change its name,
@@ -64,23 +65,24 @@ Click the active file toolbar icon again to hide its panel. The source preview f
 width while the toolbar remains visible. Click either icon to reopen its panel. Open files, source
 scroll positions, and folder expansion remain unchanged.
 
-Drag the divider beside the file panel to change its width. IWE saves the width when dragging ends.
-Both file panels share this width across projects and restarts. Narrow windows limit the visible
-panel width to preserve space for code. The panel heading and file tabs share the same bottom edge.
+Drag the divider beside the file panel to change its width. IWE Code saves the width when dragging
+ends. Both file panels share this width across projects and restarts. Narrow windows limit the
+visible panel width to preserve space for code. The panel heading and file tabs share the same
+bottom edge.
 
 A thin divider separates the workspace heading from its content. Another divider separates the file
 panel from the source preview. A full-height divider separates the spaces sidebar from the
 workspace. All dividers follow the current appearance.
 
 The vertical toolbar switches between **Project files** and **Uncommitted files**. The latter
-includes staged, unstaged, and untracked files. Drag these icons to change their order. IWE saves
-the order and opens the first panel after reordering, restarting, or selecting another project.
-**Project files** comes first by default. Missing deleted files open their previous committed
-contents.
+includes staged, unstaged, and untracked files. Drag these icons to change their order. IWE Code
+saves the order and opens the first panel after reordering, restarting, or selecting another
+project. **Project files** comes first by default. Missing deleted files open their previous
+committed contents.
 
-IWE checks the opened directory and its immediate subdirectories for Git repositories. It does not
-scan deeper directories or follow child directory links. Linked worktrees are supported. Opening a
-folder inside a repository still uses that containing repository.
+IWE Code checks the opened directory and its immediate subdirectories for Git repositories. It does
+not scan deeper directories or follow child directory links. Linked worktrees are supported. Opening
+a folder inside a repository still uses that containing repository.
 
 For a parent folder containing `backend` and `front`, each repository has its own colored group in
 **Uncommitted files**. The project tree marks repository directories with the same colors. File
@@ -104,13 +106,13 @@ directories, 100,000 entries, or 24 directory levels. Individual listings retain
 limit. Cache files are bounded to 32 MiB. Four previous project trees remain available in memory.
 
 Old project groups become named spaces. Their directories become individual projects. Names,
-selected folders, preferences, and provider choices are preserved. Before migration, IWE saves the
-original configuration as `workspace.v1.json` beside `workspace.json`. Existing backups remain
+selected folders, preferences, and provider choices are preserved. Before migration, IWE Code saves
+the original configuration as `workspace.v1.json` beside `workspace.json`. Existing backups remain
 unchanged. Opening an unassigned folder from the command line prefills the new space form.
 
-The directory index contains no source contents. IWE reads file contents only when a file is opened.
-Source contents remain in memory. Settings storage contains project metadata and preferences. No
-source code is uploaded.
+The directory index contains no source contents. IWE Code reads file contents only when a file is
+opened. Source contents remain in memory. Settings storage contains project metadata and
+preferences. No source code is uploaded.
 
 ## Source preview
 
@@ -186,7 +188,7 @@ Both comparison views include these marks. Folding or expanding unchanged ranges
 positions. The marks leave the scrollbar handle visible and preserve wheel scrolling and dragging.
 
 Use the view button beside the file tabs to switch between two columns and the unified single
-column. IWE saves this choice for all files and across restarts. Both views retain their scroll
+column. IWE Code saves this choice for all files and across restarts. Both views retain their scroll
 positions. Switching views keeps the document and expanded unchanged ranges. Commit comparisons use
 the same views. Files without a comparison keep their normal preview and hide the view button.
 
@@ -202,7 +204,7 @@ use their own gutter. Space below the final line keeps the horizontal scrollbar 
 Use the button beside the file tabs to collapse unchanged lines. Changed lines keep their original
 line numbers and colors. Click a collapsed range to expand that range. The button restores all lines
 and the previous scroll position. This mode applies to all files, including commit versions. IWE
-saves the mode across restarts and applies it to new and restored tabs. Each tab retains its
+Code saves the mode across restarts and applies it to new and restored tabs. Each tab retains its
 individually expanded ranges while its contents remain unchanged. Files without unchanged ranges or
 valid comparisons do not show this button.
 
@@ -273,7 +275,7 @@ hashes and preserves separate repository lanes across pages. Commit file changes
 first parent. Root commits compare against an empty tree. Commit previews highlight changes against
 that same parent. Deleted files show their previous contents in red. The file tab identifies the
 selected commit. Other files open their selected commit revision. History and source previews remain
-read-only. Only explicit Git actions change branches, files, or remotes. IWE does not create
+read-only. Only explicit Git actions change branches, files, or remotes. IWE Code does not create
 commits.
 
 Commit titles follow the active graph lanes in each row. Wider sections elsewhere do not add empty
@@ -283,17 +285,17 @@ the same timestamp.
 
 ## Pipelines
 
-The pipeline button appears when the repository has a network remote. IWE prefers `origin`, then the
-first configured remote. Local filesystem remotes do not enable pipelines.
+The pipeline button appears when the repository has a network remote. IWE Code prefers `origin`,
+then the first configured remote. Local filesystem remotes do not enable pipelines.
 
 Known GitHub and GitLab hostnames select their provider automatically. For other hostnames, choose
-GitHub or GitLab once. IWE remembers this choice for that host. SSH transport ports do not become
-API ports.
+GitHub or GitLab once. IWE Code remembers this choice for that host. SSH transport ports do not
+become API ports.
 
-IWE reads GitHub and GitLab APIs directly. Provider CLIs are not required. Public projects can load
-without authentication when the provider allows anonymous access. The application requests pipeline
-data when Git or pipelines is enabled. The panel lists the latest 30 runs. Each row includes a
-compact chain of status icons. The external-link icon opens the provider page.
+IWE Code reads GitHub and GitLab APIs directly. Provider CLIs are not required. Public projects can
+load without authentication when the provider allows anonymous access. The application requests
+pipeline data when Git or pipelines is enabled. The panel lists the latest 30 runs. Each row
+includes a compact chain of status icons. The external-link icon opens the provider page.
 
 GitLab shows one icon per stage, in the provider's order. GitHub shows one icon per job, including
 jobs with identical names. GitHub icons retain the provider's order and do not describe job
@@ -358,7 +360,7 @@ and job details still reload after project changes.
 An access error offers **Sign in**. GitHub opens the browser and displays a confirmation code.
 GitLab.com opens browser authorization and returns through a local callback. The panel refreshes
 automatically after successful authentication. Self-hosted GitLab requests a personal access token
-with the api scope for job actions. The dialog always identifies the destination server. IWE
+with the api scope for job actions. The dialog always identifies the destination server. IWE Code
 validates the account before saving credentials in the system credential store. The panel header
 shows the account and offers **Sign out**. Sign-out removes local credentials for that provider and
 server. It does not revoke the provider's authorization grant.
@@ -393,9 +395,9 @@ Keyboard shortcuts:
 
 ## Application updates
 
-IWE checks for new releases at startup and every six hours. A blue sidebar button offers available
-updates. Download the update, then choose **Install and restart**. Settings also offers a manual
-check under **About**. IWE verifies signed packages before installation. See
+IWE Code checks for new releases at startup and every six hours. A blue sidebar button offers
+available updates. Download the update, then choose **Install and restart**. Settings also offers a
+manual check under **About**. IWE Code verifies signed packages before installation. See
 [application updates](updates.md) for supported installations and recovery behavior.
 
 ## Verification limits

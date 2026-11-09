@@ -5,7 +5,7 @@ use crate::{
     domain::update::Release,
     infrastructure::updates::{self, Error, Prepared},
 };
-use iced::{Task, window};
+use iced::Task;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Default)]
@@ -81,10 +81,10 @@ impl App {
                 }
             }
             Event::Started(result) if matches!(self.updates, State::Installing(_)) => {
-                if result.is_ok()
-                    && let Some(id) = self.window_id
-                {
-                    return window::close(id);
+                if result.is_ok() {
+                    // Closing a window can leave the native application alive on macOS.
+                    // Exit the event loop so Prepared releases the installer's lock.
+                    return iced::exit();
                 }
                 self.notifications.error(error_key(Error::Install), None);
                 self.updates = State::Failed(Error::Install);

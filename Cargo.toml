@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.90"
 description = "A native workspace for projects, source code, Git history, and pipelines"
 license = "Apache-2.0"
-repository = "https://github.com/adametsderschopfer/iwe"
+repository = "https://github.com/adametsderschopfer/iwe-code"
 publish = false
 
 [dependencies]

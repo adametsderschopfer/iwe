@@ -235,10 +235,10 @@ protocol details.
 
 ## Window and graphics
 
-The display name is IWE. Embedded PNG pixels supply Windows and X11 window icons. Windows builds
-embed an ICO resource through `winresource`. macOS bundles include the ICNS icon. Linux packages
-include the PNG icon and desktop entry. The repository keeps the generated source artwork in
-`assets/`. The `png` crate decodes the embedded window icon without filesystem access.
+The display name is IWE Code. Embedded PNG pixels supply Windows and X11 window icons. Windows
+builds embed an ICO resource through `winresource`. macOS bundles include the ICNS icon. Linux
+packages include the PNG icon and desktop entry. The repository keeps the generated source artwork
+in `assets/`. The `png` crate decodes the embedded window icon without filesystem access.
 
 The window opens at 1440 × 920 pixels. Its minimum size is 1080 × 720 pixels. It preserves native
 window controls on macOS and Linux. Windows uses application-drawn caption controls.

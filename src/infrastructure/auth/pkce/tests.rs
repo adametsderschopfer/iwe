@@ -74,7 +74,7 @@ async fn loopback_callback_does_not_echo_authorization_codes() {
         authorization_url: String::new(),
         listener: Arc::new(listener),
     };
-    let server = tokio::spawn(async move { session.receive_code("Return to IWE.").await });
+    let server = tokio::spawn(async move { session.receive_code("Return to IWE Code.").await });
     let mut socket = tokio::net::TcpStream::connect(address).await.unwrap();
     socket
         .write_all(request("state=expected&code=private-code").as_bytes())
@@ -83,7 +83,7 @@ async fn loopback_callback_does_not_echo_authorization_codes() {
     let mut response = String::new();
     socket.read_to_string(&mut response).await.unwrap();
     assert!(response.contains("Cache-Control: no-store"));
-    assert!(response.contains("Return to IWE."));
+    assert!(response.contains("Return to IWE Code."));
     assert!(!response.contains("private-code"));
     assert_eq!(server.await.unwrap().unwrap().expose(), "private-code");
 }

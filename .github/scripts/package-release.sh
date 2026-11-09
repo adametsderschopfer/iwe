@@ -6,7 +6,8 @@ mkdir -p dist
 output=$(cd dist && pwd)
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
-name="iwe-${RELEASE_VERSION}-${ASSET_PLATFORM}"
+name="iwe-code-${RELEASE_VERSION}-${ASSET_PLATFORM}"
+update="iwe-${RELEASE_VERSION}-${ASSET_PLATFORM}-update.tar.gz"
 binary="target/$BUILD_TARGET/release/iwe"
 
 case "$RUNNER_OS" in
@@ -23,8 +24,8 @@ case "$RUNNER_OS" in
 <plist version="1.0"><dict>
   <key>CFBundleExecutable</key><string>iwe</string>
   <key>CFBundleIdentifier</key><string>com.adametsderschopfer.iwe</string>
-  <key>CFBundleName</key><string>IWE</string>
-  <key>CFBundleDisplayName</key><string>IWE</string>
+  <key>CFBundleName</key><string>IWE Code</string>
+  <key>CFBundleDisplayName</key><string>IWE Code</string>
   <key>CFBundleIconFile</key><string>icon.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
@@ -36,15 +37,13 @@ PLIST
     plutil -lint "$bundle/Info.plist"
     codesign --force --sign - "$stage/IWE.app"
     codesign --verify --strict "$stage/IWE.app"
-    COPYFILE_DISABLE=1 tar -czf "$output/$name-update.tar.gz" -C "$stage" IWE.app
+    COPYFILE_DISABLE=1 tar -czf "$output/$update" -C "$stage" IWE.app
+    mv "$stage/IWE.app" "$stage/IWE Code.app"
     ln -s /Applications "$stage/Applications"
-    hdiutil create -volname IWE -srcfolder "$stage" -ov -format UDZO "$output/$name.dmg"
+    hdiutil create -volname "IWE Code" -srcfolder "$stage" -ov -format UDZO "$output/$name.dmg"
     ;;
   Windows)
-    cp "$binary.exe" "$stage/iwe.exe"
-    cp README.md "$stage/README.md"
-    tar -czf "$output/$name-update.tar.gz" -C "$stage" iwe.exe
-    (cd "$stage" && 7z a -tzip "$output/$name.zip" iwe.exe README.md)
+    pwsh -NoProfile -File .github/scripts/package-windows.ps1
     ;;
   Linux)
     cp "$binary" "$stage/iwe"
@@ -52,7 +51,7 @@ PLIST
     cp README.md "$stage/README.md"
     cp assets/iwe.desktop "$stage/iwe.desktop"
     cp assets/icon.png "$stage/iwe.png"
-    tar -czf "$output/$name-update.tar.gz" -C "$stage" iwe
+    tar -czf "$output/$update" -C "$stage" iwe
     COPYFILE_DISABLE=1 tar -czf "$output/$name.tar.gz" -C "$stage" iwe README.md iwe.desktop iwe.png
     ;;
   *) echo "Unsupported release platform: $RUNNER_OS" >&2; exit 1 ;;

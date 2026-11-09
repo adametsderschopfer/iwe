@@ -24,8 +24,8 @@ the tree scrolls. The scrollbar reaches the panel's right edge without covering 
 
 Updating an inactive branch keeps the current checkout unchanged. Updating a remote reference
 fetches its remote. Updates reject branches checked out in another worktree. Diverged histories
-require resolution outside IWE. Checkout and current-branch updates require clean working files.
-Creating a branch without switching can preserve existing working changes.
+require resolution outside IWE Code. Checkout and current-branch updates require clean working
+files. Creating a branch without switching can preserve existing working changes.
 
 Creation and renaming validate branch names before changing references. Checkout does not overwrite
 an existing local tracking branch or ignored local files. Push never forces updates or implicitly
@@ -44,7 +44,7 @@ produce new notifications.
 
 Git uses existing local configuration, SSH agents, and credential helpers. Pipeline account sign-in
 does not configure Git authentication. Interactive terminal prompts are disabled. Configure Git
-access outside IWE before using remotes.
+access outside IWE Code before using remotes.
 
 Automated tests use temporary repositories and local bare remotes. They cover branch operations,
 dirty files, conflicting histories, linked worktrees, dialogs, and stale results. These tests never

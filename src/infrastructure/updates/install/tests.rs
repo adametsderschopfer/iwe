@@ -1,6 +1,20 @@
 use super::*;
 use std::io::Cursor;
 
+impl Prepared {
+    pub(crate) fn fixture() -> Self {
+        let directory = tempfile::tempdir().unwrap().keep();
+        let lock = File::create(directory.join("running.lock")).unwrap();
+        lock.lock().unwrap();
+        Self {
+            version: "0.1.12".into(),
+            directory,
+            _lock: lock,
+            handed_off: AtomicBool::new(false),
+        }
+    }
+}
+
 fn archive(path: &Path, name: &str, data: &[u8], kind: tar::EntryType) {
     let file = File::create(path).unwrap();
     let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
@@ -66,6 +80,14 @@ fn macos_updates_require_a_complete_bundle_and_staging_stays_beside_installation
         Path::new("/Applications/IWE.app")
     );
     assert_eq!(
+        target_for(
+            Path::new("/Applications/IWE Code.app/Contents/MacOS/iwe"),
+            true
+        )
+        .unwrap(),
+        Path::new("/Applications/IWE Code.app")
+    );
+    assert_eq!(
         target_for(Path::new("/tmp/iwe"), true),
         Err(Error::Unsupported)
     );
@@ -124,4 +146,114 @@ fn extraction_rejects_parent_paths_and_expansion_limits_before_writing_content()
         );
     }
     assert!(!temp.path().join("escape").exists());
+}
+
+#[test]
+fn temporary_windows_file_locks_are_retried_but_permanent_errors_stop() {
+    let mut attempts = 0;
+    retry_busy(Duration::from_secs(1), || {
+        attempts += 1;
+        if attempts < 3 {
+            Err(std::io::ErrorKind::PermissionDenied.into())
+        } else {
+            Ok(())
+        }
+    })
+    .unwrap();
+    assert_eq!(attempts, 3);
+    assert_eq!(
+        retry_busy(Duration::ZERO, || Err(
+            std::io::ErrorKind::PermissionDenied.into()
+        )),
+        Err(Error::Install)
+    );
+    assert_eq!(
+        retry_busy(Duration::from_secs(1), || Err(
+            std::io::ErrorKind::NotFound.into()
+        )),
+        Err(Error::Install)
+    );
+}
+
+#[test]
+#[ignore = "Subprocess fixture; started explicitly by helper handoff tests"]
+fn helper_process_fixture() {
+    let Some(directory) = std::env::var_os("IWE_TEST_HANDOFF").map(PathBuf::from) else {
+        return;
+    };
+    if std::env::var_os("IWE_TEST_HANDOFF_EXIT").is_some() {
+        return;
+    }
+    if std::env::var_os("IWE_TEST_HANDOFF_STALL").is_none() {
+        fs::write(directory.join("helper.ready"), b"ready").unwrap();
+    }
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !directory.join("finish").exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn handoff_requires_a_live_helper_confirmation_and_has_a_deadline() {
+    for mode in ["ready", "exit", "stall"] {
+        let temp = tempfile::tempdir().unwrap();
+        let mut command = Command::new(std::env::current_exe().unwrap());
+        command
+            .args([
+                "--exact",
+                "infrastructure::updates::install::tests::helper_process_fixture",
+                "--ignored",
+            ])
+            .env("IWE_TEST_HANDOFF", temp.path())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        if mode == "exit" {
+            command.env("IWE_TEST_HANDOFF_EXIT", "1");
+        }
+        if mode == "stall" {
+            command.env("IWE_TEST_HANDOFF_STALL", "1");
+        }
+        let mut child = command.spawn().unwrap();
+        let result = wait_for_helper(&mut child, temp.path(), Duration::from_secs(1));
+        fs::write(temp.path().join("finish"), b"done").unwrap();
+        child.wait().unwrap();
+        assert_eq!(
+            result,
+            if mode == "ready" {
+                Ok(())
+            } else {
+                Err(Error::Install)
+            }
+        );
+    }
+}
+
+#[test]
+fn helper_paths_are_normalized_and_other_directories_are_rejected() {
+    let temp = tempfile::tempdir().unwrap();
+    let helper = temp.path().join("helper.exe");
+    fs::write(&helper, b"fixture").unwrap();
+    let directory = temp.path().canonicalize().unwrap();
+    assert_eq!(
+        helper_directory(&helper, &temp.path().join(".")).unwrap(),
+        directory
+    );
+    let other = tempfile::tempdir().unwrap();
+    assert_eq!(helper_directory(&helper, other.path()), Err(Error::Invalid));
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_sharing_and_lock_violations_are_retried() {
+    for code in [32, 33] {
+        let mut busy = true;
+        retry_busy(Duration::from_secs(1), || {
+            if std::mem::take(&mut busy) {
+                Err(std::io::Error::from_raw_os_error(code))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap();
+    }
 }

@@ -23,7 +23,16 @@ fn locale_selection_handles_overrides_regions_and_fallbacks() {
 
 #[test]
 fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
-    let expected: BTreeSet<_> = Key::ALL.iter().map(|key| key.id()).collect();
+    // Installer-only messages are exported by installer-messages.py, without Rust Key variants.
+    let expected: BTreeSet<_> = Key::ALL
+        .iter()
+        .map(|key| key.id())
+        .chain([
+            "installer-welcome-title",
+            "installer-welcome-description",
+            "installer-launch",
+        ])
+        .collect();
     for language in LANGUAGES {
         let source = language.source();
         let resource = FluentResource::try_new(source.to_owned()).expect("Catalog must parse");

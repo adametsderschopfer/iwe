@@ -14,8 +14,8 @@ use std::{sync::Arc, time::Duration};
 use tokio::io::AsyncWriteExt;
 
 pub(crate) use install::{Prepared, start_install, startup};
-const REPOSITORY: &str = "https://github.com/adametsderschopfer/iwe";
-const LATEST: &str = "https://api.github.com/repos/adametsderschopfer/iwe/releases/latest";
+const REPOSITORY: &str = "https://github.com/adametsderschopfer/iwe-code";
+const LATEST: &str = "https://api.github.com/repos/adametsderschopfer/iwe-code/releases/latest";
 const MAX_PACKAGE: u64 = 512 * 1024 * 1024;
 const PUBLIC_KEY: &[u8; 32] = include_bytes!("../../../assets/update-public-key.bin");
 
@@ -62,7 +62,7 @@ fn client() -> Result<Client, Error> {
         .https_only(true)
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(300))
-        .user_agent(concat!("IWE/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("IWE-Code/", env!("CARGO_PKG_VERSION")))
         .redirect(redirect::Policy::custom(|attempt| {
             if attempt.previous().len() < 5 && allowed_url(attempt.url()) {
                 attempt.follow()

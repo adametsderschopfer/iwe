@@ -88,3 +88,22 @@ fn update_actions_are_visible_in_all_languages_and_do_not_close_the_window_when_
         assert!(ui.find(app.i18n.text(crate::i18n::Key::Updates)).is_ok());
     }
 }
+
+#[tokio::test]
+async fn confirmed_handoff_exits_the_event_loop_and_failed_handoff_keeps_the_app_open() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::{Action, task};
+    for success in [true, false] {
+        let mut app = app();
+        app.updates = State::Installing(Arc::new(Prepared::fixture()));
+        let result = if success { Ok(()) } else { Err(Error::Install) };
+        let task = app.update_release(Event::Started(result));
+        if success {
+            let mut stream = task::into_stream(task).unwrap();
+            assert!(matches!(stream.next().await, Some(Action::Exit)));
+        } else {
+            assert_eq!(task.units(), 0);
+            assert!(matches!(app.updates, State::Failed(Error::Install)));
+        }
+    }
+}

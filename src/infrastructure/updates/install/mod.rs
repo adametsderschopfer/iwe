@@ -9,7 +9,7 @@ use std::{
     fs::{self, File},
     io::{Read, Write},
     path::{Component, Path, PathBuf},
-    process::{Command, ExitCode, Stdio},
+    process::{Child, Command, ExitCode, Stdio},
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
@@ -124,9 +124,31 @@ pub(crate) fn start_install(prepared: &Prepared) -> Result<(), Error> {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
-    command.spawn().map_err(|_| Error::Install)?;
+    let mut child = command.spawn().map_err(|_| Error::Install)?;
+    if wait_for_helper(&mut child, &prepared.directory, Duration::from_secs(10)).is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(Error::Install);
+    }
     prepared.handed_off.store(true, Ordering::Release);
     Ok(())
+}
+
+// Do not shut down the user's application until the helper accepts the handoff.
+fn wait_for_helper(child: &mut Child, directory: &Path, timeout: Duration) -> Result<(), Error> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if child.try_wait().map_err(|_| Error::Install)?.is_some() {
+            return Err(Error::Install);
+        }
+        if directory.join("helper.ready").is_file() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(Error::Install);
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
 }
 
 pub(crate) fn startup() -> Option<ExitCode> {
@@ -169,11 +191,19 @@ fn valid_stage(directory: &Path, target: &Path) -> bool {
             .is_ok_and(|metadata| metadata.is_dir() && !metadata.file_type().is_symlink())
 }
 
-fn helper(directory: &Path) -> Result<(), Error> {
-    let own = std::env::current_exe().map_err(|_| Error::Install)?;
-    if own.parent() != Some(directory) {
+fn helper_directory(own: &Path, directory: &Path) -> Result<PathBuf, Error> {
+    let directory = directory.canonicalize().map_err(|_| Error::Install)?;
+    let own = own.canonicalize().map_err(|_| Error::Install)?;
+    if own.parent() != Some(directory.as_path()) {
         return Err(Error::Invalid);
     }
+    Ok(directory)
+}
+
+fn helper(directory: &Path) -> Result<(), Error> {
+    let own = std::env::current_exe().map_err(|_| Error::Install)?;
+    let directory = helper_directory(&own, directory)?;
+    let directory = directory.as_path();
     let plan: Plan = serde_json::from_slice(&read_bounded(directory.join("plan.json"), 16 * 1024)?)
         .map_err(|_| Error::Invalid)?;
     if !valid_stage(directory, &plan.target) || !super::newer(&plan.tag, env!("CARGO_PKG_VERSION"))?
@@ -185,6 +215,7 @@ fn helper(directory: &Path) -> Result<(), Error> {
         .write(true)
         .open(directory.join("running.lock"))
         .map_err(|_| Error::Install)?;
+    fs::write(directory.join("helper.ready"), b"ready").map_err(|_| Error::Install)?;
     let deadline = Instant::now() + Duration::from_secs(120);
     while lock.try_lock().is_err() {
         if Instant::now() >= deadline {
@@ -249,7 +280,9 @@ fn replace(
     backup: &Path,
     launch: impl FnOnce() -> Result<(), Error>,
 ) -> Result<(), Error> {
-    fs::rename(target, backup).map_err(|_| Error::Install)?;
+    // The graphics launcher exits just after its renderer releases running.lock.
+    // Windows can keep its executable locked during this short interval.
+    rename_after_shutdown(target, backup, Duration::from_secs(10))?;
     if fs::rename(source, target).is_err() {
         fs::rename(backup, target).map_err(|_| Error::Install)?;
         return Err(Error::Install);
@@ -260,6 +293,38 @@ fn replace(
         return Err(Error::Install);
     }
     Ok(())
+}
+
+fn rename_after_shutdown(
+    source: &Path,
+    destination: &Path,
+    timeout: Duration,
+) -> Result<(), Error> {
+    retry_busy(timeout, || fs::rename(source, destination))
+}
+
+fn retry_busy(
+    timeout: Duration,
+    mut operation: impl FnMut() -> std::io::Result<()>,
+) -> Result<(), Error> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match operation() {
+            Ok(()) => return Ok(()),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::WouldBlock
+                ) || cfg!(windows) && matches!(error.raw_os_error(), Some(32 | 33)) =>
+            {
+                if Instant::now() >= deadline {
+                    return Err(Error::Install);
+                }
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            Err(_) => return Err(Error::Install),
+        }
+    }
 }
 
 fn restart(target: &Path, directory: &Path, failed: bool) -> Result<(), Error> {

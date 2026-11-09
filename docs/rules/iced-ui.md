@@ -41,7 +41,7 @@ Build a consistent, maintainable design system.
 
 ### Application palette
 
-Preserve IWE's neutral appearance in both themes. Dark remains the default. Follow
+Preserve IWE Code's neutral appearance in both themes. Dark remains the default. Follow
 [the window and graphics guide](../architecture.md#window-and-graphics) for current behavior.
 
 | Role       | Color     | Intended use                           |

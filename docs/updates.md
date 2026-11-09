@@ -1,15 +1,15 @@
 # Application updates
 
-IWE checks GitHub Releases at startup and every six hours. Checks never use repository accounts or
-tokens. Only stable versions newer than the running version qualify. Failed checks stop until
+IWE Code checks GitHub Releases at startup and every six hours. Checks never use repository accounts
+or tokens. Only stable versions newer than the running version qualify. Failed checks stop until
 another scheduled or explicit check. Open **Settings → About** to check manually.
 
 A download row with a dark blue icon appears near the sidebar settings button when an update becomes
 available. Choose **Download update** to download the package for the current operating system and
-processor. Choose **Install and restart** after the download finishes. IWE saves workspace settings
-before closing its window. A failed save keeps the window open and stops installation. Installation
-never requests administrator access. The installation directory must be writable by the current
-user.
+processor. Choose **Install and restart** after the download finishes. IWE Code saves workspace
+settings before exiting its native event loop. A failed save keeps the window open and stops
+installation. Installation never requests administrator access. The installation directory must be
+writable by the current user.
 
 The first installation of version 0.1.10 still requires a downloaded release package. That version
 can receive future updates. Older versions do not acquire an updater automatically. Development
@@ -19,10 +19,10 @@ install updates.
 ## Package verification
 
 The fixed update source is
-[the IWE release repository](https://github.com/adametsderschopfer/iwe/releases). The updater
-accepts HTTPS redirects only to GitHub API, release, and asset hosts. It never forwards provider
-credentials. Metadata reads have size limits and a 45-second combined deadline. Downloads have a
-five-minute deadline and a 512 MiB maximum.
+[the IWE Code release repository](https://github.com/adametsderschopfer/iwe-code/releases). The
+updater accepts HTTPS redirects only to GitHub API, release, and asset hosts. It never forwards
+provider credentials. Metadata reads have size limits and a 45-second combined deadline. Downloads
+have a five-minute deadline and a 512 MiB maximum.
 
 Every release includes `updates.json`, its Ed25519 signature `updates.sig`, and six dedicated update
 archives. The embedded public key verifies the manifest before version or package data becomes
@@ -35,9 +35,12 @@ oversized expanded content.
 ## Installation and recovery
 
 Staging directories live beside the installed application, keeping replacements on one filesystem. A
-copied installer waits for the application to release a file lock after shutdown. The installer
-replaces the complete macOS application bundle, including its signature and icon. Windows and Linux
-updates replace the standalone executable. Workspace data and credentials remain separate.
+copied installer confirms that it accepted the handoff before the application exits. Failed helper
+startup keeps the application open and reports an installation error. The installer normalizes
+Windows paths before validation. It waits for the application's file lock after shutdown.
+Replacement retries temporary file locks for ten seconds while the graphics launcher exits. The
+installer replaces the complete macOS application bundle, including its signature and icon. Windows
+and Linux updates replace the standalone executable. Workspace data and credentials remain separate.
 
 The installer moves the current application into its staging directory before moving the new
 application into place. A failed replacement restores the previous application. A failed process

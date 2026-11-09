@@ -5,7 +5,7 @@ Follow these rules when [AGENTS.md](../../AGENTS.md) directs you here. Read
 
 Source previews and Git history reads do not modify repositories. Only explicit Git actions may
 change branches, working files, or remotes. Keep their validation and execution in infrastructure.
-IWE stores workspace metadata and derived directory caches separately. Store credentials in the
+IWE Code stores workspace metadata and derived directory caches separately. Store credentials in the
 operating-system credential store. Never store credentials in workspace metadata.
 
 Apply operation and verification rules to current storage changes. Apply vault-specific rules only
@@ -121,7 +121,7 @@ Apply vault-format and whole-vault backup rules when a managed vault exists.
 
 - Version the vault format explicitly. Reject unsupported versions without changing user documents.
 - Preserve data during upgrades. Verify conversions before switching the active store.
-- Close IWE before whole-vault backups, restores, or external merges.
+- Close IWE Code before whole-vault backups, restores, or external merges.
 - Include hidden graph metadata and pending journals in backups.
 - Keep GitHub synchronization separate. Define merge, conflict, and deletion rules before
   implementing synchronization.
