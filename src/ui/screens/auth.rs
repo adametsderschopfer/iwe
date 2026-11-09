@@ -27,7 +27,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
             dialog.account.host
         ))
         .size(14)
-        .color(theme::MUTED),
+        .style(theme::MUTED.text()),
     ]
     .spacing(16);
     match dialog.stage {
@@ -42,7 +42,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                         .push(
                             text(app.i18n.text(Key::DeviceCodeDescription))
                                 .size(13)
-                                .color(theme::MUTED),
+                                .style(theme::MUTED.text()),
                         )
                         .push(
                             row![
@@ -76,7 +76,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                     ))
                     .size(14)
                     .line_height(1.5)
-                    .color(theme::MUTED),
+                    .style(theme::MUTED.text()),
                 )
                 .push(text(app.i18n.text(Key::TokenLabel)).size(14))
                 .push(
@@ -112,7 +112,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         content = content.push(
             text(app.i18n.text(error_key(error)))
                 .size(13)
-                .color(theme::RED),
+                .style(theme::RED.text()),
         );
     }
     let mut actions = row![

@@ -1,6 +1,8 @@
+use super::theme;
 use crate::domain::repository::GraphRow;
+
 use iced::{
-    Color, Element, Point, Rectangle, Renderer, Theme, mouse,
+    Element, Point, Rectangle, Renderer, Theme, mouse,
     widget::canvas::{self, Frame, Geometry, Path, Stroke},
 };
 
@@ -31,17 +33,17 @@ impl<Message> canvas::Program<Message> for Graph<'_> {
         &self,
         _: &(),
         renderer: &Renderer,
-        _: &Theme,
+        theme: &Theme,
         bounds: Rectangle,
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
         let colors = [
-            Color::from_rgb8(139, 180, 235),
-            Color::from_rgb8(129, 201, 156),
-            Color::from_rgb8(222, 194, 135),
-            Color::from_rgb8(192, 157, 227),
-            Color::from_rgb8(223, 145, 170),
+            theme::BLUE.resolve(theme),
+            theme::GREEN.resolve(theme),
+            theme::YELLOW.resolve(theme),
+            theme::PURPLE.resolve(theme),
+            theme::PINK.resolve(theme),
         ];
         for &(from, to) in &self.0.incoming {
             frame.stroke(

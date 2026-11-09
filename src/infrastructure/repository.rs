@@ -2,7 +2,7 @@
 
 mod changes;
 pub(crate) use changes::{
-    commit_comparison, commit_text, working_comparison, working_file, working_status,
+    commit_comparison, commit_text, working_comparison, working_file, working_status, working_text,
 };
 
 use super::{
@@ -132,6 +132,7 @@ pub(crate) async fn load(
         commits: history.commits,
         next_history: history.next,
         remote,
+        remotes: remote_names.lines().map(str::to_owned).collect(),
         head,
     })
 }
@@ -154,7 +155,7 @@ pub(crate) async fn load_history(
     let mut args = vec![
         "log",
         "--topo-order",
-        "--date=short",
+        "--date=format:%Y-%m-%d %H:%M",
         "-n",
         &limit,
         "--skip",

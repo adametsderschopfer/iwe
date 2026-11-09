@@ -16,6 +16,8 @@ pub(crate) struct FileEntry {
 pub(crate) struct Project {
     pub name: String,
     pub directory: PathBuf,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 impl Project {
@@ -25,7 +27,11 @@ impl Project {
             .unwrap_or(directory.as_os_str())
             .to_string_lossy()
             .into_owned();
-        Self { name, directory }
+        Self {
+            name,
+            directory,
+            pinned: false,
+        }
     }
 }
 
@@ -40,20 +46,48 @@ pub(crate) struct Space {
 #[serde(default)]
 pub(crate) struct Preferences {
     pub language: Option<String>,
+    pub appearance: Appearance,
     pub code_size: u16,
     pub show_git: bool,
     pub show_pipelines: bool,
     pub line_numbers: bool,
+    pub collapse_unchanged: bool,
+    pub diff_view: DiffView,
+    pub file_panels: Vec<FilePanel>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub(crate) enum Appearance {
+    #[default]
+    Dark,
+    Light,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum FilePanel {
+    Project,
+    Changes,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum DiffView {
+    Unified,
+    #[default]
+    SideBySide,
 }
 
 impl Default for Preferences {
     fn default() -> Self {
         Self {
             language: None,
+            appearance: Appearance::default(),
             code_size: 14,
             show_git: true,
             show_pipelines: false,
             line_numbers: true,
+            collapse_unchanged: false,
+            diff_view: DiffView::default(),
+            file_panels: vec![FilePanel::Project, FilePanel::Changes],
         }
     }
 }
@@ -81,6 +115,19 @@ impl Workspace {
     }
 
     pub(crate) fn normalize(&mut self) {
+        let mut panels = Vec::new();
+        for panel in self
+            .preferences
+            .file_panels
+            .iter()
+            .copied()
+            .chain([FilePanel::Project, FilePanel::Changes])
+        {
+            if !panels.contains(&panel) {
+                panels.push(panel);
+            }
+        }
+        self.preferences.file_panels = panels;
         self.preferences.code_size = self.preferences.code_size.clamp(11, 22);
         if self.preferences.show_git {
             self.preferences.show_pipelines = false;
@@ -179,6 +226,29 @@ impl Workspace {
                 .position(|project| Some(&project.directory) == selected.as_ref());
         }
         self.normalize();
+        true
+    }
+
+    pub(crate) fn move_project(&mut self, space: usize, from: usize, to: usize) -> bool {
+        let Some(group) = self.spaces.get_mut(space) else {
+            return false;
+        };
+        if from >= group.projects.len() || to >= group.projects.len() || from == to {
+            return false;
+        }
+        let project = group.projects.remove(from);
+        group.projects.insert(to, project);
+        if self.selected_space == Some(space)
+            && let Some(selected) = self.selected_project.as_mut()
+        {
+            if *selected == from {
+                *selected = to;
+            } else if from < *selected && *selected <= to {
+                *selected -= 1;
+            } else if to <= *selected && *selected < from {
+                *selected += 1;
+            }
+        }
         true
     }
 

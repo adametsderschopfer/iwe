@@ -1,5 +1,7 @@
 //! Draw compact file-type symbols without platform icon fonts or external assets.
 
+use super::theme;
+
 use iced::{
     Color, Element, Font, Point, Rectangle, Renderer, Theme, font, mouse,
     widget::canvas::{self, Frame, Geometry, Path, Stroke, Text},
@@ -162,17 +164,17 @@ impl<Message> canvas::Program<Message> for Drawing {
         &self,
         _: &(),
         renderer: &Renderer,
-        _: &Theme,
+        theme: &Theme,
         bounds: Rectangle,
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
-        let gray = Color::from_rgb8(159, 164, 170);
-        let blue = Color::from_rgb8(91, 157, 223);
-        let yellow = Color::from_rgb8(244, 204, 82);
-        let cyan = Color::from_rgb8(83, 193, 222);
-        let orange = Color::from_rgb8(235, 122, 70);
-        let pink = Color::from_rgb8(207, 126, 173);
+        let gray = theme::ICON_GRAY.resolve(theme);
+        let blue = theme::ICON_BLUE.resolve(theme);
+        let yellow = theme::ICON_YELLOW.resolve(theme);
+        let cyan = theme::ICON_CYAN.resolve(theme);
+        let orange = theme::ICON_ORANGE.resolve(theme);
+        let pink = theme::ICON_PINK.resolve(theme);
         match self.0 {
             Kind::Chevron(expanded) => line(
                 &mut frame,

@@ -8,6 +8,47 @@ fn ui_settings() -> iced::Settings {
 }
 
 #[test]
+fn appearance_switch_applies_immediately_in_every_language() {
+    for (language, suffix) in [
+        (Language::English, "en"),
+        (Language::Russian, "ru"),
+        (Language::Spanish, "es"),
+    ] {
+        let mut app = App::new(Rc::new(I18n::new(language)));
+        app.navigation = Navigation::Settings;
+        for (appearance, key) in [
+            (Appearance::Light, Key::Light),
+            (Appearance::Dark, Key::Dark),
+        ] {
+            let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+            ui.click(app.i18n.text(key)).unwrap();
+            let messages = ui.into_messages().collect::<Vec<_>>();
+            assert!(
+                matches!(messages.as_slice(), [Message::SetAppearance(value)] if *value == appearance)
+            );
+            for message in messages {
+                let _ = app.update(message);
+            }
+            assert_eq!(app.workspace.preferences.appearance, appearance);
+            assert_eq!(
+                app.theme().extended_palette().is_dark,
+                appearance == Appearance::Dark
+            );
+            if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+                let mut ui =
+                    iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+                ui.snapshot(&app.theme())
+                    .unwrap()
+                    .matches_image(
+                        output.join(format!("appearance-settings-{appearance:?}-{suffix}")),
+                    )
+                    .unwrap();
+            }
+        }
+    }
+}
+
+#[test]
 fn settings_tabs_switch_sections_without_changing_preferences() {
     for (language, suffix) in [
         (Language::English, "en"),
@@ -113,6 +154,41 @@ fn branch_folders_remotes_and_tags_start_collapsed() {
 }
 
 #[test]
+fn commit_dates_with_time_fit_one_line_and_remain_visible() {
+    for width in [1080., 1440.] {
+        let mut app = history_state(1, false);
+        app.i18n = Rc::new(I18n::new(Language::Russian));
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (width, 720.), app.view());
+        let date = ui
+            .find("2026-11-08 14:37")
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!(date.width >= theme::COMMIT_DATE_WIDTH - 0.1);
+        assert!(date.height <= 11. * 1.3 + 0.1);
+        assert!(date.x + date.width <= width);
+        if width == 1080.
+            && let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from)
+        {
+            ui.snapshot(&Theme::Dark)
+                .unwrap()
+                .matches_image(output.join("commit-date-time"))
+                .unwrap();
+        }
+        drop(ui);
+        let id = app.repository.as_ref().unwrap().commits[0].id.clone();
+        let _ = app.update(Message::SelectCommit(id.clone()));
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (width, 720.), app.view());
+        assert!(
+            ui.find(format!("{} · 2026-11-08 14:37", &id[..8]))
+                .unwrap()
+                .visible_bounds()
+                .is_some()
+        );
+    }
+}
+
+#[test]
 fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
     let mut app = history_state(3, false);
     let capture = |app: &App, name: &str| {
@@ -139,7 +215,15 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
         }]),
     ));
     capture(&app, "commit-selected");
-    let _ = app.update(Message::OpenCommitFile(0));
+    let mut ui = iced_test::Simulator::with_size(ui_settings(), (1440., 920.), app.view());
+    let file = ui.find("main.rs").unwrap().visible_bounds().unwrap();
+    assert!(file.width > 0. && file.height > 0.);
+    ui.click("main.rs").unwrap();
+    let messages = ui.into_messages().collect::<Vec<_>>();
+    assert!(matches!(messages.as_slice(), [Message::OpenCommitFile(0)]));
+    for message in messages {
+        let _ = app.update(message);
+    }
     let preview = app.preview().id;
     let _ = app.update(Message::SelectCommit(id.clone()));
     let request = app.commit_request;
@@ -321,6 +405,7 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
         app.generation,
         app.repo_request,
         Ok(Repository {
+            remotes: vec!["origin".to_owned()],
             remote: None,
             ..repo
         }),
@@ -440,7 +525,7 @@ fn tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
 }
 
 #[test]
-fn projects_open_files_by_double_click_or_folder_button_and_return_without_reload() {
+fn selecting_projects_immediately_opens_the_file_panel_without_reloading_on_repeat() {
     use iced::widget::Id;
     for language in [Language::English, Language::Russian, Language::Spanish] {
         let mut app = App::new(Rc::new(I18n::new(language)));
@@ -451,46 +536,73 @@ fn projects_open_files_by_double_click_or_folder_button_and_return_without_reloa
             .create_space("Personal".to_owned(), vec![PathBuf::from("notes")]);
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
         ui.click(Id::new("space-project-0-0")).unwrap();
-        ui.click(Id::new("space-project-0-0")).unwrap();
         let messages = ui.into_messages().collect::<Vec<_>>();
         assert!(matches!(
             messages.as_slice(),
-            [
-                Message::SelectProject(0, 0),
-                Message::SelectProject(0, 0),
-                Message::OpenProjectFiles(0, 0)
-            ]
+            [Message::SelectProject(0, 0)]
         ));
-        let mut messages = messages.into_iter();
-        let _ = app.update(messages.next().unwrap());
-        assert_eq!(app.navigation, Navigation::Projects);
-        for message in messages {
-            let _ = app.update(message);
-        }
-        assert_eq!(app.navigation, Navigation::Files);
+        let _ = app.update(messages.into_iter().next().unwrap());
         assert_eq!(app.workspace.directory(), Some(&PathBuf::from("frontend")));
         let generation = app.generation;
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
-        ui.click(Id::new("back-to-spaces")).unwrap();
-        let messages = ui.into_messages().collect::<Vec<_>>();
-        assert!(matches!(
-            messages.as_slice(),
-            [Message::Navigate(Navigation::Projects)]
-        ));
-        let _ = app.update(messages.into_iter().next().unwrap());
-        assert_eq!(app.navigation, Navigation::Projects);
+        let panel = ui
+            .find(Id::new("project-files-panel"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert_eq!(panel.x, theme::SIDEBAR_WIDTH + 48.);
+        assert_eq!(panel.width, theme::PROJECT_FILES_WIDTH);
+        assert!(ui.find(Id::new("space-project-0-0")).is_ok());
+        ui.click(Id::new("space-project-0-0")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
         assert_eq!(app.generation, generation);
+        let _ = app.update(Message::SelectFilePanel(FilePanel::Changes));
+        app.changes.loaded = true;
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
-        ui.click(Id::new("project-files-0-0")).unwrap();
-        let messages = ui.into_messages().collect::<Vec<_>>();
-        assert!(matches!(
-            messages.as_slice(),
-            [Message::OpenProjectFiles(0, 0)]
-        ));
-        let _ = app.update(messages.into_iter().next().unwrap());
-        assert_eq!(app.navigation, Navigation::Files);
+        let title = ui
+            .find(Id::new("file-panel-title"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let empty = ui
+            .find(app.i18n.text(Key::NoWorkingChanges))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let first = ui
+            .find(Id::new("file-panel-project"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let second = ui
+            .find(Id::new("file-panel-changes"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert_eq!(title.x, empty.x);
+        assert!(empty.y > title.y + title.height);
+        assert!((title.center_y() - first.center_y()).abs() < 0.1);
+        assert_eq!(first.center_x(), second.center_x());
+        assert_eq!(first.center_x(), (theme::SIDEBAR_WIDTH + panel.x) / 2.);
+        if language == Language::Russian
+            && let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from)
+        {
+            for (theme, suffix) in [(Theme::Dark, "dark"), (Theme::Light, "light")] {
+                ui.snapshot(&theme)
+                    .unwrap()
+                    .matches_image(output.join(format!("file-panel-spacing-{suffix}")))
+                    .unwrap();
+            }
+        }
+        ui.click(Id::new("file-panel-project")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert_eq!(app.file_panel, FilePanel::Project);
         assert_eq!(app.generation, generation);
-        let _ = app.update(Message::OpenProjectFiles(1, 0));
+        let _ = app.update(Message::SelectProject(1, 0));
         assert_eq!(app.workspace.directory(), Some(&PathBuf::from("notes")));
         assert!(app.generation > generation);
     }
@@ -750,25 +862,37 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
             &mut messages,
         );
         let mut source = Selector::find(iced::widget::Id::new("source-code"));
-        let mut number = Selector::find("1");
         let mut sidebar = Selector::find(iced::widget::Id::new("project-browser"));
         ui.operate(&renderer, &mut operation::black_box(&mut source));
-        ui.operate(&renderer, &mut operation::black_box(&mut number));
         ui.operate(&renderer, &mut operation::black_box(&mut sidebar));
         let operation::Outcome::Some(Some(source)) = source.finish() else {
             panic!("Source must remain visible")
-        };
-        let operation::Outcome::Some(Some(number)) = number.finish() else {
-            panic!("First line must remain visible")
         };
         let operation::Outcome::Some(Some(sidebar)) = sidebar.finish() else {
             panic!("Sidebar must remain visible")
         };
         let source = source.visible_bounds().unwrap();
+        let mut number = Selector::find(|candidate: iced_test::selector::Candidate<'_>| {
+            "1".select(candidate).filter(|number| {
+                number
+                    .visible_bounds()
+                    .is_some_and(|bounds| source.contains(bounds.center()))
+            })
+        });
+        ui.operate(&renderer, &mut operation::black_box(&mut number));
+        let operation::Outcome::Some(Some(number)) = number.finish() else {
+            panic!("First line must remain visible")
+        };
         let number = number.visible_bounds().unwrap();
         let sidebar = sidebar.visible_bounds().unwrap();
-        assert_eq!(source.x, theme::SIDEBAR_WIDTH);
-        assert_eq!(source.width, width - theme::SIDEBAR_WIDTH);
+        assert_eq!(
+            source.x,
+            theme::SIDEBAR_WIDTH + 48. + theme::PROJECT_FILES_WIDTH
+        );
+        assert_eq!(
+            source.width,
+            width - theme::SIDEBAR_WIDTH - 48. - theme::PROJECT_FILES_WIDTH
+        );
         assert_eq!(number.y, source.y);
         assert_eq!(number.x - source.x, 13.);
         assert_eq!(sidebar.width, theme::SIDEBAR_WIDTH - 24.);
@@ -930,7 +1054,7 @@ fn history_state(count: usize, more: bool) -> App {
                 .collect(),
             subject: format!("Commit {number:04}"),
             author: "Test Author".to_owned(),
-            date: "2026-11-08".to_owned(),
+            date: "2026-11-08 14:37".to_owned(),
             refs: String::new(),
             graph: GraphRow::default(),
         })
@@ -944,6 +1068,7 @@ fn history_state(count: usize, more: bool) -> App {
     state.panes = pane_grid::State::new(Panel::Git).0;
     state.project_directory = state.workspace.directory().cloned();
     state.repository = Some(Repository {
+        remotes: vec!["origin".to_owned()],
         root: PathBuf::from("project"),
         branches: Vec::new(),
         remote: None,
@@ -1064,7 +1189,74 @@ fn git_columns_resize_by_dragging_both_separators() {
             let _ = state.update(message);
         }
         assert!(bounds(&state, left).width > before.width + 30.);
+        let commits = bounds(&state, "git-commits");
+        let search = bounds(&state, "git-search");
+        assert!((search.x - commits.x - 12.).abs() < 0.5);
+        assert!(search.x + search.width <= commits.x + commits.width);
     }
+}
+
+#[test]
+fn commit_search_remains_above_history_when_columns_and_window_resize() {
+    for width in [1080., 1440.] {
+        for with_files in [false, true] {
+            for ratio in [0.12, 0.22, 0.88] {
+                for loading in [false, true] {
+                    let mut state = history_state(12, false);
+                    state.i18n = Rc::new(I18n::new(Language::Russian));
+                    state.loading = loading;
+                    if with_files {
+                        let id = state.repository.as_ref().unwrap().commits[0].id.clone();
+                        let _ = state.update(Message::SelectCommit(id));
+                    }
+                    let split = *state.git_panes.layout().splits().next().unwrap();
+                    state.git_panes.resize(split, ratio);
+                    let mut ui =
+                        iced_test::Simulator::with_size(ui_settings(), (width, 720.), state.view());
+                    let commits = ui
+                        .find(iced::widget::Id::new("git-commits"))
+                        .unwrap()
+                        .visible_bounds()
+                        .unwrap();
+                    let search = ui
+                        .find(iced::widget::Id::new("git-search"))
+                        .unwrap()
+                        .visible_bounds()
+                        .unwrap();
+                    assert!((search.x - commits.x - 12.).abs() < 0.5);
+                    assert!(search.y + search.height <= commits.y);
+                    assert!(search.x + search.width <= commits.x + commits.width);
+                    assert!(search.width >= 72.);
+                    if ratio == 0.22
+                        && with_files
+                        && !loading
+                        && let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from)
+                    {
+                        ui.snapshot(&Theme::Dark)
+                            .unwrap()
+                            .matches_image(output.join(format!("commit-search-{width}")))
+                            .unwrap();
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn commit_search_input_filters_history_from_the_column_header() {
+    let mut state = history_state(3, false);
+    let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
+    ui.click(iced::widget::Id::new("git-search")).unwrap();
+    ui.typewrite("Commit 0002");
+    for message in ui.into_messages() {
+        let _ = state.update(message);
+    }
+    assert_eq!(state.query, "Commit 0002");
+    let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
+    assert!(ui.find("Commit 0002").is_ok());
+    assert!(ui.find("Commit 0001").is_err());
+    assert!(ui.find("Commit 0003").is_err());
 }
 
 #[test]
@@ -1233,7 +1425,7 @@ fn commit_titles_follow_the_graph_in_each_row() {
             parents: parents.into_iter().map(id).collect(),
             subject,
             author: format!("Author {number}"),
-            date: format!("2026-10-{number:02}"),
+            date: format!("2026-10-{number:02} 09:05"),
             refs: String::new(),
             graph: GraphRow::default(),
         })
@@ -1243,6 +1435,7 @@ fn commit_titles_follow_the_graph_in_each_row() {
     state.loaded = true;
     state.panes = pane_grid::State::new(Panel::Git).0;
     state.repository = Some(Repository {
+        remotes: vec!["origin".to_owned()],
         root: PathBuf::new(),
         branches: Vec::new(),
         commits,
@@ -1266,7 +1459,10 @@ fn commit_titles_follow_the_graph_in_each_row() {
         assert!(merged.x > recent.x && merged.x - recent.x < 20.);
         assert_eq!(shared.x, recent.x, "Closed lanes must release title space");
         if size.0 > 1080. {
-            for (first, second) in [("Author 1", "Author 2"), ("2026-10-01", "2026-10-02")] {
+            for (first, second) in [
+                ("Author 1", "Author 2"),
+                ("2026-10-01 09:05", "2026-10-02 09:05"),
+            ] {
                 assert_eq!(
                     ui.find(first).unwrap().visible_bounds().unwrap().x,
                     ui.find(second).unwrap().visible_bounds().unwrap().x,
@@ -1311,10 +1507,7 @@ fn sidebar_navigation_fits_and_routes_in_every_screen_and_language() {
                 Navigation::Settings,
             ] {
                 state.navigation = current;
-                let mut navigation = vec![("nav-settings", Navigation::Settings)];
-                if current == Navigation::Files {
-                    navigation.push(("back-to-spaces", Navigation::Projects));
-                }
+                let navigation = vec![("nav-settings", Navigation::Settings)];
                 for (id, expected) in navigation {
                     let mut ui = iced_test::Simulator::with_size(ui_settings(), size, state.view());
                     let bounds = ui
@@ -1335,15 +1528,11 @@ fn sidebar_navigation_fits_and_routes_in_every_screen_and_language() {
                 let mut ui = iced_test::Simulator::with_size(ui_settings(), size, state.view());
                 assert!(ui.find(iced::widget::Id::new("nav-projects")).is_err());
                 assert!(ui.find(iced::widget::Id::new("nav-files")).is_err());
-                if current == Navigation::Files {
-                    assert!(ui.find(iced::widget::Id::new("new-space")).is_err());
-                } else {
-                    ui.click(iced::widget::Id::new("new-space")).unwrap();
-                    assert!(matches!(
-                        ui.into_messages().collect::<Vec<_>>().as_slice(),
-                        [Message::Space(spaces::Message::New)]
-                    ));
-                }
+                ui.click(iced::widget::Id::new("new-space")).unwrap();
+                assert!(matches!(
+                    ui.into_messages().collect::<Vec<_>>().as_slice(),
+                    [Message::Space(spaces::Message::New)]
+                ));
             }
         }
     }
@@ -1432,11 +1621,20 @@ fn header_moves_the_window_without_capturing_action_buttons() {
 fn background_remains_opaque_until_glass_succeeds() {
     let app = application(Rc::new(I18n::new(Language::English)));
     let (mut state, _) = app.boot();
-    for (ready, alpha) in [(false, 1.), (true, 0.), (false, 1.)] {
-        let _ = state.update(Message::GlassConfigured(ready));
-        let style = Program::style(&app, &state, &Theme::Dark);
-        assert_eq!(style.background_color.a, alpha);
-        assert_eq!(style.text_color.a, 1.);
+    for appearance in [Appearance::Dark, Appearance::Light] {
+        let _ = state.update(Message::SetAppearance(appearance));
+        for (ready, alpha) in [(false, 1.), (true, 0.), (false, 1.)] {
+            let _ = state.update(Message::GlassConfigured(ready));
+            let style = Program::style(&app, &state, &state.theme());
+            assert_eq!(style.background_color.a, alpha);
+            assert_eq!(style.text_color, theme::TEXT.resolve(&state.theme()));
+            if !ready {
+                assert_eq!(
+                    Some(style.background_color.into()),
+                    theme::surface(&state.theme()).background
+                );
+            }
+        }
     }
 }
 
@@ -1469,6 +1667,7 @@ fn git_and_pipeline_panels_open_exclusively_and_can_both_close() {
             .any(|(_, panel)| *panel == Panel::Pipelines)
     );
     app.repository = Some(Repository {
+        remotes: vec!["origin".to_owned()],
         root: PathBuf::from("project"),
         branches: vec![],
         commits: vec![],

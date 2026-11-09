@@ -12,6 +12,289 @@ fn state(language: Language) -> App {
     app
 }
 
+#[test]
+fn file_tool_order_changes_by_dragging_and_selects_the_first_tool() {
+    use crate::domain::workspace::FilePanel;
+    use iced::{Event, mouse, widget::Id};
+    let mut app = state(Language::English);
+    app.workspace
+        .create_space("Work".into(), vec![PathBuf::from("code")]);
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+    let first = ui
+        .find(Id::new("file-panel-project"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    let second = ui
+        .find(Id::new("file-panel-changes"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    ui.point_at(first.center());
+    ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    ))]);
+    let end = iced::Point::new(second.center_x(), second.y + second.height - 2.);
+    ui.point_at(end);
+    ui.simulate([
+        Event::Mouse(mouse::Event::CursorMoved { position: end }),
+        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+    ]);
+    let messages = ui.into_messages().collect::<Vec<_>>();
+    assert!(matches!(
+        messages.as_slice(),
+        [AppMessage::MoveFilePanel(0, 1)]
+    ));
+    for message in messages {
+        let _ = app.update(message);
+    }
+    assert_eq!(app.file_panel, FilePanel::Changes);
+    assert_eq!(
+        app.workspace.preferences.file_panels,
+        [FilePanel::Changes, FilePanel::Project]
+    );
+    let mut restored: Workspace =
+        serde_json::from_value(serde_json::to_value(&app.workspace).unwrap()).unwrap();
+    restored.normalize();
+    let mut next = state(Language::English);
+    let _ = next.update(AppMessage::Loaded(Ok((restored, None))));
+    assert_eq!(next.file_panel, FilePanel::Changes);
+}
+
+#[test]
+fn project_context_menu_pins_above_spaces_and_persists_without_duplicates() {
+    use iced::{Event, mouse, widget::Id};
+    for (language, suffix) in [
+        (Language::English, "en"),
+        (Language::Russian, "ru"),
+        (Language::Spanish, "es"),
+    ] {
+        let mut app = state(language);
+        app.workspace.create_space(
+            "Team".into(),
+            vec![PathBuf::from("api"), PathBuf::from("web")],
+        );
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        let bounds = ui
+            .find(Id::new("space-project-0-1"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        ui.point_at(bounds.center());
+        ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Right,
+        ))]);
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert!(app.project_menu.is_some());
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        ui.click(Id::new("toggle-project-pin")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert!(app.workspace.spaces[0].projects[1].pinned);
+        assert_eq!(app.workspace.directory(), Some(&PathBuf::from("api")));
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        let pinned = ui
+            .find(Id::new("space-project-0-1"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let group = ui
+            .find(Id::new("space-group-0"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!(pinned.y < group.y);
+        if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+            ui.snapshot(&iced::Theme::Dark)
+                .unwrap()
+                .matches_image(output.join(format!("pinned-projects-{suffix}")))
+                .unwrap();
+        }
+        drop(ui);
+        let restored: Workspace =
+            serde_json::from_value(serde_json::to_value(&app.workspace).unwrap()).unwrap();
+        assert!(restored.spaces[0].projects[1].pinned);
+        let _ = app.update(AppMessage::ProjectMenu(
+            0,
+            PathBuf::from("web"),
+            iced::Point::ORIGIN,
+        ));
+        let _ = app.update(AppMessage::TogglePinned);
+        assert!(!app.workspace.spaces[0].projects[1].pinned);
+    }
+}
+
+#[test]
+fn multiple_folder_selections_append_unique_directories_in_order() {
+    let mut app = state(Language::English);
+    let _ = app.update_space(Message::New);
+    for directories in [vec!["api", "web", "api"], vec!["web", "mobile"], Vec::new()] {
+        let _ = app.update_space(Message::PickProject(None));
+        let _ = app.update_space(Message::ProjectsPicked(
+            app.space_request,
+            None,
+            directories.into_iter().map(PathBuf::from).collect(),
+        ));
+        assert!(!app.picking);
+    }
+    assert_eq!(
+        app.space_draft.as_ref().unwrap().directories,
+        [
+            PathBuf::from("api"),
+            PathBuf::from("web"),
+            PathBuf::from("mobile")
+        ]
+    );
+    assert!(app.workspace.spaces.is_empty());
+    let _ = app.update_space(Message::NameChanged("Team".to_owned()));
+    let _ = app.update_space(Message::Create);
+    let _ = app.update_space(Message::PickProject(Some(0)));
+    let _ = app.update_space(Message::ProjectsPicked(
+        app.space_request,
+        Some(0),
+        vec![
+            PathBuf::from("web"),
+            PathBuf::from("docs"),
+            PathBuf::from("tools"),
+        ],
+    ));
+    assert_eq!(
+        app.workspace.spaces[0]
+            .projects
+            .iter()
+            .map(|project| project.name.as_str())
+            .collect::<Vec<_>>(),
+        ["api", "web", "mobile", "docs", "tools"]
+    );
+}
+
+#[test]
+fn draft_order_saves_only_on_confirmation_and_preserves_the_open_project() {
+    let mut app = state(Language::English);
+    app.workspace.create_space(
+        "Team".to_owned(),
+        ["api", "web", "docs"].map(PathBuf::from).to_vec(),
+    );
+    app.workspace.select_project(0, 1);
+    let before = serde_json::to_value(&app.workspace).unwrap();
+    let generation = app.generation;
+    let _ = app.update_space(Message::Edit(0));
+    let _ = app.update_space(Message::MoveProject(None, 1, 0));
+    assert_eq!(serde_json::to_value(&app.workspace).unwrap(), before);
+    let _ = app.update_space(Message::Cancel);
+    assert_eq!(serde_json::to_value(&app.workspace).unwrap(), before);
+    let _ = app.update_space(Message::Edit(0));
+    let _ = app.update_space(Message::MoveProject(None, 1, 0));
+    let _ = app.update_space(Message::Create);
+    assert_eq!(app.workspace.spaces[0].projects[0].name, "web");
+    assert_eq!(app.workspace.selected_project, Some(0));
+    assert_eq!(app.workspace.directory(), Some(&PathBuf::from("web")));
+    assert_eq!(app.generation, generation);
+    assert!(app.saving);
+}
+
+#[test]
+fn sidebar_order_saves_without_reloading_or_switching_projects() {
+    let mut app = state(Language::English);
+    app.workspace.create_space(
+        "Team".to_owned(),
+        ["api", "web", "docs"].map(PathBuf::from).to_vec(),
+    );
+    app.workspace.select_project(0, 1);
+    let generation = app.generation;
+    let _ = app.update_space(Message::MoveProject(Some(0), 2, 0));
+    assert_eq!(app.workspace.spaces[0].projects[0].name, "docs");
+    assert_eq!(app.workspace.selected_project, Some(2));
+    assert_eq!(app.workspace.directory(), Some(&PathBuf::from("web")));
+    assert_eq!(app.generation, generation);
+    assert!(app.saving);
+    let before = serde_json::to_value(&app.workspace).unwrap();
+    let _ = app.update_space(Message::Edit(0));
+    let _ = app.update_space(Message::MoveProject(Some(0), 0, 2));
+    assert_eq!(serde_json::to_value(&app.workspace).unwrap(), before);
+    let _ = app.update_space(Message::PickProject(None));
+    let draft = app.space_draft.as_ref().unwrap().directories.clone();
+    let _ = app.update_space(Message::MoveProject(None, 0, 2));
+    assert_eq!(app.space_draft.as_ref().unwrap().directories, draft);
+}
+
+#[test]
+fn dragging_in_the_form_and_sidebar_emits_the_correct_move() {
+    use iced::{Event, Point, mouse, widget::Id};
+    for editing in [false, true] {
+        let mut app = state(Language::English);
+        app.workspace.create_space(
+            "Team".to_owned(),
+            ["api", "web", "docs"].map(PathBuf::from).to_vec(),
+        );
+        if editing {
+            let _ = app.update_space(Message::Edit(0));
+        }
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        let prefix = if editing {
+            "space-draft-project-"
+        } else {
+            "space-project-0-"
+        };
+        let first = ui
+            .find(Id::from(format!("{prefix}0")))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let third = ui
+            .find(Id::from(format!("{prefix}2")))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        ui.point_at(first.center());
+        ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        ))]);
+        let end = Point::new(third.center_x(), third.y + third.height - 4.);
+        ui.point_at(end);
+        ui.simulate([
+            Event::Mouse(mouse::Event::CursorMoved { position: end }),
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+        ]);
+        let messages = ui.into_messages().collect::<Vec<_>>();
+        assert!(
+            matches!(messages.as_slice(), [AppMessage::Space(Message::MoveProject(space, 0, 2))] if *space == if editing { None } else { Some(0) }),
+            "{messages:?}"
+        );
+        for message in messages {
+            let _ = app.update(message);
+        }
+        if editing {
+            assert_eq!(
+                app.space_draft.as_ref().unwrap().directories[2],
+                PathBuf::from("api")
+            );
+            assert_eq!(app.workspace.spaces[0].projects[0].name, "api");
+        } else {
+            assert_eq!(app.workspace.spaces[0].projects[2].name, "api");
+            assert_eq!(app.workspace.directory(), Some(&PathBuf::from("api")));
+        }
+    }
+}
+
+#[test]
+fn removing_a_project_remains_available_beside_draggable_rows() {
+    let mut app = state(Language::English);
+    app.workspace
+        .create_space("Team".to_owned(), vec![PathBuf::from("api")]);
+    let _ = app.update_space(Message::Edit(0));
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+    ui.click(iced::widget::Id::new("space-remove-project-0"))
+        .unwrap();
+    assert!(matches!(
+        ui.into_messages().collect::<Vec<_>>().as_slice(),
+        [AppMessage::Space(Message::RemoveProject(0))]
+    ));
+}
+
 fn settings() -> iced::Settings {
     iced::Settings {
         default_font: theme::font(),
@@ -62,10 +345,10 @@ fn editing_a_space_preserves_the_active_project_and_applies_changes_on_save() {
     let _ = app.update_space(Message::NameChanged(" Platform ".to_owned()));
     let _ = app.update_space(Message::RemoveProject(0));
     let _ = app.update_space(Message::PickProject(None));
-    let _ = app.update_space(Message::ProjectPicked(
+    let _ = app.update_space(Message::ProjectsPicked(
         app.space_request,
         None,
-        Some(PathBuf::from("mobile")),
+        vec![PathBuf::from("mobile")],
     ));
     assert_eq!(serde_json::to_value(&app.workspace).unwrap(), before);
     let _ = app.update_space(Message::Create);
@@ -124,6 +407,34 @@ fn edit_space_controls_and_translations_fit() {
         assert!(
             bounds.x >= 0. && bounds.x + bounds.width <= 1080. && bounds.y + bounds.height <= 720.
         );
+        for index in 0..5 {
+            let row = ui
+                .find(iced::widget::Id::from(format!(
+                    "space-draft-project-{index}"
+                )))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            assert!(
+                (row.height - theme::SPACE_PROJECT_HEIGHT).abs() < 0.1,
+                "row {index}: {row:?}"
+            );
+        }
+        let sixth = ui
+            .find(iced::widget::Id::new("space-draft-project-5"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!(
+            (sixth.height - theme::SPACE_PROJECT_HEIGHT / 2.).abs() < 0.1,
+            "{sixth:?}"
+        );
+        assert!(
+            ui.find(iced::widget::Id::new("space-draft-project-6"))
+                .unwrap()
+                .visible_bounds()
+                .is_none()
+        );
         if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
             ui.snapshot(&iced::Theme::Dark)
                 .unwrap()
@@ -143,10 +454,10 @@ fn creating_a_space_names_the_group_and_attaches_only_chosen_projects() {
     for path in ["frontend", "frontend", "backend"] {
         let _ = app.update_space(Message::PickProject(None));
         let request = app.space_request;
-        let _ = app.update_space(Message::ProjectPicked(
+        let _ = app.update_space(Message::ProjectsPicked(
             request,
             None,
-            Some(PathBuf::from(path)),
+            vec![PathBuf::from(path)],
         ));
     }
     assert_eq!(app.space_draft.as_ref().unwrap().directories.len(), 2);
@@ -159,10 +470,10 @@ fn creating_a_space_names_the_group_and_attaches_only_chosen_projects() {
     assert_eq!(app.workspace.directory(), Some(&PathBuf::from("backend")));
     let _ = app.update_space(Message::PickProject(Some(0)));
     let request = app.space_request;
-    let _ = app.update_space(Message::ProjectPicked(
+    let _ = app.update_space(Message::ProjectsPicked(
         request,
         Some(0),
-        Some(PathBuf::from("frontend")),
+        vec![PathBuf::from("frontend")],
     ));
     assert_eq!(app.workspace.spaces[0].projects.len(), 2);
     assert_eq!(app.workspace.directory(), Some(&PathBuf::from("frontend")));
@@ -181,10 +492,10 @@ fn cancelling_a_draft_ignores_old_folder_pickers_and_preserves_the_workspace() {
     let _ = app.update(AppMessage::DismissDialog);
     assert!(!app.picking && app.space_draft.is_none());
     let _ = app.update_space(Message::New);
-    let _ = app.update_space(Message::ProjectPicked(
+    let _ = app.update_space(Message::ProjectsPicked(
         request,
         None,
-        Some(PathBuf::from("stale")),
+        vec![PathBuf::from("stale"), PathBuf::from("also-stale")],
     ));
     assert!(app.space_draft.as_ref().unwrap().directories.is_empty());
     let _ = app.update(AppMessage::Navigate(Navigation::Settings));

@@ -16,14 +16,13 @@ pub(crate) enum FileStatus {
 }
 
 impl FileStatus {
-    pub(crate) fn badge(self) -> &'static str {
-        match self {
-            Self::Untracked => "U",
-            Self::Added => "A",
-            Self::Deleted => "D",
-            Self::Renamed => "R",
-            Self::Modified => "M",
-            Self::Conflict => "!",
+    pub(crate) fn from_git(status: char) -> Self {
+        match status {
+            'A' => Self::Added,
+            'D' => Self::Deleted,
+            'R' => Self::Renamed,
+            'U' => Self::Conflict,
+            _ => Self::Modified,
         }
     }
 }

@@ -88,9 +88,17 @@ fn save_at(path: &Path, workspace: &Workspace) -> Result<(), Failure> {
     Ok(())
 }
 
-pub(crate) async fn choose_directory() -> Option<PathBuf> {
-    let selected = rfd::AsyncFileDialog::new().pick_folder().await?;
-    tokio::fs::canonicalize(selected.path()).await.ok()
+pub(crate) async fn choose_directories() -> Vec<PathBuf> {
+    let selected = rfd::AsyncFileDialog::new().pick_folders().await;
+    let mut directories = Vec::new();
+    for handle in selected.unwrap_or_default() {
+        if let Ok(directory) = tokio::fs::canonicalize(handle.path()).await
+            && !directories.contains(&directory)
+        {
+            directories.push(directory);
+        }
+    }
+    directories
 }
 
 #[cfg(test)]

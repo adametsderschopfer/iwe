@@ -21,6 +21,15 @@ pub(crate) fn executable(name: &str) -> PathBuf {
 }
 
 pub(crate) async fn run(name: &str, args: &[&str], cwd: Option<&Path>) -> Result<Vec<u8>, Failure> {
+    run_with_timeout(name, args, cwd, Duration::from_secs(25)).await
+}
+
+pub(crate) async fn run_with_timeout(
+    name: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout: Duration,
+) -> Result<Vec<u8>, Failure> {
     let mut command = Command::new(executable(name));
     command
         .args(args)
@@ -82,7 +91,7 @@ pub(crate) async fn run(name: &str, args: &[&str], cwd: Option<&Path>) -> Result
             Err(Failure::Unavailable)
         }
     };
-    tokio::time::timeout(Duration::from_secs(25), operation)
+    tokio::time::timeout(timeout, operation)
         .await
         .map_err(|_| Failure::Unavailable)?
 }

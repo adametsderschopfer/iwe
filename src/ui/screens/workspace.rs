@@ -1,11 +1,12 @@
-use super::{auth, git, pipelines, settings};
+use super::{auth, diff, git, git_actions, pipelines, settings, unified};
 use crate::{
     app::{App, Message, Navigation, Panel, error_key},
+    domain::workspace::DiffView,
     i18n::{FluentArgs, Key},
     ui::{
-        code, file_icons,
+        changed_tree, code, context_menu, file_icons,
         icons::{Icon, icon},
-        theme,
+        reorder, theme,
     },
 };
 use iced::{
@@ -24,7 +25,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         let panes = pane_grid(&app.panes, |_, panel, _| {
             pane_grid::Content::new(
                 container(match panel {
-                    Panel::Workspace => preview(app),
+                    Panel::Workspace => project_content(app),
                     Panel::Git => git::view(app),
                     Panel::Pipelines => pipelines::view(app),
                 })
@@ -73,7 +74,10 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .height(Length::Fill)
     .style(theme::surface)
     .into();
-    super::space_form::overlay(app, auth::overlay(app, base))
+    super::space_form::overlay(
+        app,
+        auth::overlay(app, git_actions::overlay(app, project_menu(app, base))),
+    )
 }
 
 fn header(app: &App) -> Element<'_, Message> {
@@ -182,7 +186,7 @@ fn footer(app: &App) -> Element<'_, Message> {
                 button(
                     text(short_path(&path, 100))
                         .size(12)
-                        .color(theme::FAINT)
+                        .style(theme::FAINT.text())
                         .wrapping(text::Wrapping::None)
                 )
                 .on_press(Message::CopyPath)
@@ -202,29 +206,19 @@ fn footer(app: &App) -> Element<'_, Message> {
         content = content.push(
             text(app.i18n.text(Key::Loading))
                 .size(12)
-                .color(theme::MUTED),
+                .style(theme::MUTED.text()),
         );
     }
     container(content).padding([6, 16]).into()
 }
 
 fn sidebar(app: &App) -> Element<'_, Message> {
-    let is_files = app.navigation == Navigation::Files;
-    let navigation: Element<'_, Message> = if is_files {
-        navigation_button(
-            app,
-            Icon::Back,
-            Key::BackToSpaces,
-            Some(Message::Navigate(Navigation::Projects)),
-            false,
-            "back-to-spaces",
-        )
-    } else {
+    let navigation: Element<'_, Message> = {
         container(
             row![
                 text(app.i18n.text(Key::Spaces))
                     .size(13)
-                    .color(theme::FAINT)
+                    .style(theme::FAINT.text())
                     .width(Length::Fill),
                 tooltip(
                     container(
@@ -250,27 +244,40 @@ fn sidebar(app: &App) -> Element<'_, Message> {
         .padding([4, 8])
         .into()
     };
-    let mut body = Column::new()
-        .spacing(if is_files { 0 } else { 4 })
-        .width(Length::Fill);
-    if is_files {
-        if let Some(root) = app.workspace.directory() {
-            let width = app
-                .tree
-                .get(root)
-                .into_iter()
-                .flatten()
-                .map(|entry| tree_width(app, &entry.path, 0))
-                .fold(theme::SIDEBAR_WIDTH - 24., f32::max);
-            body = file_tree(app, root, 0, body).width(width);
-        } else {
-            body = body.push(
-                text(app.i18n.text(Key::NoProject))
-                    .size(13)
-                    .color(theme::MUTED),
-            );
+    let mut body = Column::new().spacing(4).width(Length::Fill);
+    let pinned: Vec<_> = app
+        .workspace
+        .spaces
+        .iter()
+        .enumerate()
+        .flat_map(|(space, group)| {
+            group
+                .projects
+                .iter()
+                .enumerate()
+                .filter_map(move |(project, item)| item.pinned.then_some((space, project)))
+        })
+        .collect();
+    if !pinned.is_empty() {
+        body = body.push(
+            container(
+                row![
+                    icon(Icon::Pin, theme::FAINT),
+                    text(app.i18n.text(Key::PinnedProjects))
+                        .size(13)
+                        .style(theme::FAINT.text())
+                ]
+                .spacing(8),
+            )
+            .padding([8, 12]),
+        );
+        for (space, project) in pinned {
+            body = body.push(project_entry(app, space, project));
         }
-    } else {
+        body = body.push(space().height(12));
+    }
+    body = body.push(navigation).push(space().height(8));
+    {
         for (space_index, group) in app.workspace.spaces.iter().enumerate() {
             body = body.push(
                 container(
@@ -283,7 +290,15 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                                     .font(theme::semibold())
                                     .wrapping(text::Wrapping::None)
                                     .width(Length::Fill),
-                                text(group.projects.len()).size(12).color(theme::FAINT),
+                                text(
+                                    group
+                                        .projects
+                                        .iter()
+                                        .filter(|project| !project.pinned)
+                                        .count()
+                                )
+                                .size(12)
+                                .style(theme::FAINT.text()),
                             ]
                             .spacing(6)
                             .align_y(Alignment::Center)
@@ -320,64 +335,47 @@ fn sidebar(app: &App) -> Element<'_, Message> {
             if app.collapsed_spaces.contains(&space_index) {
                 continue;
             }
-            for (project_index, project) in group.projects.iter().enumerate() {
-                let path = project.directory.to_string_lossy().into_owned();
-                let active = app.workspace.selected_space == Some(space_index)
-                    && app.workspace.selected_project == Some(project_index);
-                let project = tooltip(
-                    container(
-                        button(
-                            mouse_area(
-                                container(
-                                    row![
-                                        icon(
-                                            Icon::Folder,
-                                            if active { theme::TEXT } else { theme::MUTED }
-                                        ),
-                                        text(short(&project.name, 20)).size(14).width(Length::Fill),
-                                    ]
-                                    .spacing(10)
-                                    .align_y(Alignment::Center),
-                                )
-                                .padding([9, 12])
-                                .width(Length::Fill),
-                            )
-                            .on_press(Message::SelectProject(space_index, project_index))
-                            .on_double_click(Message::OpenProjectFiles(space_index, project_index)),
+            let mut projects = Column::new().spacing(4).width(Length::Fill);
+            let visible: Vec<_> = group
+                .projects
+                .iter()
+                .enumerate()
+                .filter_map(|(index, project)| (!project.pinned).then_some(index))
+                .collect();
+            for &project_index in &visible {
+                projects = projects.push(project_entry(app, space_index, project_index));
+            }
+            if !visible.is_empty() {
+                let projects: Element<'_, Message> =
+                    if app.picking || app.space_draft.is_some() || app.auth_dialog.is_some() {
+                        projects.into()
+                    } else {
+                        reorder::column(
+                            projects,
+                            36.,
+                            move |from, to| {
+                                Message::Space(crate::app::spaces::Message::MoveProject(
+                                    Some(space_index),
+                                    visible[from],
+                                    visible[to],
+                                ))
+                            },
+                            move |offset| {
+                                Message::Space(crate::app::spaces::Message::ScrollProjects(
+                                    Some(space_index),
+                                    offset,
+                                ))
+                            },
                         )
-                        .padding(0)
-                        .width(Length::Fill)
-                        .style(theme::action(active))
-                        .on_press(Message::SelectProject(space_index, project_index)),
-                    )
-                    .id(format!("space-project-{space_index}-{project_index}"))
-                    .width(Length::Fill),
-                    text(path).size(12),
-                    tooltip::Position::Right,
-                )
-                .style(theme::tooltip);
-                let files = tooltip(
-                    container(
-                        button(icon(Icon::FolderOpen, theme::MUTED))
-                            .padding(6)
-                            .width(32)
-                            .height(32)
-                            .style(theme::action(false))
-                            .on_press(Message::OpenProjectFiles(space_index, project_index)),
-                    )
-                    .id(format!("project-files-{space_index}-{project_index}")),
-                    text(app.i18n.text(Key::ProjectFiles)).size(12),
-                    tooltip::Position::Right,
-                )
-                .style(theme::tooltip);
-                body = body.push(row![project, files].spacing(4).align_y(Alignment::Center));
+                    };
+                body = body.push(projects);
             }
             if group.projects.is_empty() {
                 body = body.push(
                     container(
                         text(app.i18n.text(Key::NoProjects))
                             .size(12)
-                            .color(theme::FAINT),
+                            .style(theme::FAINT.text()),
                     )
                     .padding([6, 12]),
                 );
@@ -405,7 +403,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                 container(
                     text(app.i18n.text(Key::NoSpaces))
                         .size(13)
-                        .color(theme::MUTED),
+                        .style(theme::MUTED.text()),
                 )
                 .padding(12),
             );
@@ -417,7 +415,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
             container(
                 text(app.i18n.text(Key::Panels))
                     .size(12)
-                    .color(theme::FAINT),
+                    .style(theme::FAINT.text()),
             )
             .padding([8, 12]),
         );
@@ -449,17 +447,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
         "nav-settings",
     ));
     container(column![
-        navigation,
-        space().height(8),
         scrollable(body)
-            .direction(if is_files {
-                scrollable::Direction::Both {
-                    vertical: scrollable::Scrollbar::default(),
-                    horizontal: scrollable::Scrollbar::default(),
-                }
-            } else {
-                scrollable::Direction::Vertical(scrollable::Scrollbar::default())
-            })
             .id("project-browser")
             .style(theme::scroll)
             .height(Length::Fill),
@@ -476,6 +464,218 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     })
     .style(theme::sidebar)
     .into()
+}
+
+fn project_content(app: &App) -> Element<'_, Message> {
+    use crate::domain::workspace::FilePanel;
+    if app.workspace.directory().is_none() {
+        return preview(app);
+    }
+    let mut tools = Column::new()
+        .spacing(theme::FILE_PANEL_TOOL_INSET)
+        .width(theme::FILE_PANEL_TOOL_SIZE);
+    for panel in &app.workspace.preferences.file_panels {
+        let (symbol, label, id) = match panel {
+            FilePanel::Project => (Icon::Folder, Key::ProjectFiles, "file-panel-project"),
+            FilePanel::Changes => (Icon::Changes, Key::WorkingChanges, "file-panel-changes"),
+        };
+        tools = tools.push(
+            tooltip(
+                container(
+                    button(icon(symbol, theme::MUTED))
+                        .on_press(Message::SelectFilePanel(*panel))
+                        .width(theme::FILE_PANEL_TOOL_SIZE)
+                        .height(theme::FILE_PANEL_TOOL_SIZE)
+                        .padding(10)
+                        .style(theme::action(app.file_panel == *panel)),
+                )
+                .id(id),
+                text(app.i18n.text(label)).size(12),
+                tooltip::Position::Right,
+            )
+            .style(theme::tooltip),
+        );
+    }
+    let tools = container(reorder::fixed_column(tools, Message::MoveFilePanel))
+        .padding(theme::FILE_PANEL_TOOL_INSET)
+        .height(Length::Fill)
+        .style(theme::sidebar);
+    let content: Element<'_, Message> = match app.file_panel {
+        FilePanel::Project => {
+            let root = app.workspace.directory().unwrap();
+            let width = app
+                .tree
+                .get(root)
+                .into_iter()
+                .flatten()
+                .map(|entry| tree_width(app, &entry.path, 0))
+                .fold(260., f32::max);
+            file_tree(app, root, 0, Column::new()).width(width).into()
+        }
+        FilePanel::Changes => {
+            let root = app.workspace.directory().unwrap();
+            let entries = app
+                .changes
+                .status
+                .files
+                .iter()
+                .map(|(path, change)| changed_tree::Entry {
+                    path: path
+                        .strip_prefix(root)
+                        .unwrap_or(path)
+                        .components()
+                        .map(|part| part.as_os_str().to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join("/"),
+                    status: change.status,
+                    open: Message::OpenFile(path.clone()),
+                })
+                .collect::<Vec<_>>();
+            if entries.is_empty() {
+                text(app.i18n.text(if let Some(error) = app.changes.error {
+                    error_key(error)
+                } else if !app.changes.loaded {
+                    Key::Loading
+                } else {
+                    Key::NoWorkingChanges
+                }))
+                .size(13)
+                .style(theme::MUTED.text())
+                .into()
+            } else {
+                let tree = changed_tree::view(
+                    entries,
+                    &app.collapsed_worktree_folders,
+                    &app.i18n,
+                    Message::ToggleWorktreeFolder,
+                );
+                if let Some(error) = app.changes.error {
+                    column![
+                        text(app.i18n.text(error_key(error)))
+                            .size(13)
+                            .style(theme::MUTED.text()),
+                        tree
+                    ]
+                    .spacing(8)
+                    .into()
+                } else {
+                    tree
+                }
+            }
+        }
+    };
+    let title = app.i18n.text(match app.file_panel {
+        FilePanel::Project => Key::ProjectFiles,
+        FilePanel::Changes => Key::WorkingChanges,
+    });
+    let files = container(column![
+        container(container(text(title).size(13).font(theme::semibold())).id("file-panel-title"))
+            .height(theme::FILE_PANEL_HEADER_HEIGHT)
+            .width(Length::Fill)
+            .padding([0., theme::FILE_PANEL_CONTENT_INSET])
+            .align_y(Alignment::Center),
+        divider(),
+        scrollable(container(content).padding(theme::FILE_PANEL_CONTENT_INSET))
+            .id("project-files-browser")
+            .width(Length::Fill)
+            .direction(scrollable::Direction::Both {
+                vertical: scrollable::Scrollbar::default(),
+                horizontal: scrollable::Scrollbar::default()
+            })
+            .style(theme::scroll)
+            .height(Length::Fill),
+    ])
+    .id("project-files-panel")
+    .width(theme::PROJECT_FILES_WIDTH)
+    .height(Length::Fill)
+    .style(theme::surface);
+    row![tools, files, preview(app)].height(Length::Fill).into()
+}
+
+fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element<'_, Message> {
+    let group = &app.workspace.spaces[space_index];
+    let project = &group.projects[project_index];
+    let active = app.workspace.selected_space == Some(space_index)
+        && app.workspace.selected_project == Some(project_index);
+    let mut title = column![text(short(&project.name, 20)).size(14)];
+    if project.pinned {
+        title = title.push(
+            text(short(&group.name, 24))
+                .size(11)
+                .style(theme::FAINT.text()),
+        );
+    }
+    let entry = tooltip(
+        container(
+            button(
+                row![
+                    icon(
+                        Icon::Folder,
+                        if active { theme::TEXT } else { theme::MUTED }
+                    ),
+                    title.width(Length::Fill)
+                ]
+                .spacing(10)
+                .align_y(Alignment::Center),
+            )
+            .padding([9, 12])
+            .width(Length::Fill)
+            .style(theme::action(active))
+            .on_press(Message::SelectProject(space_index, project_index)),
+        )
+        .id(format!("space-project-{space_index}-{project_index}"))
+        .width(Length::Fill),
+        text(project.directory.to_string_lossy().into_owned()).size(12),
+        tooltip::Position::Right,
+    )
+    .style(theme::tooltip);
+    let path = project.directory.clone();
+    context_menu::trigger(entry, move |point| {
+        Message::ProjectMenu(space_index, path.clone(), point)
+    })
+}
+
+fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Message> {
+    let Some((space, path, point)) = &app.project_menu else {
+        return base;
+    };
+    let Some(project) = app.workspace.spaces.get(*space).and_then(|group| {
+        group
+            .projects
+            .iter()
+            .find(|project| &project.directory == path)
+    }) else {
+        return base;
+    };
+    context_menu::overlay(
+        base,
+        *point,
+        iced::Size::new(230., 58.),
+        move || {
+            container(
+                button(
+                    row![
+                        icon(Icon::Pin, theme::MUTED),
+                        text(app.i18n.text(if project.pinned {
+                            Key::UnpinProject
+                        } else {
+                            Key::PinProject
+                        }))
+                        .size(14)
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center),
+                )
+                .on_press(Message::TogglePinned)
+                .padding([10, 12])
+                .width(Length::Fill)
+                .style(theme::action(false)),
+            )
+            .id("toggle-project-pin")
+            .into()
+        },
+        Message::CloseProjectMenu,
+    )
 }
 
 fn navigation_button<'a>(
@@ -507,36 +707,6 @@ fn navigation_button<'a>(
             .style(theme::action(selected && !panel_control)),
     )
     .id(id)
-    .into()
-}
-
-fn status_badge(
-    app: &App,
-    status: Option<crate::domain::changes::FileStatus>,
-    directory: bool,
-) -> Element<'_, Message> {
-    use crate::domain::changes::FileStatus;
-    let Some(status) = status else {
-        return space().width(14).into();
-    };
-    let label = match status {
-        FileStatus::Untracked => Key::FileUntracked,
-        FileStatus::Added => Key::FileAdded,
-        FileStatus::Modified => Key::FileModified,
-        FileStatus::Deleted => Key::FileDeleted,
-        FileStatus::Renamed => Key::FileRenamed,
-        FileStatus::Conflict => Key::FileConflict,
-    };
-    tooltip(
-        text(if directory { "●" } else { status.badge() })
-            .size(if directory { 8 } else { 11 })
-            .color(theme::file_status(status))
-            .width(14)
-            .align_x(Alignment::Center),
-        text(app.i18n.text(label)).size(12),
-        tooltip::Position::Right,
-    )
-    .style(theme::tooltip)
     .into()
 }
 
@@ -623,10 +793,16 @@ fn file_tree<'a>(
                 symbol,
                 text(&entry.name)
                     .size(theme::FILE_TREE_TEXT_SIZE)
-                    .color(status.map(theme::file_status).unwrap_or(theme::TEXT))
+                    .style(
+                        (if entry.directory {
+                            theme::MUTED
+                        } else {
+                            status.map(theme::file_status).unwrap_or(theme::TEXT)
+                        })
+                        .text()
+                    )
                     .wrapping(text::Wrapping::None),
                 space().width(Length::Fill),
-                status_badge(app, status, entry.directory),
             ]
             .spacing(4)
             .padding(iced::Padding {
@@ -637,17 +813,29 @@ fn file_tree<'a>(
             })
             .height(theme::FILE_TREE_ROW_HEIGHT)
             .align_y(Alignment::Center);
+            let mut hint = entry.path.to_string_lossy().into_owned();
+            if !entry.directory
+                && let Some(status) = status
+            {
+                hint.push('\n');
+                hint.push_str(&app.i18n.text(changed_tree::status_key(status)));
+            }
             body = body.push(
-                container(
-                    button(item)
-                        .on_press(event)
-                        .height(theme::FILE_TREE_ROW_HEIGHT)
-                        .padding([0, 6])
-                        .width(Length::Fill)
-                        .style(theme::tree_item(active)),
+                tooltip(
+                    container(
+                        button(item)
+                            .on_press(event)
+                            .height(theme::FILE_TREE_ROW_HEIGHT)
+                            .padding([0, 6])
+                            .width(Length::Fill)
+                            .style(theme::tree_item(active)),
+                    )
+                    .id(format!("file-tree-{}", entry.path.to_string_lossy()))
+                    .width(Length::Fill),
+                    text(hint).size(12),
+                    tooltip::Position::Right,
                 )
-                .id(format!("file-tree-{}", entry.path.to_string_lossy()))
-                .width(Length::Fill),
+                .style(theme::tooltip),
             );
             if entry.directory && expanded {
                 body = file_tree(app, &entry.path, depth + 1, body);
@@ -657,7 +845,7 @@ fn file_tree<'a>(
         body = body.push(
             text(app.i18n.text(Key::Loading))
                 .size(12)
-                .color(theme::MUTED),
+                .style(theme::MUTED.text()),
         );
     }
     if let Some(error) = app.files.errors.get(directory) {
@@ -665,7 +853,7 @@ fn file_tree<'a>(
             column![
                 text(app.i18n.text(error_key(*error)))
                     .size(12)
-                    .color(theme::YELLOW),
+                    .style(theme::YELLOW.text()),
                 button(text(app.i18n.text(Key::Retry)).size(12))
                     .on_press(Message::Files(crate::app::files::Event::Retry(
                         directory.to_path_buf()
@@ -775,6 +963,44 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
             .preview()
             .document
             .as_ref()
+            .is_some_and(|document| document.comparison.is_some())
+    {
+        let split = app.workspace.preferences.diff_view == DiffView::SideBySide;
+        bar = bar.push(
+            container(
+                tooltip(
+                    button(icon(
+                        if split {
+                            Icon::UnifiedDiff
+                        } else {
+                            Icon::SplitDiff
+                        },
+                        theme::MUTED,
+                    ))
+                    .padding(8)
+                    .width(36)
+                    .height(36)
+                    .style(theme::icon_action(split))
+                    .on_press(Message::ToggleDiffView(app.preview().id)),
+                    text(app.i18n.text(if split {
+                        Key::DiffUnified
+                    } else {
+                        Key::DiffSideBySide
+                    }))
+                    .size(12),
+                    tooltip::Position::Bottom,
+                )
+                .style(theme::tooltip),
+            )
+            .id("toggle-diff-view"),
+        );
+    }
+    if app.preview().error.is_none()
+        && !app.preview().loading
+        && app
+            .preview()
+            .document
+            .as_ref()
             .is_some_and(|document| document.can_fold())
     {
         let collapsed = app.preview().folding.collapsed;
@@ -822,155 +1048,207 @@ fn preview(app: &App) -> Element<'_, Message> {
     } else if let Some(error) = app.preview().error {
         center_message(app, error_key(error))
     } else if let Some(document) = &app.preview().document {
-        responsive(move |viewport| {
-            let size = app.workspace.preferences.code_size as f32;
-            let height = size * 1.65;
-            let gutter = if app.workspace.preferences.line_numbers {
-                91.
-            } else {
-                35.
-            };
-            let width = (document.columns as f32 * size * 0.65 + gutter + 12.).max(viewport.width);
-            let count = app.preview().folding.len(document);
-            // Keep a stable row block while the viewport moves inside the buffer.
-            let start =
-                (((app.preview().scroll_y.max(0.) / height) as usize).saturating_sub(16) / 32 * 32)
-                    .min(count);
-            let end = (start + (viewport.height / height).ceil() as usize + 64).min(count);
-            let lines = (start..end).map(|row| {
-                let index = match app.preview().folding.row(row) {
-                    code::folding::Row::Line(index) => index,
-                    code::folding::Row::Fold(range) => {
-                        let mut args = FluentArgs::new();
-                        args.set("start", document.line_info[range.start].number);
-                        args.set("end", document.line_info[range.end - 1].number);
-                        return container(
-                            button(
-                                row![
-                                    space().width(48),
-                                    file_icons::chevron(false),
-                                    text(app.i18n.format(Key::UnchangedLines, &args))
-                                        .size(12)
-                                        .wrapping(text::Wrapping::None),
-                                ]
-                                .spacing(8)
+        if let Some(comparison) = document
+            .comparison
+            .as_ref()
+            .filter(|_| app.workspace.preferences.diff_view == DiffView::SideBySide)
+        {
+            diff::view(app, document, comparison)
+        } else {
+            responsive(move |viewport| {
+                let size = app.workspace.preferences.code_size as f32;
+                let height = size * 1.65;
+                let gutter = if document.comparison.is_some() {
+                    unified::gutter_width(document, size, app.workspace.preferences.line_numbers)
+                        + 8.
+                } else if app.workspace.preferences.line_numbers {
+                    91.
+                } else {
+                    35.
+                };
+                let rail = if document.comparison.is_some() {
+                    theme::CODE_SCROLLBAR_WIDTH
+                } else {
+                    0.
+                };
+                let width = (document.columns as f32 * size * 0.65 + gutter + 12. + rail)
+                    .max(viewport.width);
+                let count = app.preview().folding.len(document);
+                // Keep a stable row block while the viewport moves inside the buffer.
+                let start =
+                    (((app.preview().scroll_y.max(0.) / height) as usize).saturating_sub(16) / 32
+                        * 32)
+                        .min(count);
+                let end = (start + (viewport.height / height).ceil() as usize + 64).min(count);
+                let lines = (start..end).map(|row| {
+                    let index = match app.preview().folding.row(row) {
+                        code::folding::Row::Line(index) => index,
+                        code::folding::Row::Fold(range) => {
+                            if document.comparison.is_some() {
+                                return unified::fold(app, document, range, height);
+                            }
+                            let mut args = FluentArgs::new();
+                            args.set("start", document.line_info[range.start].number);
+                            args.set("end", document.line_info[range.end - 1].number);
+                            return container(
+                                button(
+                                    row![
+                                        space().width(48),
+                                        file_icons::chevron(false),
+                                        text(app.i18n.format(Key::UnchangedLines, &args))
+                                            .size(12)
+                                            .wrapping(text::Wrapping::None),
+                                    ]
+                                    .spacing(8)
+                                    .height(height)
+                                    .align_y(Alignment::Center),
+                                )
+                                .padding([0, 8])
+                                .width(Length::Fill)
                                 .height(height)
-                                .align_y(Alignment::Center),
+                                .style(theme::fold_row)
+                                .on_press(
+                                    Message::ExpandUnchanged(app.preview().id, range.clone()),
+                                ),
                             )
-                            .padding([0, 8])
+                            .id(format!("unchanged-{}-{}", app.preview().id, range.start))
                             .width(Length::Fill)
-                            .height(height)
-                            .style(theme::fold_row)
-                            .on_press(Message::ExpandUnchanged(app.preview().id, range.clone())),
-                        )
-                        .id(format!("unchanged-{}-{}", app.preview().id, range.start))
-                        .width(Length::Fill)
-                        .into();
-                    }
-                };
-                let spans = &document.lines[index];
-                let code = rich_text::<(), Message, _, _>(
-                    spans
-                        .iter()
-                        .map(|(content, color)| widget::span(content.as_str()).color(*color))
-                        .collect::<Vec<_>>(),
-                )
-                .font(Font::MONOSPACE)
-                .size(size)
-                .line_height(1.65)
-                .wrapping(text::Wrapping::None);
-                let info = document.line_info[index];
-                let color = info
-                    .change
-                    .map(theme::line_change)
-                    .unwrap_or(iced::Color::TRANSPARENT);
-                let mut line = Row::new()
-                    .spacing(10)
-                    .height(height)
-                    .width(Length::Fill)
-                    .push(container(space()).width(3).height(height).style(move |_| {
-                        container::Style {
-                            background: Some(color.into()),
-                            ..Default::default()
+                            .into();
                         }
-                    }));
-                if app.workspace.preferences.line_numbers {
-                    line = line.push(
-                        text(info.number)
-                            .size(size)
-                            .line_height(1.65)
-                            .font(Font::MONOSPACE)
-                            .color(theme::FAINT)
-                            .width(46)
-                            .align_x(Alignment::End),
-                    );
-                }
-                let sign = match info.change {
-                    Some(code::LineChange::Added) => "+",
-                    Some(code::LineChange::Modified) => "~",
-                    Some(code::LineChange::Removed) => "−",
-                    None => "",
-                };
-                container(
-                    line.push(
-                        text(sign)
-                            .font(Font::MONOSPACE)
-                            .size(size)
-                            .line_height(1.65)
-                            .color(color)
-                            .width(12),
+                    };
+                    if let Some(line) = document
+                        .comparison
+                        .as_ref()
+                        .and_then(|comparison| comparison.unified_line(index))
+                    {
+                        return unified::line(app, document, line, index, height);
+                    }
+                    let spans = &document.lines[index];
+                    let code = rich_text::<(), Message, _, _>(
+                        spans
+                            .iter()
+                            .map(|(content, color)| {
+                                widget::span(content.as_str()).color(color.resolve(&app.theme()))
+                            })
+                            .collect::<Vec<_>>(),
                     )
-                    .push(code),
-                )
-                .width(Length::Fill)
-                .style(theme::diff_row(info.change))
-                .into()
-            });
-            scrollable(
-                container(column![
-                    space().height(start as f32 * height),
-                    code::rows(
-                        (
-                            app.preview().id,
-                            document.fingerprint,
-                            app.preview().preparation,
-                            app.preview().folding.revision,
-                            app.workspace.preferences.code_size,
-                            app.workspace.preferences.line_numbers,
-                            app.i18n.text(Key::Loading),
+                    .font(Font::MONOSPACE)
+                    .size(size)
+                    .line_height(1.65)
+                    .wrapping(text::Wrapping::None);
+                    let info = document.line_info[index];
+                    let color = info
+                        .change
+                        .map(|change| theme::line_change(change).resolve(&app.theme()))
+                        .unwrap_or(iced::Color::TRANSPARENT);
+                    let mut line = Row::new()
+                        .spacing(10)
+                        .height(height)
+                        .width(Length::Fill)
+                        .push(container(space()).width(3).height(height).style(move |_| {
+                            container::Style {
+                                background: Some(color.into()),
+                                ..Default::default()
+                            }
+                        }));
+                    if app.workspace.preferences.line_numbers {
+                        line = line.push(
+                            text(info.number)
+                                .size(size)
+                                .line_height(1.65)
+                                .font(Font::MONOSPACE)
+                                .style(theme::FAINT.text())
+                                .width(46)
+                                .align_x(Alignment::End),
+                        );
+                    }
+                    let sign = match info.change {
+                        Some(code::LineChange::Added) => "+",
+                        Some(code::LineChange::Modified) => "~",
+                        Some(code::LineChange::Removed) => "−",
+                        None => "",
+                    };
+                    container(
+                        line.push(
+                            text(sign)
+                                .font(Font::MONOSPACE)
+                                .size(size)
+                                .line_height(1.65)
+                                .color(color)
+                                .width(12),
+                        )
+                        .push(code),
+                    )
+                    .width(Length::Fill)
+                    .style(theme::diff_row(info.change))
+                    .into()
+                });
+                let scroll = scrollable(
+                    container(column![
+                        space().height(start as f32 * height),
+                        code::rows(
+                            (
+                                app.preview().id,
+                                document.fingerprint,
+                                app.preview().preparation,
+                                app.preview().folding.revision,
+                                app.workspace.preferences.code_size,
+                                app.workspace.preferences.line_numbers,
+                                app.workspace.preferences.appearance,
+                                app.i18n.text(Key::Loading),
+                            ),
+                            start..end,
+                            lines
                         ),
-                        start..end,
-                        lines
-                    ),
-                    space().height((count - end) as f32 * height)
-                ])
-                .padding(iced::Padding {
-                    top: 0.,
-                    right: 0.,
-                    bottom: 12.,
-                    left: 0.,
+                        space().height((count - end) as f32 * height)
+                    ])
+                    .padding(iced::Padding {
+                        top: 0.,
+                        right: rail,
+                        bottom: 12.,
+                        left: 0.,
+                    })
+                    .width(width),
+                )
+                .direction(scrollable::Direction::Both {
+                    vertical: if document.comparison.is_some() {
+                        code::overview::scrollbar()
+                    } else {
+                        scrollable::Scrollbar::default()
+                    },
+                    horizontal: scrollable::Scrollbar::default(),
                 })
-                .width(width),
-            )
-            .direction(scrollable::Direction::Both {
-                vertical: scrollable::Scrollbar::default(),
-                horizontal: scrollable::Scrollbar::default(),
+                .id("source-code")
+                .style(if document.comparison.is_some() {
+                    theme::code_scroll
+                } else {
+                    theme::scroll
+                })
+                .height(Length::Fill)
+                .on_scroll(move |viewport| {
+                    let offset = viewport.absolute_offset();
+                    Message::CodeScrolled {
+                        id: app.preview().id,
+                        x: offset.x,
+                        y: offset.y,
+                    }
+                })
+                .width(Length::Fill);
+                code::overview::view(
+                    scroll,
+                    document,
+                    &app.preview().folding,
+                    None,
+                    code::overview::Layout {
+                        rows: count,
+                        row_height: height,
+                        viewport,
+                        content_width: width,
+                    },
+                )
             })
-            .id("source-code")
-            .style(theme::scroll)
-            .height(Length::Fill)
-            .on_scroll(move |viewport| {
-                let offset = viewport.absolute_offset();
-                Message::CodeScrolled {
-                    id: app.preview().id,
-                    x: offset.x,
-                    y: offset.y,
-                }
-            })
-            .width(Length::Fill)
             .into()
-        })
-        .into()
+        }
     } else {
         let no_project = app.workspace.directory().is_none();
         let has_spaces = !app.workspace.spaces.is_empty();
@@ -998,7 +1276,7 @@ fn preview(app: &App) -> Element<'_, Message> {
             }))
             .size(16)
             .line_height(1.5)
-            .color(theme::MUTED)
+            .style(theme::MUTED.text())
             .align_x(Alignment::Center),
         ]
         .spacing(16)
@@ -1018,7 +1296,9 @@ fn preview(app: &App) -> Element<'_, Message> {
                     (app.loaded && !app.picking)
                         .then_some(Message::Space(crate::app::spaces::Message::New))
                 } else {
-                    Some(Message::Navigate(Navigation::Files))
+                    Some(Message::SelectFilePanel(
+                        crate::domain::workspace::FilePanel::Project,
+                    ))
                 })
                 .padding([12, 24])
                 .style(theme::primary),
@@ -1088,7 +1368,7 @@ pub(super) fn center_message(app: &App, key: Key) -> Element<'_, Message> {
     container(
         text(app.i18n.text(key))
             .size(14)
-            .color(theme::MUTED)
+            .style(theme::MUTED.text())
             .align_x(Alignment::Center),
     )
     .padding(20)

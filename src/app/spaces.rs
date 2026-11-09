@@ -16,8 +16,10 @@ pub(crate) enum Message {
     Edit(usize),
     NameChanged(String),
     PickProject(Option<usize>),
-    ProjectPicked(u64, Option<usize>, Option<PathBuf>),
+    ProjectsPicked(u64, Option<usize>, Vec<PathBuf>),
     RemoveProject(usize),
+    MoveProject(Option<usize>, usize, usize),
+    ScrollProjects(Option<usize>, f32),
     Create,
     Cancel,
 }
@@ -34,6 +36,9 @@ impl App {
     }
 
     pub(super) fn update_space(&mut self, message: Message) -> Task<AppMessage> {
+        if self.git_actions.dialog.is_some() {
+            return Task::none();
+        }
         match message {
             Message::New if self.loaded && !self.picking && self.auth_dialog.is_none() => {
                 return self.open_space(Vec::new());
@@ -68,24 +73,56 @@ impl App {
                 self.picking = true;
                 self.space_request += 1;
                 let request = self.space_request;
-                return Task::perform(workspace::choose_directory(), move |path| {
-                    AppMessage::Space(Message::ProjectPicked(request, space, path))
+                return Task::perform(workspace::choose_directories(), move |directories| {
+                    AppMessage::Space(Message::ProjectsPicked(request, space, directories))
                 });
             }
-            Message::ProjectPicked(request, space, path) if request == self.space_request => {
+            Message::ProjectsPicked(request, space, directories)
+                if request == self.space_request =>
+            {
                 self.picking = false;
-                if let Some(directory) = path {
-                    if let Some(space) = space {
-                        if self.workspace.add_project(space, directory) {
-                            self.navigation = Navigation::Projects;
-                            return Task::batch([self.load_directory(), self.save()]);
+                if let Some(space) = space {
+                    let mut added = false;
+                    for directory in directories {
+                        added |= self.workspace.add_project(space, directory);
+                    }
+                    if added {
+                        self.navigation = Navigation::Projects;
+                        return Task::batch([self.load_directory(), self.save()]);
+                    }
+                } else if let Some(draft) = self.space_draft.as_mut() {
+                    for directory in directories {
+                        if !draft.directories.contains(&directory) {
+                            draft.directories.push(directory);
                         }
-                    } else if let Some(draft) = self.space_draft.as_mut()
-                        && !draft.directories.contains(&directory)
-                    {
-                        draft.directories.push(directory);
                     }
                 }
+            }
+            Message::MoveProject(space, from, to)
+                if self.loaded && !self.picking && self.auth_dialog.is_none() =>
+            {
+                if let Some(space) = space {
+                    if self.space_draft.is_none() && self.workspace.move_project(space, from, to) {
+                        return self.save();
+                    }
+                } else if let Some(draft) = self.space_draft.as_mut()
+                    && from < draft.directories.len()
+                    && to < draft.directories.len()
+                    && from != to
+                {
+                    let directory = draft.directories.remove(from);
+                    draft.directories.insert(to, directory);
+                }
+            }
+            Message::ScrollProjects(space, offset) if !self.picking => {
+                let id = if space.is_some() && self.space_draft.is_none() {
+                    "project-browser"
+                } else if space.is_none() && self.space_draft.is_some() {
+                    "space-project-list"
+                } else {
+                    return Task::none();
+                };
+                return operation::scroll_by(id, operation::AbsoluteOffset { x: 0., y: offset });
             }
             Message::RemoveProject(index) if !self.picking => {
                 if let Some(draft) = self.space_draft.as_mut()

@@ -3,6 +3,93 @@ use crate::i18n::{I18n, Language};
 use std::{path::PathBuf, rc::Rc};
 
 #[test]
+fn uncommitted_files_are_visible_in_the_side_panel_and_open_from_the_tree() {
+    use crate::domain::{
+        changes::{FileChange, FileStatus},
+        workspace::FilePanel,
+    };
+    let mut app = App::new(Rc::new(I18n::new(Language::Russian)));
+    app.loaded = true;
+    app.workspace
+        .create_space("Work".into(), vec![PathBuf::from("/project")]);
+    app.file_panel = FilePanel::Changes;
+    app.changes.loaded = true;
+    let path = PathBuf::from("/project/services/changed.py");
+    app.changes.status.files.insert(
+        path.clone(),
+        FileChange {
+            status: FileStatus::Modified,
+            original: None,
+        },
+    );
+    for index in 0..50 {
+        app.changes.status.files.insert(
+            PathBuf::from(format!("/project/services/file{index:02}.py")),
+            FileChange {
+                status: FileStatus::Added,
+                original: None,
+            },
+        );
+    }
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
+    let bounds = ui.find("changed.py").unwrap().visible_bounds().unwrap();
+    assert!(bounds.width > 0. && bounds.height > 0.);
+    assert!(ui.find("M").is_err());
+    let panel = ui
+        .find(iced::widget::Id::new("project-files-panel"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    let browser = ui
+        .find(iced::widget::Id::new("project-files-browser"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    assert_eq!(browser.x, panel.x);
+    assert_eq!(browser.width, panel.width);
+    assert!(ui.find("file49.py").unwrap().visible_bounds().is_none());
+    if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+        ui.snapshot(&iced::Theme::Dark)
+            .unwrap()
+            .matches_image(output.join("uncommitted-panel"))
+            .unwrap();
+    }
+    let top = (browser.x + browser.width - 5., browser.y + 12.);
+    let bottom = (top.0, browser.y + browser.height - 14.);
+    ui.point_at(top);
+    ui.simulate([iced::Event::Mouse(iced::mouse::Event::ButtonPressed(
+        iced::mouse::Button::Left,
+    ))]);
+    ui.point_at(bottom);
+    ui.simulate([
+        iced::Event::Mouse(iced::mouse::Event::CursorMoved {
+            position: bottom.into(),
+        }),
+        iced::Event::Mouse(iced::mouse::Event::ButtonReleased(
+            iced::mouse::Button::Left,
+        )),
+    ]);
+    assert!(ui.find("file49.py").unwrap().visible_bounds().is_some());
+    ui.simulate([iced::Event::Mouse(iced::mouse::Event::ButtonPressed(
+        iced::mouse::Button::Left,
+    ))]);
+    ui.point_at(top);
+    ui.simulate([
+        iced::Event::Mouse(iced::mouse::Event::CursorMoved {
+            position: top.into(),
+        }),
+        iced::Event::Mouse(iced::mouse::Event::ButtonReleased(
+            iced::mouse::Button::Left,
+        )),
+    ]);
+    ui.click("changed.py").unwrap();
+    assert!(
+        matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::OpenFile(file)] if *file == path)
+    );
+}
+
+#[test]
 fn status_results_cannot_cross_project_or_request_boundaries() {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
     app.generation = 4;
@@ -19,6 +106,11 @@ fn status_results_cannot_cross_project_or_request_boundaries() {
     assert!(app.changes.pending);
     let _ = app.update_changes(Event::Loaded(4, 2, Ok(Worktree::default())));
     assert!(!app.changes.pending);
+    assert!(app.changes.loaded);
+    let _ = app.update_changes(Event::Loaded(4, 2, Err(Failure::Read)));
+    assert_eq!(app.changes.error, Some(Failure::Read));
+    let _ = app.update_changes(Event::Loaded(4, 2, Ok(Worktree::default())));
+    assert!(app.changes.error.is_none());
 }
 
 #[test]

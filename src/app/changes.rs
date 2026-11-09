@@ -12,6 +12,8 @@ use std::{collections::BTreeSet, time::Duration};
 #[derive(Default)]
 pub(crate) struct State {
     pub status: Worktree,
+    pub error: Option<Failure>,
+    pub loaded: bool,
     pending: bool,
     disabled: bool,
     request: u64,
@@ -56,6 +58,8 @@ impl App {
                 if generation == self.generation && request == self.changes.request =>
             {
                 self.changes.pending = false;
+                self.changes.loaded = true;
+                self.changes.error = result.as_ref().err().copied();
                 match result {
                     Ok(status) => {
                         let previous = std::mem::replace(&mut self.changes.status, status);

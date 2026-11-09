@@ -1,15 +1,18 @@
 //! Draw small, consistent outline icons without a platform icon font.
 
+use super::theme::Tone;
+
 use iced::{
-    Color, Element, Point, Rectangle, Renderer, Theme, mouse,
+    Element, Point, Rectangle, Renderer, Theme, mouse,
     widget::canvas::{self, Frame, Geometry, Path, Stroke},
 };
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Icon {
-    FolderOpen,
     CollapseLines,
     ExpandLines,
+    SplitDiff,
+    UnifiedDiff,
     Back,
     Branch,
     Tag,
@@ -18,20 +21,25 @@ pub(crate) enum Icon {
     Plus,
     Right,
     Down,
+    Drag,
+    Changes,
+    Fetch,
+    Upload,
+    Pin,
     Refresh,
     Close,
     Folder,
     External,
 }
 
-pub(crate) fn icon<'a, Message: 'a>(icon: Icon, color: Color) -> Element<'a, Message> {
+pub(crate) fn icon<'a, Message: 'a>(icon: Icon, color: Tone) -> Element<'a, Message> {
     canvas::Canvas::new(Drawing(icon, color))
         .width(20)
         .height(20)
         .into()
 }
 
-struct Drawing(Icon, Color);
+struct Drawing(Icon, Tone);
 
 impl<Message> canvas::Program<Message> for Drawing {
     type State = ();
@@ -39,12 +47,14 @@ impl<Message> canvas::Program<Message> for Drawing {
         &self,
         _: &(),
         renderer: &Renderer,
-        _: &Theme,
+        theme: &Theme,
         bounds: Rectangle,
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
-        let stroke = Stroke::default().with_width(1.5).with_color(self.1);
+        let stroke = Stroke::default()
+            .with_width(1.5)
+            .with_color(self.1.resolve(theme));
         let mut line = |points: &[(f32, f32)]| {
             let path = Path::new(|builder| {
                 if let Some(&(x, y)) = points.first() {
@@ -57,6 +67,52 @@ impl<Message> canvas::Program<Message> for Drawing {
             frame.stroke(&path, stroke);
         };
         match self.0 {
+            Icon::SplitDiff => {
+                line(&[(2., 3.), (18., 3.), (18., 17.), (2., 17.), (2., 3.)]);
+                line(&[(10., 3.), (10., 17.)]);
+                line(&[(4., 7.), (7., 7.)]);
+                line(&[(13., 11.), (16., 11.)]);
+            }
+            Icon::UnifiedDiff => {
+                line(&[(2., 3.), (18., 3.), (18., 17.), (2., 17.), (2., 3.)]);
+                line(&[(5., 7.), (15., 7.)]);
+                line(&[(5., 10.), (15., 10.)]);
+                line(&[(5., 13.), (15., 13.)]);
+            }
+            Icon::Changes => {
+                line(&[
+                    (4., 2.),
+                    (13., 2.),
+                    (17., 6.),
+                    (17., 18.),
+                    (4., 18.),
+                    (4., 2.),
+                ]);
+                line(&[(7., 8.), (13., 8.)]);
+                line(&[(7., 12.), (13., 12.)]);
+            }
+            Icon::Fetch => {
+                line(&[(10., 2.), (10., 13.)]);
+                line(&[(6., 9.), (10., 13.), (14., 9.)]);
+                line(&[(3., 14.), (3., 18.), (17., 18.), (17., 14.)]);
+            }
+            Icon::Upload => {
+                line(&[(10., 14.), (10., 3.)]);
+                line(&[(6., 7.), (10., 3.), (14., 7.)]);
+                line(&[(3., 14.), (3., 18.), (17., 18.), (17., 14.)]);
+            }
+            Icon::Pin => {
+                line(&[
+                    (7., 2.),
+                    (14., 2.),
+                    (13., 8.),
+                    (16., 12.),
+                    (4., 12.),
+                    (7., 8.),
+                    (7., 2.),
+                ]);
+                line(&[(10., 12.), (10., 19.)]);
+            }
             Icon::CollapseLines => {
                 line(&[(3., 10.), (17., 10.)]);
                 line(&[(10., 1.), (10., 6.)]);
@@ -75,17 +131,6 @@ impl<Message> canvas::Program<Message> for Drawing {
                 line(&[(9., 4.), (3., 10.), (9., 16.)]);
                 line(&[(3., 10.), (17., 10.)]);
             }
-            Icon::FolderOpen => {
-                line(&[
-                    (2., 16.),
-                    (2., 4.),
-                    (8., 4.),
-                    (10., 6.),
-                    (17., 6.),
-                    (17., 9.),
-                ]);
-                line(&[(2., 16.), (5., 9.), (19., 9.), (16., 16.), (2., 16.)]);
-            }
             Icon::Folder => line(&[
                 (2., 5.),
                 (8., 5.),
@@ -101,6 +146,12 @@ impl<Message> canvas::Program<Message> for Drawing {
             }
             Icon::Right => line(&[(7., 5.), (12., 10.), (7., 15.)]),
             Icon::Down => line(&[(5., 7.), (10., 12.), (15., 7.)]),
+            Icon::Drag => {
+                for y in [5., 10., 15.] {
+                    line(&[(6., y), (7., y)]);
+                    line(&[(13., y), (14., y)]);
+                }
+            }
             Icon::Close => {
                 line(&[(5., 5.), (15., 15.)]);
                 line(&[(5., 15.), (15., 5.)]);

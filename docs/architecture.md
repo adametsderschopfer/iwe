@@ -3,32 +3,36 @@
 The application provides named spaces, projects, source previews, Git history, pipelines, and
 settings.
 
-| Module                             | Responsibility                                                                           |
-| ---------------------------------- | ---------------------------------------------------------------------------------------- |
-| `main.rs`                          | Select the language and start the graphics launcher                                      |
-| `app/`                             | Configure the window, own interface state, and process native material results           |
-| `domain/`                          | Model spaces, projects, preferences, accounts, remotes, commits, and graph relationships |
-| `ui/screens/`                      | Compose workspace, Git, pipeline, and settings screens                                   |
-| `ui/code.rs`, `ui/code/`           | Prepare highlighted source lines and preserve their text layout                          |
-| `ui/icons.rs`, `ui/file_icons.rs`  | Draw interface icons and compact file-type symbols                                       |
-| `ui/graph.rs`                      | Draw commit ancestry                                                                     |
-| `ui/theme/`                        | Define interface colors, syntax colors, and the native material fallback                 |
-| `i18n/`                            | Format embedded Fluent translations and recover from missing messages                    |
-| `infrastructure/locale.rs`         | Read `IWE_LANG` and the system locale                                                    |
-| `infrastructure/workspace.rs`      | Save workspace metadata and read bounded local previews                                  |
-| `infrastructure/project_index.rs`  | Cache directory metadata and prioritize background folder reads                          |
-| `infrastructure/repository.rs`     | Read Git history, branches, changed paths, and historical blobs                          |
-| `infrastructure/pipelines.rs`      | Read GitHub Actions and GitLab pipeline APIs                                             |
-| `domain/jobs.rs`                   | Model stages, jobs, and provider-supported actions                                       |
-| `app/jobs.rs`                      | Coordinate job selection, cached details, refresh, and pending actions                   |
-| `infrastructure/pipelines/jobs.rs` | Load paginated jobs and submit explicit provider actions                                 |
-| `infrastructure/auth/`             | Implement GitHub device authorization and GitLab PKCE callbacks                          |
-| `infrastructure/auth.rs`           | Validate accounts, refresh tokens, and serialize credential operations                   |
-| `infrastructure/credentials.rs`    | Store provider credentials in the operating system vault                                 |
-| `infrastructure/http.rs`           | Enforce HTTPS, response bounds, request deadlines, and redirect restrictions             |
-| `infrastructure/process.rs`        | Bound asynchronous subprocess time and output                                            |
-| `infrastructure/graphics/`         | Start graphics backends in platform priority order                                       |
-| `infrastructure/window_effect/`    | Place native Liquid Glass below the renderer on supported macOS versions                 |
+| Module                              | Responsibility                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| `main.rs`                           | Select the language and start the graphics launcher                                      |
+| `app/`                              | Configure the window, own interface state, and process native material results           |
+| `domain/`                           | Model spaces, projects, preferences, accounts, remotes, commits, and graph relationships |
+| `ui/screens/`                       | Compose workspace, Git, pipeline, and settings screens                                   |
+| `ui/code.rs`, `ui/code/`            | Prepare highlighted source lines and preserve their text layout                          |
+| `ui/icons.rs`, `ui/file_icons.rs`   | Draw interface icons and compact file-type symbols                                       |
+| `ui/graph.rs`                       | Draw commit ancestry                                                                     |
+| `ui/theme/`                         | Define interface colors, syntax colors, and the native material fallback                 |
+| `i18n/`                             | Format embedded Fluent translations and recover from missing messages                    |
+| `infrastructure/locale.rs`          | Read `IWE_LANG` and the system locale                                                    |
+| `infrastructure/workspace.rs`       | Save workspace metadata and read bounded local previews                                  |
+| `infrastructure/project_index.rs`   | Cache directory metadata and prioritize background folder reads                          |
+| `infrastructure/repository.rs`      | Read Git history, branches, changed paths, and historical blobs                          |
+| `domain/git.rs`, `app/git_actions/` | Define Git operations and coordinate dialogs, pending actions, and results               |
+| `infrastructure/git/`               | Validate references and execute explicit Git operations                                  |
+| `ui/context_menu/`                  | Detect right-clicks and anchor menus inside the window                                   |
+| `ui/changed_tree/`                  | Display compact changed-file trees with counts and status colors                         |
+| `infrastructure/pipelines.rs`       | Read GitHub Actions and GitLab pipeline APIs                                             |
+| `domain/jobs.rs`                    | Model stages, jobs, and provider-supported actions                                       |
+| `app/jobs.rs`                       | Coordinate job selection, cached details, refresh, and pending actions                   |
+| `infrastructure/pipelines/jobs.rs`  | Load paginated jobs and submit explicit provider actions                                 |
+| `infrastructure/auth/`              | Implement GitHub device authorization and GitLab PKCE callbacks                          |
+| `infrastructure/auth.rs`            | Validate accounts, refresh tokens, and serialize credential operations                   |
+| `infrastructure/credentials.rs`     | Store provider credentials in the operating system vault                                 |
+| `infrastructure/http.rs`            | Enforce HTTPS, response bounds, request deadlines, and redirect restrictions             |
+| `infrastructure/process.rs`         | Bound asynchronous subprocess time and output                                            |
+| `infrastructure/graphics/`          | Start graphics backends in platform priority order                                       |
+| `infrastructure/window_effect/`     | Place native Liquid Glass below the renderer on supported macOS versions                 |
 
 Composition connects the interface, localization, and infrastructure. Interface modules never import
 infrastructure. Translation logic performs no operating-system access. Add application and domain
@@ -49,6 +53,29 @@ commands disable optional index writes. Source comparison reads bounded blobs an
 contents in memory. The `similar` crate compares source lines with a 300-millisecond algorithm
 budget on blocking workers. The viewer retains unchanged lines and marks inserted, replaced, and
 removed lines without losing syntax colors.
+
+Comparisons retain aligned pairs that reference the unified document's highlighted lines. Each pair
+keeps both original line numbers. Change blocks provide connector geometry without copying source
+text. Word comparison uses a shared 150-millisecond deadline and skips lines over 8 KiB. Blocking
+workers prepare these structures. The original single-column view remains available through a saved
+preference. The default view places the previous and current versions in separate columns.
+
+A direct index maps unified rows to their comparison pairs. Unified rendering reads both original
+line numbers and word highlights through this index. Both comparison views share the highlighted
+span builder. Unified rows distinguish previous replacement blocks from their new lines. Compact
+wave separators use the existing folding ranges, expansion messages, and fixed row heights.
+
+The comparison view virtualizes both columns with the existing source-row cache. Scroll messages
+synchronize their vertical offsets while retaining independent horizontal offsets. Each tab keeps
+separate positions for the two comparison views. Shared folding maps unchanged ranges into both
+projections. Expanding either column expands the same source range in both columns and the unified
+view. Connector drawing visits only blocks intersecting the viewport.
+
+Document preparation merges adjacent changes into status ranges for the scrollbar overview. Folding
+projects these ranges into visible rows. Two-column overviews reuse the projected change blocks.
+Cached canvas geometry keeps marks independent of scrolling and refreshes after content, folding,
+font size, or viewport changes. A passive layer draws marks beside the scrollbar handle and forwards
+pointer input to the existing scrollable widget.
 
 Each selected project uses one background index worker. Opened folders take priority over bounded
 breadth-first traversal. Cached directory metadata appears before refresh results. Atomic disk
@@ -79,7 +106,9 @@ files refresh when selected. Commit tabs retain their original revision and comp
 Each tab caches its collapsed-line projection. Only projection changes scan the document; scrolling
 builds rows from the cached projection. Expanding a range preserves all original source lines.
 Restoring the complete file restores its previous scroll position. Changed document fingerprints
-rebuild the projection and reset its expanded ranges.
+rebuild the projection and reset its expanded ranges. One saved preference controls unchanged-code
+folding across all tabs. Loaded, restored, and newly prepared documents receive that preference.
+Expanded ranges and scroll positions remain specific to each tab.
 
 The local `iced_widget` patch keeps scrollbar handles usable with very large content. Handles have a
 28-pixel minimum, limited to half the available rail in very small panels. Offset calculations use
@@ -92,11 +121,19 @@ Full filenames remain available through horizontal scrolling. Folder selection r
 from the opened preview. Recent project caches preserve the selected entry.
 
 Spaces contain named projects and have no directory of their own. Each project owns one directory
-path. The application keeps space drafts separate from saved state until creation. Folder picker
-requests carry identifiers, so canceled drafts cannot receive stale selections. Shared modal
-composition blocks interaction with the underlying view. Legacy directory groups migrate to spaces
-without losing folders or preferences. Storage preserves the original configuration before
-migration.
+path. The application keeps space drafts separate from saved state until confirmation. Folder
+pickers return multiple directories. Request identifiers prevent canceled drafts from receiving
+stale selections. Shared modal composition blocks interaction with the underlying view. Legacy
+directory groups migrate to spaces without losing folders or preferences. Storage preserves the
+original configuration before migration.
+
+The shared `ui/reorder` widget handles project dragging, drop indicators, and edge scrolling. It
+defers row clicks until release and preserves trailing action buttons. Space forms reorder their
+drafts. Sidebar drops update domain order and save immediately. Both paths preserve the selected
+directory and existing project metadata. Project metadata includes a persistent pinned flag. Sidebar
+rendering moves pinned rows above the spaces without changing membership or selection. The shared
+reorder widget also handles file-panel icons. Their saved order determines the panel selected at
+startup and after project changes.
 
 Git history uses bounded pages with frozen revision hashes and continuing graph lanes. Scrolling
 loads older pages and preserves the current position. Search continues loading until history ends or
@@ -106,6 +143,14 @@ branches, remote branches, and tags share validated reference reads. Nested pane
 Git columns. The changed-files column exists only while a commit is selected. Closing the column
 invalidates pending file-list requests. Commit titles use measured single-line truncation with
 cached text layouts.
+
+Git actions use typed operations and validated full references. Dialog drafts remain available after
+failures. One pending operation blocks duplicate submissions. Request identifiers and repository
+roots reject stale results. Successful actions refresh repository data, source tabs, and directory
+listings. Git subprocesses have a 180-second deadline and bounded output. Selected-branch updates
+permit only fast-forward changes. Checkout requires clean files. Deletion requires confirmation and
+does not force local branch removal. Git actions use Git's configured authentication separately from
+pipeline API accounts. See [Git actions](git-actions.md).
 
 Pipeline responses include full commit identifiers. History matches active runs against those
 identifiers. Visible Git or pipeline panels refresh loaded data every 30 seconds. Request guards
@@ -152,24 +197,30 @@ frame during resizing. AppKit requests redraws during live resizing. This policy
 scaling and applies without Liquid Glass. The native glass and window controls remain separate.
 Foundation and QuartzCore bindings provide safe access to these native layer settings.
 
-The workspace uses an opaque charcoal background (`#212121`) and darker navigation surfaces
-(`#181818`), inspired by ChatGPT's dark appearance. Headers, settings, and panel gaps share the
-workspace background. Desktop colors never show through these surfaces. Raised badges use `#2f2f2f`.
+The default dark theme uses an opaque charcoal background (`#212121`) and navigation surfaces
+(`#181818`). The optional light theme uses `#fafafa` and `#f0f0f0`. Headers, settings, and panel
+gaps share the workspace background. Desktop colors never show through these surfaces.
 
-The left sidebar combines navigation, projects, and file browsing. Flat content panes use subtle
-separators instead of nested frames. Buttons, inputs, scrollbars, tooltips, and authentication
-dialogs share neutral styles. macOS uses Helvetica Neue. Windows uses Segoe UI. Linux retains the
-bundled sans-serif fallback. Source previews keep their monospace font. Empty states use concise
-messages in all three catalogs.
+Settings persist the selected appearance. Semantic colors in `ui/theme` resolve against Iced's
+current theme. Syntax preparation stores paired colors. Switching themes preserves documents and
+does not repeat highlighting. Source row and overview caches invalidate their colors when appearance
+changes.
 
-Project rows separate selection from file browsing. Double-clicking a project opens its files. The
-folder button provides the same action. Returning to spaces preserves project data. Git and
-pipelines share one optional panel position. Keyboard handling accepts only the close-tab shortcut,
-plus Escape for dialogs. Middle-click closes the targeted tab.
+The left sidebar contains navigation and projects. A separate file panel sits beside the source
+preview, with a vertical toolbar on its left. Flat content panes use subtle separators instead of
+nested frames. Buttons, inputs, scrollbars, tooltips, and authentication dialogs share neutral
+styles. macOS uses Helvetica Neue. Windows uses Segoe UI. Linux retains the bundled sans-serif
+fallback. Source previews keep their monospace font. Empty states use concise messages in all three
+catalogs.
+
+Selecting a project immediately opens its file panel. The file toolbar selects the project-files
+mode directly. Project rows have no separate file button. Project selection preserves the sidebar.
+Git and pipelines share one optional panel position. Keyboard handling accepts only the close-tab
+shortcut, plus Escape for dialogs. Middle-click closes the targeted tab.
 
 Native Liquid Glass remains beneath the renderer on supported macOS versions. The renderer keeps an
-opaque charcoal fallback until native initialization succeeds. Other platforms retain the same
-opaque workspace palette.
+opaque neutral fallback until native initialization succeeds. The fallback follows the selected
+theme. Other platforms retain the same opaque workspace palette.
 
 The launcher tries these backends in order:
 

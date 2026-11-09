@@ -1,7 +1,10 @@
 mod auth;
+mod diff;
 mod git;
+mod git_actions;
 mod modal;
 mod pipelines;
 pub(crate) mod settings;
 mod space_form;
+mod unified;
 pub(crate) mod workspace;

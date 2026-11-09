@@ -4,13 +4,13 @@ use crate::{
     domain::repository::{Branch, ReferenceKind},
     i18n::Key,
     ui::{
-        ellipsis, file_icons, graph,
+        changed_tree, context_menu, ellipsis, file_icons, graph,
         icons::{Icon, icon},
         theme,
     },
 };
 use iced::{
-    Alignment, Element, Font, Length,
+    Alignment, Element, Font, Length, Size,
     widget::{
         Column, Row, button, column, container, pane_grid, responsive, row, scrollable, space,
         text, text_input, tooltip,
@@ -18,36 +18,6 @@ use iced::{
 };
 
 pub(super) fn view(app: &App) -> Element<'_, Message> {
-    let mut header = row![
-        icon(Icon::Branch, theme::MUTED),
-        text(app.i18n.text(Key::Log))
-            .size(14)
-            .font(theme::semibold()),
-        text_input(&app.i18n.text(Key::SearchCommits), &app.query)
-            .on_input(Message::Search)
-            .size(13)
-            .padding([8, 12])
-            .width(240)
-            .style(theme::input),
-        space().width(Length::Fill),
-        icon_button(app, Icon::Refresh, Key::Refresh, Message::Refresh, false),
-        icon_button(
-            app,
-            Icon::Close,
-            Key::HidePanel,
-            Message::TogglePanel(Panel::Git),
-            false
-        )
-    ]
-    .spacing(12)
-    .align_y(Alignment::Center);
-    if app.loading {
-        header = header.push(
-            text(app.i18n.text(Key::Loading))
-                .size(11)
-                .color(theme::FAINT),
-        );
-    }
     let content: Element<'_, Message> = if let Some(error) = app.repository_error {
         center_message(app, error_key(error))
     } else if let Some(repo) = &app.repository {
@@ -72,8 +42,8 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                         .height(Length::Fill),
                     )
                 })
-                .spacing(1)
-                .min_size(120)
+                .spacing(theme::GIT_PANE_SPACING)
+                .min_size(theme::GIT_PANE_MIN_SIZE)
                 .on_resize(6, Message::ResizeGit)
                 .style(theme::panes)
                 .height(Length::Fill),
@@ -86,7 +56,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         center_message(app, Key::Loading)
     };
     container(column![
-        container(header).padding([8, 24]),
+        responsive(move |size| header(app, size.width)).height(Length::Shrink),
         divider(),
         content
     ])
@@ -95,12 +65,107 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     .into()
 }
 
+fn header(app: &App, width: f32) -> Element<'_, Message> {
+    let regions = app.git_panes.layout().pane_regions(
+        theme::GIT_PANE_SPACING,
+        theme::GIT_PANE_MIN_SIZE,
+        Size::new(width, 1.),
+    );
+    let commits = app
+        .git_panes
+        .iter()
+        .find_map(|(pane, panel)| {
+            matches!(panel, GitPanel::Commits)
+                .then(|| regions.get(pane))
+                .flatten()
+        })
+        .copied()
+        .unwrap_or_default();
+    let status = if app.git_actions.pending {
+        Some(Key::GitWorking)
+    } else {
+        app.loading.then_some(Key::Loading)
+    };
+    let mut controls = Row::new().spacing(12).align_y(Alignment::Center);
+    if let Some(status) = status {
+        controls = controls.push(container(ellipsis::text(app.i18n.text(status), 11.)).width(132));
+    }
+    controls = controls
+        .push(icon_button(
+            app,
+            Icon::Refresh,
+            Key::Refresh,
+            Message::Refresh,
+            false,
+        ))
+        .push(icon_button(
+            app,
+            Icon::Close,
+            Key::HidePanel,
+            Message::TogglePanel(Panel::Git),
+            false,
+        ));
+    let controls_width = 92. + if status.is_some() { 144. } else { 0. };
+    // Keep search usable when the branches column occupies most of the panel.
+    let controls_on_left = width - commits.x < controls_width + 136.;
+    let mut title = row![
+        icon(Icon::Branch, theme::MUTED),
+        text(app.i18n.text(Key::Log))
+            .size(14)
+            .font(theme::semibold())
+            .wrapping(text::Wrapping::None),
+        space().width(Length::Fill),
+    ]
+    .spacing(12)
+    .align_y(Alignment::Center);
+    let mut controls = Some(controls);
+    if controls_on_left {
+        title = title.push(controls.take().unwrap());
+    }
+    let title = container(title)
+        .width(commits.x)
+        .height(56)
+        .padding(iced::Padding {
+            top: 8.,
+            bottom: 8.,
+            left: 24.,
+            right: 8.,
+        })
+        .align_y(Alignment::Center);
+    let reserved = if controls_on_left {
+        0.
+    } else {
+        controls_width + 24.
+    };
+    let search_width = (commits.width - 24.)
+        .min(width - commits.x - reserved - 24.)
+        .clamp(0., 560.);
+    let search = container(
+        text_input(&app.i18n.text(Key::SearchCommits), &app.query)
+            .id("git-search")
+            .on_input(Message::Search)
+            .size(13)
+            .padding([8, 12])
+            .width(search_width)
+            .style(theme::input),
+    )
+    .padding([8, 12]);
+    let mut header = row![title, search, space().width(Length::Fill)].align_y(Alignment::Center);
+    if let Some(controls) = controls {
+        header = header.push(container(controls).padding(iced::Padding {
+            right: 24.,
+            ..iced::Padding::ZERO
+        }));
+    }
+    header.into()
+}
+
 fn branches(app: &App, width: f32) -> Element<'_, Message> {
     let label_limit = ((width - 76.) / 7.).max(6.) as usize;
     let mut items = column![
         text(app.i18n.text(Key::Branches))
             .size(11)
-            .color(theme::FAINT),
+            .style(theme::FAINT.text()),
     ]
     .spacing(6);
     if let Some(repo) = &app.repository {
@@ -124,7 +189,9 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                 button(
                     row![
                         file_icons::chevron(!collapsed),
-                        text(app.i18n.text(label)).size(11).color(theme::FAINT),
+                        text(app.i18n.text(label))
+                            .size(11)
+                            .style(theme::FAINT.text()),
                     ]
                     .spacing(4)
                     .align_y(Alignment::Center),
@@ -214,15 +281,23 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
                 .align_y(Alignment::Center);
                 items = items.push(
                     tooltip(
-                        container(
-                            button(line)
-                                .width(Length::Fill)
-                                .padding([5, 6])
-                                .style(theme::action(active))
-                                .on_press(Message::SelectBranch(branch.reference.clone())),
-                        )
-                        .id(format!("branch-{}", branch.reference))
-                        .width(Length::Fill),
+                        context_menu::trigger(
+                            container(
+                                button(line)
+                                    .width(Length::Fill)
+                                    .padding([5, 6])
+                                    .style(theme::action(active))
+                                    .on_press(Message::SelectBranch(branch.reference.clone())),
+                            )
+                            .id(format!("branch-{}", branch.reference))
+                            .width(Length::Fill),
+                            move |position| {
+                                Message::Git(crate::app::git_actions::Message::Menu(
+                                    branch.reference.clone(),
+                                    position,
+                                ))
+                            },
+                        ),
                         text(&branch.name).size(12),
                         tooltip::Position::Right,
                     )
@@ -231,7 +306,58 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
             }
         }
     }
-    container(scrollable(items).style(theme::scroll))
+    use crate::app::git_actions::{Action, Message as GitMessage};
+    let selected = app.repository.as_ref().and_then(|repo| {
+        repo.branches
+            .iter()
+            .find(|branch| Some(&branch.reference) == app.branch.as_ref())
+    });
+    let mut tools = Column::new().spacing(4);
+    for (symbol, key, message) in [
+        (
+            Icon::Fetch,
+            Key::GitFetchAll,
+            Some(Message::Git(GitMessage::Fetch)),
+        ),
+        (
+            Icon::Plus,
+            Key::GitNewBranch,
+            selected.map(|branch| {
+                Message::Git(GitMessage::Choose(Action::Create, branch.reference.clone()))
+            }),
+        ),
+        (
+            Icon::Down,
+            Key::GitUpdateSelected,
+            selected
+                .filter(|branch| branch.kind != ReferenceKind::Tag)
+                .map(|branch| {
+                    Message::Git(GitMessage::Choose(Action::Update, branch.reference.clone()))
+                }),
+        ),
+        (
+            Icon::Upload,
+            Key::GitPush,
+            selected
+                .filter(|branch| branch.kind == ReferenceKind::Local)
+                .map(|branch| {
+                    Message::Git(GitMessage::Choose(Action::Push, branch.reference.clone()))
+                }),
+        ),
+    ] {
+        tools = tools.push(
+            tooltip(
+                button(icon(symbol, theme::MUTED))
+                    .padding(7)
+                    .style(theme::action(false))
+                    .on_press_maybe(message.filter(|_| !app.git_actions.pending)),
+                text(app.i18n.text(key)).size(12),
+                tooltip::Position::Right,
+            )
+            .style(theme::tooltip),
+        );
+    }
+    container(row![tools, scrollable(items).style(theme::scroll)].spacing(8))
         .width(width)
         .height(Length::Fill)
         .padding(16)
@@ -305,7 +431,7 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
     } else {
         68.
     };
-    let table_width = available_width.max(widest_graph + 450.);
+    let table_width = available_width.max(widest_graph + 372. + theme::COMMIT_DATE_WIDTH);
     let start = (((app.history_scroll_y - 28.).max(0.) / 30.) as usize)
         .saturating_sub(8)
         .min(matching.len());
@@ -318,14 +444,14 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
         } else {
             68.
         };
-        let subject_width = table_width - graph_width - 140. - 78. - 36.;
+        let subject_width = table_width - graph_width - 140. - theme::COMMIT_DATE_WIDTH - 36.;
         let graph: Element<'_, Message> = if query.is_empty() {
             graph::view(&commit.graph, graph_width)
         } else {
             text(&commit.id[..7])
                 .font(Font::MONOSPACE)
                 .size(11)
-                .color(theme::BLUE)
+                .style(theme::BLUE.text())
                 .width(68)
                 .into()
         };
@@ -366,7 +492,7 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                 container(
                     text(short(&commit.refs, 15))
                         .size(10)
-                        .color(theme::BLUE)
+                        .style(theme::BLUE.text())
                         .wrapping(text::Wrapping::None),
                 )
                 .padding([2, 5])
@@ -379,9 +505,13 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
             text(short(&commit.author, 20))
                 .size(11)
                 .wrapping(text::Wrapping::None)
-                .color(theme::MUTED)
+                .style(theme::MUTED.text())
                 .width(140),
-            text(&commit.date).size(11).color(theme::FAINT).width(78)
+            text(&commit.date)
+                .size(11)
+                .style(theme::FAINT.text())
+                .wrapping(text::Wrapping::None)
+                .width(theme::COMMIT_DATE_WIDTH)
         ]
         .spacing(8)
         .align_y(Alignment::Center)
@@ -407,16 +537,16 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
     let heading = row![
         text(app.i18n.text(Key::Commit))
             .size(10)
-            .color(theme::FAINT)
+            .style(theme::FAINT.text())
             .width(Length::Fill),
         text(app.i18n.text(Key::Author))
             .size(10)
-            .color(theme::FAINT)
+            .style(theme::FAINT.text())
             .width(140),
         text(app.i18n.text(Key::Date))
             .size(10)
-            .color(theme::FAINT)
-            .width(78)
+            .style(theme::FAINT.text())
+            .width(theme::COMMIT_DATE_WIDTH)
     ]
     .spacing(8)
     .padding([7, 12])
@@ -455,7 +585,7 @@ fn history_footer(app: &App) -> Element<'_, Message> {
         return container(
             text(app.i18n.text(Key::LoadingHistory))
                 .size(12)
-                .color(theme::MUTED),
+                .style(theme::MUTED.text()),
         )
         .padding(12)
         .center_x(Length::Fill)
@@ -473,7 +603,7 @@ fn history_footer(app: &App) -> Element<'_, Message> {
         content = content.push(
             text(app.i18n.text(Key::HistoryLoadFailed))
                 .size(12)
-                .color(theme::MUTED),
+                .style(theme::MUTED.text()),
         );
     }
     content = content.push(
@@ -507,9 +637,11 @@ fn changed_files_content(app: &App, height: f32) -> Element<'_, Message> {
     let heading = row![
         text(app.i18n.text(Key::ChangedFiles))
             .size(11)
-            .color(theme::MUTED)
+            .style(theme::MUTED.text())
             .width(Length::Fill),
-        text(app.changed_files.len()).size(11).color(theme::FAINT),
+        text(app.changed_files.len())
+            .size(11)
+            .style(theme::FAINT.text()),
         container(
             tooltip(
                 button(icon(Icon::Close, theme::MUTED))
@@ -527,105 +659,44 @@ fn changed_files_content(app: &App, height: f32) -> Element<'_, Message> {
     ]
     .spacing(8)
     .align_y(Alignment::Center);
-    let mut files = Column::new().spacing(2);
-    let mut sorted: Vec<_> = app.changed_files.iter().enumerate().collect();
-    sorted.sort_by(|(_, a), (_, b)| a.path.cmp(&b.path));
-    let mut previous: Vec<&str> = Vec::new();
-    for (index, file) in sorted {
-        let components: Vec<_> = file.path.split('/').collect();
-        let folders = &components[..components.len().saturating_sub(1)];
-        let common = folders
-            .iter()
-            .zip(&previous)
-            .take_while(|(a, b)| a == b)
-            .count();
-        let mut hidden = false;
-        for (depth, folder) in folders.iter().enumerate() {
-            let path = folders[..=depth].join("/");
-            let collapsed = app.collapsed_commit_folders.contains(&path);
-            if depth >= common {
-                files = files.push(
-                    button(
-                        row![
-                            space().width((depth.min(5) * 8) as f32),
-                            file_icons::chevron(!collapsed),
-                            file_icons::folder(!collapsed, false),
-                            text(short(folder, 20usize.saturating_sub(depth.min(5) * 2)))
-                                .size(11)
-                                .color(theme::MUTED)
-                        ]
-                        .spacing(3)
-                        .align_y(Alignment::Center)
-                        .height(22),
-                    )
-                    .on_press(Message::ToggleCommitFolder(path))
-                    .padding(0)
-                    .width(Length::Fill)
-                    .style(theme::action(false)),
-                );
-            }
-            if collapsed {
-                hidden = true;
-                break;
-            }
-        }
-        previous = folders.to_vec();
-        if hidden {
-            continue;
-        }
-        let color = match file.status {
-            'A' => theme::GREEN,
-            'D' => theme::RED,
-            _ => theme::BLUE,
-        };
-        let item = row![
-            space().width((folders.len().min(5) * 8) as f32),
-            text(file.status.to_string())
-                .font(Font::MONOSPACE)
-                .size(11)
-                .color(color)
-                .width(18),
-            file_icons::file(std::path::Path::new(&file.path)),
-            text(short(
-                components.last().copied().unwrap_or(&file.path),
-                24usize.saturating_sub(folders.len().min(5) * 2)
-            ))
-            .size(12)
-            .color(color)
-        ]
-        .spacing(6)
-        .align_y(Alignment::Center);
-        files = files.push(
-            tooltip(
-                button(item)
-                    .on_press(Message::OpenCommitFile(index))
-                    .padding([4, 4])
-                    .width(Length::Fill)
-                    .style(theme::action(false)),
-                text(&file.path).size(12),
-                tooltip::Position::Left,
-            )
-            .style(theme::tooltip),
-        );
-    }
+    let entries = app
+        .changed_files
+        .iter()
+        .enumerate()
+        .map(|(index, file)| changed_tree::Entry {
+            path: file.path.clone(),
+            status: crate::domain::changes::FileStatus::from_git(file.status),
+            open: Message::OpenCommitFile(index),
+        })
+        .collect();
+    let mut files = Column::new().push(changed_tree::view(
+        entries,
+        &app.collapsed_commit_folders,
+        &app.i18n,
+        Message::ToggleCommitFolder,
+    ));
     if app.changes_loading {
         files = files.push(
             text(app.i18n.text(Key::Loading))
                 .size(12)
-                .color(theme::MUTED),
+                .style(theme::MUTED.text()),
         );
     }
     if let Some(error) = app.changes_error {
         files = files.push(
             text(app.i18n.text(error_key(error)))
                 .size(12)
-                .color(theme::YELLOW),
+                .style(theme::YELLOW.text()),
         );
     }
     let mut content = column![
         heading,
         divider(),
         scrollable(files)
+            .direction(scrollable::Direction::Both {
+                vertical: scrollable::Scrollbar::default(),
+                horizontal: scrollable::Scrollbar::default()
+            })
             .style(theme::scroll)
             .height(Length::Fill)
             .width(Length::Fill)
@@ -645,7 +716,7 @@ fn changed_files_content(app: &App, height: f32) -> Element<'_, Message> {
                 text(format!("{} · {}", &commit.id[..8], commit.date))
                     .font(Font::MONOSPACE)
                     .size(10)
-                    .color(theme::FAINT),
+                    .style(theme::FAINT.text()),
             );
     }
     content.height(Length::Fill).into()

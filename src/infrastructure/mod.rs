@@ -2,6 +2,7 @@
 
 pub(crate) mod auth;
 mod credentials;
+pub(crate) mod git;
 pub(crate) mod graphics;
 mod http;
 pub(crate) mod locale;

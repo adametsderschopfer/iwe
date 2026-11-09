@@ -5,19 +5,34 @@ Iwe provides a native workspace for local directories, source previews, Git hist
 ## Spaces, projects, and files
 
 Use the plus beside **Spaces** and enter its name. Add existing project folders in the form, then
-choose **Create space**. You can also create an empty space and add projects later. Canceling the
-form discards its name and folder choices.
+choose **Create space**. Select several folders in one directory dialog. Iwe keeps each folder once
+within the space. You can also create an empty space and add projects later. Canceling the form
+discards its name, folder choices, and project order.
 
 Use the settings button beside a space name to edit that space in the same form. Change its name,
 add project folders, or remove projects, then choose **Save changes**. Cancel keeps the saved space
 unchanged. Removing a project only detaches its folder. The application never deletes the folder.
 The header shows the selected space. The files view shows **Space • Project**.
 
+Drag project rows to change their order. The form shows five complete rows and half the sixth row
+when more projects exist. Scroll to reach the remaining projects. A line marks the drop position.
+Holding a dragged row near the list edge scrolls the list. Dropping outside the list cancels the
+move. **Save changes** applies the form's project order.
+
+Drag project rows within their space in the sidebar to change the same order. Sidebar changes save
+immediately and survive restarts. Reordering preserves the open project, file tabs, and loaded
+history. Sidebar rows retain their existing icons. Dragging does not move projects between spaces.
+
+Right-click a project and choose **Pin project**. Pinned projects appear above **Spaces** in a
+separate **Pinned** group. Each row identifies its space. The project retains its space membership
+and disappears from that space's sidebar list. **Unpin project** returns it to the list. Pinning
+survives restarts and does not reload the open project.
+
 Click a space heading or its arrow to collapse or expand its projects. Spaces collapse
 independently. Collapsing a space keeps its selected project open. The edit button remains
 available.
 
-Space settings and project-file buttons share one aligned column at the sidebar's right edge.
+Space settings remain at the sidebar's right edge. Project rows contain no separate file button.
 
 Spaces group projects and have no filesystem path. Their sidebar headings do not open a project.
 Each project represents one directory. Its folder name becomes the project name. Use **Add project**
@@ -25,14 +40,24 @@ beneath a space to attach another folder. Selecting a project opens its files an
 Selecting the current project again preserves its files, history filter, and scroll positions.
 Adding a folder again selects its existing entry within that space.
 
-One click selects a project. Double-click a project or use its folder button to open its files. The
-files view lists the project's contents directly, without a collapsible project row. Nested folders
-keep their expansion arrows. The header identifies the open project. **Back to spaces** returns to
-the project list without reloading the project. Selecting a project starts a background directory
-index. Cached folders appear immediately while their listings refresh. Recently visited projects
-also retain their expanded folders in memory. Opening a folder prioritizes its refresh before
-speculative reads. Refresh keeps existing listings visible. A loading label appears only when an
-uncached request exceeds 350 milliseconds.
+One click selects a project and immediately displays its files beside the projects sidebar. The file
+panel sits between its vertical toolbar and the source preview. The files view lists project
+contents directly, without a collapsible project row. Nested folders keep their expansion arrows.
+The sidebar always retains its projects. Use the file toolbar to select **Project files** directly.
+The panel heading aligns with the first toolbar button. Panel content and status messages share the
+heading's left inset. The scroll area fills the file panel. Scrollbars stay at its edges, regardless
+of filename length.
+
+The vertical toolbar switches between **Project files** and **Uncommitted files**. The latter
+includes staged, unstaged, and untracked files. Drag these icons to change their order. Iwe saves
+the order and opens the first panel after reordering, restarting, or selecting another project.
+**Project files** comes first by default. Missing deleted files open their previous committed
+contents.
+
+Selecting a project starts a background directory index. Cached folders appear immediately while
+their listings refresh. Recently visited projects also retain their expanded folders in memory.
+Opening a folder prioritizes its refresh before speculative reads. Refresh keeps existing listings
+visible. A loading label appears only when an uncached request exceeds 350 milliseconds.
 
 The index stores names, paths, and entry types in the system cache directory. It survives
 application restarts. `IWE_DATA_DIR` places this cache under `cache/trees` inside the selected data
@@ -94,29 +119,53 @@ JavaScript, TypeScript, TSX, Vue, Svelte, Python, Java, Kotlin, Swift, and C-fam
 also include SQL, JSON, YAML, TOML, Dockerfile, Makefile, Terraform, Bash, and Markdown.
 
 The project tree uses 24-pixel rows, 14-pixel text, 16-pixel icons, and 20-pixel nesting steps,
-following the supplied JetBrains reference. Each row centers its name, icon, and status mark.
-Folders show separate expansion arrows and folder icons. Recognized Python packages show a package
-marker. Selecting a folder highlights its row without closing the source preview. Long filenames
-remain complete and scroll horizontally. File-type icons also appear beside changed files in Git.
+following the supplied JetBrains reference. Each row centers its name and icon. Folders show
+separate expansion arrows and folder icons. Recognized Python packages show a package marker.
+Selecting a folder highlights its row without closing the source preview. Long filenames remain
+complete and scroll horizontally. File-type icons also appear beside changed files in Git.
 
-Git decorations color modified files amber and new files green. Badges identify modified (`M`),
-added (`A`), and untracked (`U`) files. Renamed files show `R`, deleted entries show `D`, and
-unresolved conflicts show `!`. Folder dots summarize changes below each folder. Ignored files keep
-their normal appearance. Status and the open working file refresh in the background every three
-seconds.
+Git decorations color modified and renamed filenames cyan. Added and untracked filenames appear
+green. Deleted files and conflicts appear red. Status letters and folder dots are absent. Commit
+files and uncommitted files share the same tree style. Their folders compact consecutive single
+directories and show file counts. File tooltips describe each status. Ignored files keep their
+normal appearance. Status and the open working file refresh in the background every three seconds.
 
 Working-file comparisons use the current branch's `HEAD`, including both staged and unstaged
-changes. Added lines use green backgrounds. Replaced lines use blue backgrounds. Removed lines
-remain visible with red backgrounds and old line numbers. Opening a file outside Git shows a normal
-source preview. Failed comparisons keep readable source and show a retry explanation.
+changes. Two-column comparisons use green for additions, blue for replacements, and red for
+deletions. Removed lines retain their original line numbers. Opening a file outside Git shows a
+normal source preview. Failed comparisons keep readable source and show a retry explanation.
+
+Comparisons open in two columns by default. The previous version appears on the left; the current
+version appears on the right. Each column shows its own line numbers and syntax colors. Colored
+connectors join changed blocks. Changed words receive stronger highlights. Empty rows align
+insertions and deletions with the other version. Vertical scrolling moves both columns together.
+Each column scrolls horizontally on its own.
+
+Vertical scrollbars show changes throughout the file, including changes outside the visible area.
+Green marks identify additions, blue marks identify replacements, and red marks identify deletions.
+Both comparison views include these marks. Folding or expanding unchanged ranges updates their
+positions. The marks leave the scrollbar handle visible and preserve wheel scrolling and dragging.
+
+Use the view button beside the file tabs to switch between two columns and the unified single
+column. Iwe saves this choice for all files and across restarts. Both views retain their scroll
+positions. Switching views keeps the document and expanded unchanged ranges. Commit comparisons use
+the same views. Files without a comparison keep their normal preview and hide the view button.
+
+The unified view shows previous and current line numbers in separate gutter columns. Missing numbers
+identify lines present in only one version. Replaced previous lines use gray-blue backgrounds; their
+replacements use green backgrounds. Deletions without replacements remain red. Word highlights
+retain syntax colors. The line-number setting controls both gutter columns. Unchanged ranges appear
+as clickable wave separators. Hover over a separator to see its line range.
 
 Source rows meet the tab strip and left edge without an outer inset. Line numbers and change markers
 use their own gutter. Space below the final line keeps the horizontal scrollbar clear.
 
 Use the button beside the file tabs to collapse unchanged lines. Changed lines keep their original
 line numbers and colors. Click a collapsed range to expand that range. The button restores all lines
-and the previous scroll position. Each tab keeps its own collapsed state. The same controls apply to
-commit versions. Files without unchanged ranges or valid comparisons do not show this button.
+and the previous scroll position. This mode applies to all files, including commit versions. Iwe
+saves the mode across restarts and applies it to new and restored tabs. Each tab retains its
+individually expanded ranges while its contents remain unchanged. Files without unchanged ranges or
+valid comparisons do not show this button.
 
 ## Git
 
@@ -131,7 +180,13 @@ another branch also closes the changed-files column.
 Install Git and make it available on `PATH`. The Git panel displays local branches, remote branches,
 commit ancestry, and files changed by a selected commit. Selecting a branch filters history without
 checking it out. Search matches commit messages, authors, hashes, references, and dates. The search
-field sits beside the history heading on the left.
+field sits above the commits column. Its position and width follow the column when separators move.
+
+The branch toolbar offers **Fetch all remotes**, **New branch**, **Update selected**, and **Push**.
+Right-click a branch for **Checkout**, **New branch from…**, **Update**, **Push**, **Rename**, and
+**Delete**. Each operation targets that branch. Unavailable actions remain disabled. Creation,
+renaming, pushing, and deletion use dialogs. See [Git actions](git-actions.md) for operation
+behavior.
 
 Opening or refreshing a project selects the checked-out branch and shows its history. Detached
 checkouts show history from HEAD.
@@ -157,11 +212,14 @@ become widgets.
 The graph uses actual parent hashes and preserves branch lanes across pages. Commit file changes
 compare against the first parent. Root commits compare against an empty tree. Commit previews
 highlight changes against that same parent. Deleted files show their previous contents in red. The
-file tab identifies the selected commit. Other files open their selected commit revision. The
-application never commits, checks out, pushes, or modifies repository files.
+file tab identifies the selected commit. Other files open their selected commit revision. History
+and source previews remain read-only. Only explicit Git actions change branches, files, or remotes.
+Iwe does not create commits.
 
 Commit titles follow the active graph lanes in each row. Wider sections elsewhere do not add empty
-space before titles. Author and date columns remain aligned.
+space before titles. Author and date columns remain aligned. Dates include hours and minutes in the
+format `YYYY-MM-DD HH:MM`, using the author's recorded time zone. The selected commit's details show
+the same timestamp.
 
 ## Pipelines
 
@@ -226,9 +284,11 @@ its result. Switching directories also cancels pending authorization. See
 
 The gear at the bottom left opens settings. Tabs separate General, Code, Panels, Keyboard shortcuts,
 and About. General selects English, Russian, Spanish, or the system language. Language changes apply
-immediately. Code adjusts the source font size and line numbers. Opening Git closes pipelines.
-Opening pipelines closes Git. Both panels can remain hidden. Drag the horizontal divider to resize
-the visible panel.
+immediately. General also switches between **Dark** and **Light** appearance. Dark remains the
+default. Appearance changes apply immediately to panels, dialogs, source code, and both diff views.
+The choice survives restarts. Switching themes preserves open files and scroll positions. Code
+adjusts the source font size and line numbers. Opening Git closes pipelines. Opening pipelines
+closes Git. Both panels can remain hidden. Drag the horizontal divider to resize the visible panel.
 
 Preferences and projects are saved automatically in the system configuration directory. Writes
 replace the previous configuration atomically. A damaged configuration is preserved without

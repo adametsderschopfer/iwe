@@ -3,9 +3,10 @@
 Follow these rules when [AGENTS.md](../../AGENTS.md) directs you here. Read
 [workspace behavior](../workspace.md) for current persistence and repository limits.
 
-Iwe reads project files and Git history without modifying repositories. It stores workspace metadata
-and derived directory caches separately. Store credentials in the operating-system credential store.
-Never store credentials in workspace metadata.
+Source previews and Git history reads do not modify repositories. Only explicit Git actions may
+change branches, working files, or remotes. Keep their validation and execution in infrastructure.
+Iwe stores workspace metadata and derived directory caches separately. Store credentials in the
+operating-system credential store. Never store credentials in workspace metadata.
 
 Apply operation and verification rules to current storage changes. Apply vault-specific rules only
 when adding an application-managed Markdown vault. Existing project directories are not managed

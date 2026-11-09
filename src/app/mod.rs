@@ -3,6 +3,7 @@
 pub(crate) mod auth;
 pub(crate) mod changes;
 pub(crate) mod files;
+pub(crate) mod git_actions;
 pub(crate) mod jobs;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
@@ -10,7 +11,7 @@ pub(crate) mod tabs;
 use crate::domain::{
     Failure,
     repository::{ChangedFile, HistoryPage, Pipeline, Provider, Repository},
-    workspace::{FileEntry, Workspace},
+    workspace::{Appearance, FileEntry, FilePanel, Workspace},
 };
 use crate::i18n::{I18n, Key, Language};
 use crate::infrastructure::{pipelines, repository, window_effect, workspace};
@@ -68,9 +69,9 @@ fn application(
             iced::event::listen_with(|event, _, _| shortcut(event)),
         ])
     })
-    .theme(Theme::Dark)
+    .theme(App::theme)
     .default_font(theme::font())
-    .style(|state, _| theme::application_style(state.glass_ready))
+    .style(|state, theme| theme::application_style(state.glass_ready, theme))
 }
 
 fn shortcut(event: iced::Event) -> Option<Message> {
@@ -161,6 +162,10 @@ pub(crate) struct App {
     pub tree: BTreeMap<PathBuf, Vec<FileEntry>>,
     pub expanded: BTreeSet<PathBuf>,
     pub files: files::State,
+    pub file_panel: FilePanel,
+    pub git_actions: git_actions::State,
+    pub project_menu: Option<(usize, PathBuf, iced::Point)>,
+    pub collapsed_worktree_folders: BTreeSet<String>,
     pub changes: changes::State,
     pub tabs: tabs::State,
     pub branch: Option<String>,
@@ -211,16 +216,25 @@ pub(crate) enum Message {
     Navigate(Navigation),
     SelectSettingsTab(SettingsTab),
     Space(spaces::Message),
+    Git(git_actions::Message),
+    ProjectMenu(usize, PathBuf, iced::Point),
+    TogglePinned,
+    CloseProjectMenu,
     DismissDialog,
     SelectProject(usize, usize),
-    OpenProjectFiles(usize, usize),
     ToggleSpace(usize),
     Refresh,
     RepositoryLoaded(u64, u64, Result<Repository, Failure>),
     HistoryLoaded(u64, u64, usize, Result<HistoryPage, Failure>),
-    HistoryScrolled { offset: f32, remaining: f32 },
+    HistoryScrolled {
+        offset: f32,
+        remaining: f32,
+    },
     LoadMoreHistory,
     ToggleFolder(PathBuf),
+    SelectFilePanel(FilePanel),
+    MoveFilePanel(usize, usize),
+    ToggleWorktreeFolder(String),
     Files(files::Event),
     Worktree(changes::Event),
     OpenFile(PathBuf),
@@ -246,6 +260,7 @@ pub(crate) enum Message {
     OpenUrl(String),
     Opened(Result<(), Failure>),
     SetLanguage(String),
+    SetAppearance(Appearance),
     SetCodeSize(u16),
     SetLineNumbers(bool),
     CopyPath,
@@ -254,12 +269,30 @@ pub(crate) enum Message {
     CloseActiveTab,
     ReopenClosedTab,
     ToggleUnchanged(u64),
+    ToggleDiffView(u64),
     ExpandUnchanged(u64, std::ops::Range<usize>),
-    CodeScrolled { id: u64, x: f32, y: f32 },
+    CodeScrolled {
+        id: u64,
+        x: f32,
+        y: f32,
+    },
+    DiffScrolled {
+        id: u64,
+        side: crate::ui::code::comparison::Side,
+        x: f32,
+        y: f32,
+    },
     ClearNotice,
 }
 
 impl App {
+    pub(crate) fn theme(&self) -> Theme {
+        match self.workspace.preferences.appearance {
+            Appearance::Dark => Theme::Dark,
+            Appearance::Light => Theme::Light,
+        }
+    }
+
     fn new(i18n: Rc<I18n>) -> Self {
         Self {
             i18n,
@@ -277,6 +310,10 @@ impl App {
             tree: BTreeMap::new(),
             expanded: BTreeSet::new(),
             files: files::State::default(),
+            file_panel: FilePanel::Project,
+            git_actions: git_actions::State::default(),
+            project_menu: None,
+            collapsed_worktree_folders: BTreeSet::new(),
             changes: changes::State::default(),
             tabs: tabs::State::default(),
             branch: None,
@@ -318,19 +355,23 @@ impl App {
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
-        if (self.auth_dialog.is_some() || self.space_draft.is_some())
+        if (self.auth_dialog.is_some()
+            || self.space_draft.is_some()
+            || self.git_actions.dialog.is_some())
             && matches!(
                 message,
                 Message::Navigate(_)
                     | Message::SelectSettingsTab(_)
                     | Message::SelectProject(_, _)
-                    | Message::OpenProjectFiles(_, _)
+                    | Message::SelectFilePanel(_)
+                    | Message::MoveFilePanel(_, _)
                     | Message::Refresh
                     | Message::SelectTab(_)
                     | Message::CloseTab(_)
                     | Message::CloseActiveTab
                     | Message::ReopenClosedTab
                     | Message::ToggleUnchanged(_)
+                    | Message::ToggleDiffView(_)
                     | Message::ExpandUnchanged(_, _)
                     | Message::Jobs(
                         jobs::Event::Select(_) | jobs::Event::Back | jobs::Event::Control(_, _)
@@ -340,6 +381,29 @@ impl App {
             return Task::none();
         }
         match message {
+            Message::Git(message) => return self.update_git(message),
+            Message::ProjectMenu(space, path, point)
+                if self.space_draft.is_none()
+                    && self.auth_dialog.is_none()
+                    && self.git_actions.dialog.is_none() =>
+            {
+                self.git_actions.menu = None;
+                self.project_menu = Some((space, path, point));
+            }
+            Message::CloseProjectMenu => self.project_menu = None,
+            Message::TogglePinned => {
+                if let Some((space, path, _)) = self.project_menu.take()
+                    && let Some(project) = self.workspace.spaces.get_mut(space).and_then(|group| {
+                        group
+                            .projects
+                            .iter_mut()
+                            .find(|project| project.directory == path)
+                    })
+                {
+                    project.pinned = !project.pinned;
+                    return self.save();
+                }
+            }
             Message::WindowOpened(id) => {
                 self.window_id = Some(id);
                 return window::run(id, window_effect::apply).map(Message::GlassConfigured);
@@ -359,6 +423,8 @@ impl App {
                 match result {
                     Ok((workspace, directory)) => {
                         self.workspace = workspace;
+                        self.workspace.normalize();
+                        self.file_panel = self.workspace.preferences.file_panels[0];
                         if let Some(directory) = directory {
                             dialog = self.open_space(vec![directory]);
                         }
@@ -385,12 +451,17 @@ impl App {
             Message::SelectSettingsTab(tab) => self.settings_tab = tab,
             Message::Space(message) => return self.update_space(message),
             Message::DismissDialog => {
+                self.project_menu = None;
+                if self.git_actions.menu.is_some() || self.git_actions.dialog.is_some() {
+                    return self.update_git(git_actions::Message::Close);
+                }
                 if self.space_draft.is_some() {
                     return self.update_space(spaces::Message::Cancel);
                 }
                 return self.update_auth(auth::Message::Cancel);
             }
             Message::SelectProject(space, project) => {
+                self.navigation = Navigation::Projects;
                 if self.workspace.selected_space == Some(space)
                     && self.workspace.selected_project == Some(project)
                 {
@@ -400,21 +471,27 @@ impl App {
                     return Task::batch([self.load_directory(), self.save()]);
                 }
             }
-            Message::OpenProjectFiles(space, project) => {
-                let task = self.update(Message::SelectProject(space, project));
-                if self.workspace.selected_space == Some(space)
-                    && self.workspace.selected_project == Some(project)
-                {
-                    self.navigation = Navigation::Files;
-                }
-                return task;
-            }
             Message::ToggleSpace(index) if index < self.workspace.spaces.len() => {
                 if !self.collapsed_spaces.remove(&index) {
                     self.collapsed_spaces.insert(index);
                 }
             }
             Message::Refresh => return self.load_directory(),
+            Message::SelectFilePanel(panel) => self.file_panel = panel,
+            Message::MoveFilePanel(from, to) => {
+                let panels = &mut self.workspace.preferences.file_panels;
+                if from < panels.len() && to < panels.len() && from != to {
+                    let panel = panels.remove(from);
+                    panels.insert(to, panel);
+                    self.file_panel = panels[0];
+                    return self.save();
+                }
+            }
+            Message::ToggleWorktreeFolder(path) => {
+                if !self.collapsed_worktree_folders.remove(&path) {
+                    self.collapsed_worktree_folders.insert(path);
+                }
+            }
             Message::RepositoryLoaded(generation, request, result)
                 if generation == self.generation && request == self.repo_request =>
             {
@@ -647,6 +724,10 @@ impl App {
                 self.apply_language();
                 return self.save();
             }
+            Message::SetAppearance(appearance) => {
+                self.workspace.preferences.appearance = appearance;
+                return self.save();
+            }
             Message::SetCodeSize(size) => {
                 self.workspace.preferences.code_size = size.clamp(11, 22);
                 return self.save();
@@ -663,7 +744,9 @@ impl App {
             Message::SelectTab(id) => return self.select_tab(id),
             Message::CloseTab(id) => return self.close_tab(id),
             Message::ToggleUnchanged(id) => return self.toggle_unchanged(id),
+            Message::ToggleDiffView(id) => return self.toggle_diff_view(id),
             Message::ExpandUnchanged(id, range) => return self.expand_unchanged(id, range),
+            Message::DiffScrolled { id, side, x, y } => return self.scroll_diff(id, side, x, y),
             Message::CloseActiveTab if self.navigation != Navigation::Settings => {
                 return self.close_tab(self.preview().id);
             }
@@ -706,6 +789,8 @@ impl App {
     }
 
     fn load_directory(&mut self) -> Task<Message> {
+        self.git_actions.menu = None;
+        self.project_menu = None;
         let directory = self.workspace.directory().cloned();
         let same_project = self.project_directory == directory;
         self.project_directory = directory;
@@ -713,6 +798,8 @@ impl App {
         self.disconnecting = false;
         self.generation += 1;
         if !same_project {
+            self.file_panel = self.workspace.preferences.file_panels[0];
+            self.collapsed_worktree_folders.clear();
             self.reset_jobs();
             self.repository = None;
             self.account_username = None;

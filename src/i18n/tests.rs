@@ -45,6 +45,12 @@ fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
         for &key in Key::ALL {
             let mut args = FluentArgs::new();
             match key {
+                Key::GitNewBranchFrom => {
+                    args.set("branch", "main");
+                }
+                Key::FileCount => {
+                    args.set("count", 3);
+                }
                 Key::UnchangedLines => {
                     args.set("start", 1);
                     args.set("end", 42);

@@ -61,7 +61,8 @@ fn project_contents_stay_visible_without_a_collapsible_root() {
             ..Default::default()
         };
         let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
-        assert!(ui.find("project").is_err());
+        assert!(ui.find(Id::new("file-tree-/project")).is_err());
+        assert!(ui.find(Id::new("space-project-0-0")).is_ok());
         assert!(ui.find("Work • project").is_ok());
         let source = ui.find("src").unwrap().visible_bounds().unwrap();
         let readme = ui.find("README.md").unwrap().visible_bounds().unwrap();
@@ -272,7 +273,7 @@ fn file_tree_centers_names_inside_each_row() {
             .unwrap()
             .visible_bounds()
             .unwrap();
-        assert_eq!(row.height, 24.);
+        assert!((row.height - 24.).abs() < 0.001);
         assert!((label.center_y() - row.center_y()).abs() < 0.1);
     }
     if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {

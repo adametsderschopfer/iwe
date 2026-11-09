@@ -97,7 +97,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         body = body.push(
             text(app.i18n.text(Key::JobActionPending))
                 .size(12)
-                .color(theme::MUTED),
+                .style(theme::MUTED.text()),
         );
     }
     if let Some(error) = app.jobs.action_error.or(app.jobs.error) {
@@ -119,7 +119,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
             row![
                 text(app.i18n.text(key))
                     .size(12)
-                    .color(theme::RED)
+                    .style(theme::RED.text())
                     .width(Length::Fill),
                 button(
                     text(
@@ -145,7 +145,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
             body = body.push(
                 text(app.i18n.text(Key::NoJobs))
                     .size(13)
-                    .color(theme::MUTED),
+                    .style(theme::MUTED.text()),
             );
         }
         for (index, stage) in details.stages.iter().enumerate() {
@@ -164,7 +164,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                             )
                             .size(13)
                             .font(theme::semibold()),
-                            text(stage.jobs.len()).size(11).color(theme::FAINT),
+                            text(stage.jobs.len()).size(11).style(theme::FAINT.text()),
                         ]
                         .spacing(8)
                         .align_y(Alignment::Center),
@@ -182,7 +182,10 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
             for job in &stage.jobs {
                 let (key, color) = status(&job.status);
                 let mut item = row![
-                    text(app.i18n.text(key)).size(12).color(color).width(130),
+                    text(app.i18n.text(key))
+                        .size(12)
+                        .style(color.text())
+                        .width(130),
                     tooltip(
                         container(ellipsis::text(&job.name, 12.)).width(Length::Fill),
                         text(&job.name).size(12),

@@ -41,7 +41,7 @@ Build a consistent, maintainable design system.
 
 ### Application palette
 
-Preserve Iwe's neutral dark appearance. Follow
+Preserve Iwe's neutral appearance in both themes. Dark remains the default. Follow
 [the window and graphics guide](../architecture.md#window-and-graphics) for current behavior.
 
 | Role       | Color     | Intended use                           |
@@ -52,6 +52,11 @@ Preserve Iwe's neutral dark appearance. Follow
 | Text       | `#ececec` | Primary readable text                  |
 | Secondary  | `#b4b4b4` | Supporting text and secondary elements |
 | Accent     | `#8bb4eb` | Blue interface accents                 |
+
+These values describe the dark theme. Use `#fafafa` backgrounds and `#f0f0f0` navigation surfaces in
+the light theme. Resolve semantic colors from the selected theme, including code and Canvas content.
+Preserve document state when appearance changes. Invalidate cached drawing colors when the theme
+changes.
 
 Centralize colors in `ui/theme`. Do not duplicate hexadecimal values across screens. Do not derive
 entity meaning from color alone. Keep foregrounds readable on each surface. Preserve native Liquid

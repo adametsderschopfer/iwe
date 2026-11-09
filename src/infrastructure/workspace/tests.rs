@@ -1,6 +1,31 @@
 use super::*;
 
 #[test]
+fn reordered_projects_keep_their_order_and_selection_after_reopening() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace.json");
+    let mut workspace = Workspace::default();
+    workspace.create_space(
+        "Team".to_owned(),
+        ["api", "web", "docs"].map(PathBuf::from).to_vec(),
+    );
+    workspace.select_project(0, 1);
+    assert!(workspace.move_project(0, 1, 0));
+    save_at(&path, &workspace).unwrap();
+    let mut restored = load_at(&path).unwrap();
+    restored.normalize();
+    assert_eq!(
+        restored.spaces[0]
+            .projects
+            .iter()
+            .map(|project| project.name.as_str())
+            .collect::<Vec<_>>(),
+        ["web", "api", "docs"]
+    );
+    assert_eq!(restored.directory(), Some(&PathBuf::from("web")));
+}
+
+#[test]
 fn legacy_storage_is_backed_up_before_spaces_are_saved() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("workspace.json");
@@ -16,6 +41,10 @@ fn legacy_storage_is_backed_up_before_spaces_are_saved() {
     assert_eq!(restored.spaces[0].name, "Team");
     assert_eq!(restored.spaces[0].projects.len(), 2);
     assert_eq!(restored.preferences.language.as_deref(), Some("ru"));
+    assert_eq!(
+        restored.preferences.appearance,
+        crate::domain::workspace::Appearance::Dark
+    );
     assert_eq!(std::fs::read(&backup).unwrap(), bytes);
     std::fs::write(&path, b"invalid json").unwrap();
     assert!(matches!(load_at(&path), Err(Failure::Storage)));
@@ -31,10 +60,15 @@ fn storage_roundtrip_preserves_preferences_and_overwrites_atomically() {
     save_at(&path, &workspace).unwrap();
     workspace.preferences.language = Some("es".to_owned());
     workspace.preferences.code_size = 18;
+    workspace.preferences.appearance = crate::domain::workspace::Appearance::Light;
     save_at(&path, &workspace).unwrap();
     let restored: Workspace = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     assert_eq!(restored.preferences.language.as_deref(), Some("es"));
     assert_eq!(restored.preferences.code_size, 18);
+    assert_eq!(
+        restored.preferences.appearance,
+        crate::domain::workspace::Appearance::Light
+    );
     assert_eq!(restored.spaces.len(), 1);
     assert_eq!(restored.spaces[0].projects.len(), 1);
 }

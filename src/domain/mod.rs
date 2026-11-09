@@ -2,6 +2,7 @@
 
 pub(crate) mod auth;
 pub(crate) mod changes;
+pub(crate) mod git;
 pub(crate) mod jobs;
 pub(crate) mod repository;
 pub(crate) mod workspace;

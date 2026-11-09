@@ -31,7 +31,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                 16
             ))
             .size(11)
-            .color(theme::MUTED),
+            .style(theme::MUTED.text()),
             button(
                 text(app.i18n.text(if app.account_username.is_some() {
                     Key::Disconnect
@@ -59,11 +59,11 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         text(app.i18n.text(Key::Pipelines))
             .size(14)
             .font(theme::semibold()),
-        text(provider).size(12).color(theme::FAINT),
+        text(provider).size(12).style(theme::FAINT.text()),
         space().width(Length::Fill),
         text(short(&remote.project, 24))
             .size(12)
-            .color(theme::MUTED),
+            .style(theme::MUTED.text()),
         account,
         icon_button(
             app,
@@ -132,7 +132,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                                 Key::RetryDescription
                             }))
                             .size(12)
-                            .color(theme::MUTED)
+                            .style(theme::MUTED.text())
                         ]
                         .spacing(6)
                         .width(Length::Fill),
@@ -162,16 +162,19 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                         run.title.clone()
                     };
                     let item = row![
-                        text(app.i18n.text(key)).size(12).color(color).width(130),
+                        text(app.i18n.text(key))
+                            .size(12)
+                            .style(color.text())
+                            .width(130),
                         text(short(&title, 75)).size(12).width(Length::Fill),
                         icon(Icon::Branch, theme::MUTED),
                         text(short(&run.branch, 24))
                             .size(11)
-                            .color(theme::MUTED)
+                            .style(theme::MUTED.text())
                             .width(180),
                         text(short(&run.date.replace('T', " "), 16))
                             .size(11)
-                            .color(theme::FAINT)
+                            .style(theme::FAINT.text())
                             .width(140),
                     ]
                     .spacing(10)
@@ -221,7 +224,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-fn status(value: &str) -> (Key, iced::Color) {
+fn status(value: &str) -> (Key, theme::Tone) {
     match value {
         "success" | "passed" => (Key::Passed, theme::GREEN),
         "failure" | "failed" | "timed_out" | "startup_failure" | "action_required" => {

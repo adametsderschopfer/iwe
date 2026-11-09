@@ -29,7 +29,7 @@ fn source_is_preserved_and_unknown_syntax_still_displays_text() {
     );
 }
 
-fn color_at(document: &Document, line: usize, token: &str) -> Color {
+fn color_at(document: &Document, line: usize, token: &str) -> Tone {
     let spans = &document.lines[line];
     let text: String = spans.iter().map(|(text, _)| text.as_str()).collect();
     let target = text.find(token).expect("Token occurs in the fixture");

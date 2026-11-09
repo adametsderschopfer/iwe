@@ -1,6 +1,59 @@
 use super::*;
 
 #[test]
+fn project_reordering_preserves_metadata_and_every_active_selection() {
+    for selected in 0..4 {
+        for (from, to) in [(0, 3), (3, 0), (1, 2), (2, 1)] {
+            let mut workspace = Workspace::default();
+            workspace.create_space(
+                "Team".to_owned(),
+                ["api", "web", "docs", "tools"].map(PathBuf::from).to_vec(),
+            );
+            workspace.spaces[0].projects[1].name = "Website".to_owned();
+            workspace.select_project(0, selected);
+            let directory = workspace.directory().cloned();
+            let moved = workspace.spaces[0].projects[from].directory.clone();
+            assert!(workspace.move_project(0, from, to));
+            assert_eq!(workspace.spaces[0].projects[to].directory, moved);
+            assert_eq!(workspace.directory(), directory.as_ref());
+            assert_eq!(
+                workspace.spaces[0]
+                    .projects
+                    .iter()
+                    .find(|project| project.directory == PathBuf::from("web"))
+                    .unwrap()
+                    .name,
+                "Website"
+            );
+            let mut restored: Workspace =
+                serde_json::from_value(serde_json::to_value(&workspace).unwrap()).unwrap();
+            restored.normalize();
+            assert_eq!(restored.directory(), directory.as_ref());
+            assert_eq!(restored.spaces[0].projects[to].directory, moved);
+        }
+    }
+}
+
+#[test]
+fn invalid_moves_and_reordering_another_space_preserve_selection() {
+    let mut workspace = Workspace::default();
+    workspace.create_space(
+        "Team".to_owned(),
+        ["api", "web"].map(PathBuf::from).to_vec(),
+    );
+    workspace.create_space("Other".to_owned(), vec![PathBuf::from("notes")]);
+    let before = serde_json::to_value(&workspace).unwrap();
+    for (space, from, to) in [(99, 0, 1), (0, 2, 0), (0, 0, 2), (0, 0, 0)] {
+        assert!(!workspace.move_project(space, from, to));
+        assert_eq!(serde_json::to_value(&workspace).unwrap(), before);
+    }
+    assert!(workspace.move_project(0, 0, 1));
+    assert_eq!(workspace.selected_space, Some(1));
+    assert_eq!(workspace.selected_project, Some(0));
+    assert_eq!(workspace.directory(), Some(&PathBuf::from("notes")));
+}
+
+#[test]
 fn editing_spaces_keeps_selection_valid_when_projects_are_removed() {
     let mut workspace = Workspace::default();
     workspace.create_space(

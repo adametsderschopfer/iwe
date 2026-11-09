@@ -1,22 +1,27 @@
-//! Use opaque charcoal surfaces above the native window material.
+//! Share neutral dark and light surfaces above the native window material.
 
+mod palette;
 pub(crate) mod syntax;
+pub(crate) use palette::*;
 
-pub(crate) const GIT_ADDED: iced::Color = iced::Color::from_rgb8(115, 201, 145);
-pub(crate) const GIT_MODIFIED: iced::Color = iced::Color::from_rgb8(226, 192, 141);
-pub(crate) const DIFF_MODIFIED: iced::Color = iced::Color::from_rgb8(117, 190, 255);
-pub(crate) const GIT_REMOVED: iced::Color = iced::Color::from_rgb8(241, 108, 108);
+use iced::{
+    Border, Color, Font, Theme, font, theme,
+    widget::{
+        button, container, overlay::menu, pane_grid, pick_list, scrollable, slider, text_input,
+        toggler,
+    },
+};
 
-pub(crate) fn file_status(status: crate::domain::changes::FileStatus) -> iced::Color {
+pub(crate) fn file_status(status: crate::domain::changes::FileStatus) -> Tone {
     use crate::domain::changes::FileStatus;
     match status {
-        FileStatus::Untracked | FileStatus::Added | FileStatus::Renamed => GIT_ADDED,
-        FileStatus::Modified => GIT_MODIFIED,
+        FileStatus::Untracked | FileStatus::Added => FILE_ADDED,
+        FileStatus::Modified | FileStatus::Renamed => FILE_MODIFIED,
         FileStatus::Deleted | FileStatus::Conflict => GIT_REMOVED,
     }
 }
 
-pub(crate) fn line_change(change: crate::ui::code::LineChange) -> iced::Color {
+pub(crate) fn line_change(change: crate::ui::code::LineChange) -> Tone {
     use crate::ui::code::LineChange;
     match change {
         LineChange::Added => GIT_ADDED,
@@ -25,44 +30,79 @@ pub(crate) fn line_change(change: crate::ui::code::LineChange) -> iced::Color {
     }
 }
 
-pub(crate) fn diff_row(
+pub(crate) fn unified_color(change: crate::ui::code::LineChange) -> Tone {
+    match change {
+        crate::ui::code::LineChange::Modified => UNIFIED_MODIFIED,
+        _ => line_change(change),
+    }
+}
+
+pub(crate) fn change_fill(color: Tone, theme: &Theme, opacity: f32) -> Color {
+    let opacity = if theme.extended_palette().is_dark {
+        opacity
+    } else {
+        opacity * 0.4
+    };
+    color.resolve(theme).scale_alpha(opacity)
+}
+
+pub(crate) fn unified_row(
     change: Option<crate::ui::code::LineChange>,
-) -> impl Fn(&iced::Theme) -> iced::widget::container::Style {
-    move |_| iced::widget::container::Style {
-        background: change.map(|change| {
-            iced::Color {
-                a: 0.11,
-                ..line_change(change)
-            }
-            .into()
-        }),
+) -> impl Fn(&Theme) -> container::Style {
+    move |theme| container::Style {
+        background: change.map(|change| change_fill(unified_color(change), theme, 0.20).into()),
         ..Default::default()
     }
 }
 
-use iced::{
-    Border, Color, Font, Theme, font, theme,
-    widget::{button, container, pane_grid, scrollable, slider, text_input, toggler},
-};
+pub(crate) fn unified_gutter(
+    change: Option<crate::ui::code::LineChange>,
+) -> impl Fn(&Theme) -> container::Style {
+    move |theme| container::Style {
+        background: Some(
+            change
+                .map_or_else(
+                    || SIDEBAR.resolve(theme),
+                    |change| change_fill(unified_color(change), theme, 0.12),
+                )
+                .into(),
+        ),
+        ..Default::default()
+    }
+}
 
-const BACKGROUND: Color = Color::from_rgb8(33, 33, 33);
-const SIDEBAR: Color = Color::from_rgb8(24, 24, 24);
-const ELEVATED: Color = Color::from_rgb8(47, 47, 47);
+pub(crate) fn diff_row(
+    change: Option<crate::ui::code::LineChange>,
+) -> impl Fn(&Theme) -> container::Style {
+    move |theme| container::Style {
+        background: change.map(|change| change_fill(line_change(change), theme, 0.11).into()),
+        ..Default::default()
+    }
+}
 
 pub(crate) const SIDEBAR_WIDTH: f32 = 264.0;
+pub(crate) const PROJECT_FILES_WIDTH: f32 = 280.0;
+pub(crate) const FILE_PANEL_TOOL_SIZE: f32 = 40.0;
+pub(crate) const FILE_PANEL_TOOL_INSET: f32 = 4.0;
+pub(crate) const FILE_PANEL_HEADER_HEIGHT: f32 = FILE_PANEL_TOOL_SIZE + FILE_PANEL_TOOL_INSET * 2.0;
+pub(crate) const FILE_PANEL_CONTENT_INSET: f32 = 8.0;
+pub(crate) const COMMIT_DATE_WIDTH: f32 = 120.0;
+pub(crate) const CODE_SCROLLBAR_WIDTH: f32 = 20.0;
+pub(crate) const CODE_SCROLLBAR_THUMB_WIDTH: f32 = 10.0;
+pub(crate) const CODE_CHANGE_MARK_WIDTH: f32 = 4.0;
+pub(crate) const CODE_CHANGE_MARK_MIN_HEIGHT: f32 = 3.0;
+pub(crate) const UNIFIED_NUMBER_MIN_WIDTH: f32 = 32.0;
+pub(crate) const UNIFIED_NUMBER_GAP: f32 = 6.0;
+pub(crate) const UNIFIED_GUTTER_PADDING: f32 = 8.0;
+pub(crate) const GIT_PANE_SPACING: f32 = 1.0;
+pub(crate) const GIT_PANE_MIN_SIZE: f32 = 120.0;
 pub(crate) const SIDEBAR_TOP_INSET: f32 = 32.0;
 pub(crate) const FILE_TAB_WIDTH: f32 = 200.0;
 pub(crate) const FILE_TREE_ROW_HEIGHT: f32 = 24.0;
 pub(crate) const FILE_TREE_TEXT_SIZE: f32 = 14.0;
 pub(crate) const FILE_TREE_INDENT: f32 = 20.0;
-pub(crate) const TEXT: Color = Color::from_rgb8(236, 236, 236);
-pub(crate) const MUTED: Color = Color::from_rgb8(180, 180, 180);
-pub(crate) const FAINT: Color = Color::from_rgb8(148, 148, 148);
-pub(crate) const LINE: Color = Color::from_rgb8(55, 55, 55);
-pub(crate) const GREEN: Color = Color::from_rgb8(129, 201, 156);
-pub(crate) const BLUE: Color = Color::from_rgb8(139, 180, 235);
-pub(crate) const RED: Color = Color::from_rgb8(236, 145, 145);
-pub(crate) const YELLOW: Color = Color::from_rgb8(222, 194, 135);
+pub(crate) const SPACE_PROJECT_HEIGHT: f32 = 56.0;
+pub(crate) const SPACE_PROJECT_GAP: f32 = 4.0;
 
 pub(crate) fn font() -> Font {
     if cfg!(target_os = "macos") {
@@ -88,11 +128,16 @@ pub(crate) fn toggle(theme: &Theme, status: toggler::Status) -> toggler::Style {
         | toggler::Status::Disabled { is_toggled } => is_toggled,
     };
     let mut style = toggler::default(theme, status);
-    style.background = if active { TEXT } else { LINE }.into();
-    style.foreground = if active {
-        Color::from_rgb8(32, 32, 32)
+    style.background = if active {
+        TEXT.resolve(theme)
     } else {
-        MUTED
+        LINE.resolve(theme)
+    }
+    .into();
+    style.foreground = if active {
+        PRIMARY_TEXT.resolve(theme)
+    } else {
+        MUTED.resolve(theme)
     }
     .into();
     style
@@ -100,23 +145,56 @@ pub(crate) fn toggle(theme: &Theme, status: toggler::Status) -> toggler::Style {
 
 pub(crate) fn font_slider(theme: &Theme, status: slider::Status) -> slider::Style {
     let mut style = slider::default(theme, status);
-    style.rail.backgrounds = (TEXT.into(), LINE.into());
-    style.handle.background = TEXT.into();
+    style.rail.backgrounds = (TEXT.resolve(theme).into(), LINE.resolve(theme).into());
+    style.handle.background = TEXT.resolve(theme).into();
     style
 }
 
-pub(crate) fn surface(_: &Theme) -> container::Style {
+pub(crate) fn select(theme: &Theme, status: pick_list::Status) -> pick_list::Style {
+    pick_list::Style {
+        text_color: TEXT.resolve(theme),
+        placeholder_color: FAINT.resolve(theme),
+        handle_color: MUTED.resolve(theme),
+        background: ELEVATED.resolve(theme).into(),
+        border: Border {
+            color: if matches!(status, pick_list::Status::Active) {
+                LINE.resolve(theme)
+            } else {
+                MUTED.resolve(theme)
+            },
+            width: 1.,
+            radius: 10.0.into(),
+        },
+    }
+}
+
+pub(crate) fn select_menu(theme: &Theme) -> menu::Style {
+    menu::Style {
+        background: ELEVATED.resolve(theme).into(),
+        border: Border {
+            color: LINE.resolve(theme),
+            width: 1.,
+            radius: 10.0.into(),
+        },
+        text_color: TEXT.resolve(theme),
+        selected_text_color: TEXT.resolve(theme),
+        selected_background: LINE.resolve(theme).into(),
+        shadow: Default::default(),
+    }
+}
+
+pub(crate) fn surface(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(BACKGROUND.into()),
-        text_color: Some(TEXT),
+        background: Some(BACKGROUND.resolve(theme).into()),
+        text_color: Some(TEXT.resolve(theme)),
         ..Default::default()
     }
 }
 
-pub(crate) fn sidebar(_: &Theme) -> container::Style {
+pub(crate) fn sidebar(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(SIDEBAR.into()),
-        text_color: Some(TEXT),
+        background: Some(SIDEBAR.resolve(theme).into()),
+        text_color: Some(TEXT.resolve(theme)),
         ..Default::default()
     }
 }
@@ -126,71 +204,89 @@ pub(crate) fn panel(theme: &Theme) -> container::Style {
 }
 
 pub(crate) fn file_tab(active: bool) -> impl Fn(&Theme) -> container::Style {
-    move |_| container::Style {
-        background: Some(if active { BACKGROUND } else { SIDEBAR }.into()),
-        text_color: Some(if active { TEXT } else { MUTED }),
+    move |theme| container::Style {
+        background: Some(
+            if active {
+                BACKGROUND.resolve(theme)
+            } else {
+                SIDEBAR.resolve(theme)
+            }
+            .into(),
+        ),
+        text_color: Some(if active {
+            TEXT.resolve(theme)
+        } else {
+            MUTED.resolve(theme)
+        }),
         ..Default::default()
     }
 }
 
-pub(crate) fn file_tab_button(_: &Theme, status: button::Status) -> button::Style {
+pub(crate) fn file_tab_button(theme: &Theme, status: button::Status) -> button::Style {
     button::Style {
         background: matches!(status, button::Status::Hovered | button::Status::Pressed)
-            .then_some(ELEVATED.into()),
-        text_color: TEXT,
+            .then_some(ELEVATED.resolve(theme).into()),
+        text_color: TEXT.resolve(theme),
         ..Default::default()
     }
 }
 
 pub(crate) fn file_tab_indicator(active: bool) -> impl Fn(&Theme) -> container::Style {
-    move |_| container::Style {
-        background: Some(if active { BLUE } else { LINE }.into()),
+    move |theme| container::Style {
+        background: Some(
+            if active {
+                BLUE.resolve(theme)
+            } else {
+                LINE.resolve(theme)
+            }
+            .into(),
+        ),
         ..Default::default()
     }
 }
 
-pub(crate) fn separator(_: &Theme) -> container::Style {
+pub(crate) fn separator(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(LINE.into()),
+        background: Some(LINE.resolve(theme).into()),
         ..Default::default()
     }
 }
 
-pub(crate) fn source_progress(_: &Theme) -> iced::widget::progress_bar::Style {
+pub(crate) fn source_progress(theme: &Theme) -> iced::widget::progress_bar::Style {
     iced::widget::progress_bar::Style {
         background: Color::TRANSPARENT.into(),
-        bar: BLUE.into(),
+        bar: BLUE.resolve(theme).into(),
         border: Border::default(),
     }
 }
 
-pub(crate) fn panes(_: &Theme) -> pane_grid::Style {
+pub(crate) fn panes(theme: &Theme) -> pane_grid::Style {
     pane_grid::Style {
         hovered_region: pane_grid::Highlight {
-            background: Color::from_rgba8(236, 236, 236, 0.06).into(),
+            background: TEXT.resolve(theme).scale_alpha(0.06).into(),
             border: Border {
-                color: FAINT,
+                color: FAINT.resolve(theme),
                 width: 1.0,
                 ..Default::default()
             },
         },
         hovered_split: pane_grid::Line {
-            color: FAINT,
+            color: FAINT.resolve(theme),
             width: 1.0,
         },
         picked_split: pane_grid::Line {
-            color: MUTED,
+            color: MUTED.resolve(theme),
             width: 2.0,
         },
     }
 }
 
-pub(crate) fn tooltip(_: &Theme) -> container::Style {
+pub(crate) fn tooltip(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(ELEVATED.into()),
-        text_color: Some(TEXT),
+        background: Some(ELEVATED.resolve(theme).into()),
+        text_color: Some(TEXT.resolve(theme)),
         border: Border {
-            color: LINE,
+            color: LINE.resolve(theme),
             width: 1.0,
             radius: 10.0.into(),
         },
@@ -198,23 +294,23 @@ pub(crate) fn tooltip(_: &Theme) -> container::Style {
     }
 }
 
-pub(crate) fn badge(_: &Theme) -> container::Style {
+pub(crate) fn badge(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(ELEVATED.into()),
+        background: Some(ELEVATED.resolve(theme).into()),
         border: Border {
             radius: 999.0.into(),
             ..Default::default()
         },
-        text_color: Some(MUTED),
+        text_color: Some(MUTED.resolve(theme)),
         ..Default::default()
     }
 }
 
 pub(crate) fn dialog(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(Color::from_rgb8(40, 40, 40).into()),
+        background: Some(DIALOG.resolve(theme).into()),
         border: Border {
-            color: LINE,
+            color: LINE.resolve(theme),
             width: 1.0,
             radius: 24.0.into(),
         },
@@ -228,21 +324,18 @@ pub(crate) fn dialog(theme: &Theme) -> container::Style {
 }
 
 pub(crate) fn action(selected: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
-    move |_, status| {
+    move |theme, status| {
         let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
         button::Style {
             background: (selected || hovered).then_some(
-                Color::from_rgb8(
-                    if selected { 48 } else { 42 },
-                    if selected { 48 } else { 42 },
-                    if selected { 48 } else { 42 },
-                )
-                .into(),
+                (if selected { SELECTED } else { HOVER })
+                    .resolve(theme)
+                    .into(),
             ),
             text_color: if matches!(status, button::Status::Disabled) {
-                FAINT
+                FAINT.resolve(theme)
             } else {
-                TEXT
+                TEXT.resolve(theme)
             },
             border: Border {
                 radius: 10.0.into(),
@@ -255,11 +348,9 @@ pub(crate) fn action(selected: bool) -> impl Fn(&Theme, button::Status) -> butto
 
 pub(crate) fn fold_row(theme: &Theme, status: button::Status) -> button::Style {
     let mut style = action(false)(theme, status);
-    style
-        .background
-        .get_or_insert(Color::from_rgb8(38, 38, 38).into());
+    style.background.get_or_insert(FOLD.resolve(theme).into());
     style.border.radius = 2.0.into();
-    style.text_color = MUTED;
+    style.text_color = MUTED.resolve(theme);
     style
 }
 
@@ -276,27 +367,28 @@ pub(crate) fn tree_item(selected: bool) -> impl Fn(&Theme, button::Status) -> bu
         let mut style = action(selected)(theme, status);
         style.border.radius = 3.0.into();
         if selected {
-            style.background = Some(Color::from_rgb8(65, 68, 72).into());
+            style.background = Some(TREE_SELECTED.resolve(theme).into());
         }
         style
     }
 }
 
-pub(crate) fn primary(_: &Theme, status: button::Status) -> button::Style {
+pub(crate) fn primary(theme: &Theme, status: button::Status) -> button::Style {
     let disabled = matches!(status, button::Status::Disabled);
-    let shade = if disabled {
-        60
+    let background = if disabled {
+        PRIMARY_DISABLED
     } else if matches!(status, button::Status::Hovered) {
-        210
+        PRIMARY_HOVER
     } else {
-        239
-    };
+        PRIMARY
+    }
+    .resolve(theme);
     button::Style {
-        background: Some(Color::from_rgb8(shade, shade, shade).into()),
+        background: Some(background.into()),
         text_color: if disabled {
-            MUTED
+            MUTED.resolve(theme)
         } else {
-            Color::from_rgb8(24, 24, 24)
+            PRIMARY_TEXT.resolve(theme)
         },
         border: Border {
             radius: 999.0.into(),
@@ -306,37 +398,43 @@ pub(crate) fn primary(_: &Theme, status: button::Status) -> button::Style {
     }
 }
 
-pub(crate) fn input(_: &Theme, status: text_input::Status) -> text_input::Style {
+pub(crate) fn input(theme: &Theme, status: text_input::Status) -> text_input::Style {
     let focused = matches!(status, text_input::Status::Focused { .. });
     text_input::Style {
-        background: ELEVATED.into(),
+        background: ELEVATED.resolve(theme).into(),
         border: Border {
             color: if focused {
-                MUTED
+                MUTED.resolve(theme)
             } else {
-                Color::from_rgb8(72, 72, 72)
+                INPUT_BORDER.resolve(theme)
             },
             width: 1.0,
             radius: 12.0.into(),
         },
-        icon: MUTED,
-        placeholder: FAINT,
+        icon: MUTED.resolve(theme),
+        placeholder: FAINT.resolve(theme),
         value: if matches!(status, text_input::Status::Disabled) {
-            FAINT
+            FAINT.resolve(theme)
         } else {
-            TEXT
+            TEXT.resolve(theme)
         },
-        selection: Color::from_rgb8(83, 83, 83),
+        selection: INPUT_SELECTION.resolve(theme),
     }
 }
 
 pub(crate) fn secondary(theme: &Theme, status: button::Status) -> button::Style {
     let mut style = action(false)(theme, status);
     style.border = Border {
-        color: Color::from_rgb8(80, 80, 80),
+        color: OUTLINE.resolve(theme),
         width: 1.0,
         radius: 999.0.into(),
     };
+    style
+}
+
+pub(crate) fn code_scroll(theme: &Theme, status: scrollable::Status) -> scrollable::Style {
+    let mut style = scroll(theme, status);
+    style.vertical_rail.background = Some(SIDEBAR.resolve(theme).into());
     style
 }
 
@@ -361,46 +459,45 @@ pub(crate) fn scroll(theme: &Theme, status: scrollable::Status) -> scrollable::S
             is_vertical_scrollbar_disabled,
         ),
     };
-    let shade = if matches!(status, scrollable::Status::Active { .. }) {
-        64
+    let thumb = if matches!(status, scrollable::Status::Active { .. }) {
+        THUMB
     } else {
-        100
-    };
+        THUMB_HOVER
+    }
+    .resolve(theme);
     for (rail, disabled) in [
         (&mut style.horizontal_rail, horizontal_disabled),
         (&mut style.vertical_rail, vertical_disabled),
     ] {
         rail.background = None;
         rail.border = Border::default();
-        rail.scroller.background = if disabled {
-            Color::TRANSPARENT
-        } else {
-            Color::from_rgb8(shade, shade, shade)
-        }
-        .into();
+        rail.scroller.background = if disabled { Color::TRANSPARENT } else { thumb }.into();
         rail.scroller.border = Border {
             radius: 8.0.into(),
             ..Default::default()
         };
     }
     style.gap = None;
-    style.auto_scroll.background = ELEVATED.into();
+    style.auto_scroll.background = ELEVATED.resolve(theme).into();
     style.auto_scroll.border = Border {
-        color: LINE,
+        color: LINE.resolve(theme),
         width: 1.0,
         radius: 999.0.into(),
     };
-    style.auto_scroll.icon = TEXT;
+    style.auto_scroll.icon = TEXT.resolve(theme);
     style
 }
 
-pub(crate) fn application_style(glass_ready: bool) -> theme::Style {
+pub(crate) fn application_style(glass_ready: bool, theme: &Theme) -> theme::Style {
     theme::Style {
         background_color: if glass_ready {
             Color::TRANSPARENT
         } else {
-            BACKGROUND
+            BACKGROUND.resolve(theme)
         },
-        text_color: Color::from_rgb8(242, 242, 242),
+        text_color: TEXT.resolve(theme),
     }
 }
+
+#[cfg(test)]
+mod tests;

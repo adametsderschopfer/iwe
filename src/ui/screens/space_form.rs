@@ -7,7 +7,7 @@ use crate::{
     i18n::Key,
     ui::{
         icons::{Icon, icon},
-        theme,
+        reorder, theme,
     },
 };
 use iced::{
@@ -24,7 +24,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
     let name = column![
         text(app.i18n.text(Key::SpaceName))
             .size(13)
-            .color(theme::MUTED),
+            .style(theme::MUTED.text()),
         text_input(&app.i18n.text(Key::SpaceNamePlaceholder), &draft.name)
             .id("space-name")
             .size(14)
@@ -35,19 +35,27 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
     ]
     .spacing(8);
     let mut projects = column![
-        text(app.i18n.text(Key::Projects))
-            .size(14)
-            .font(theme::semibold())
+        row![
+            text(app.i18n.text(Key::Projects))
+                .size(14)
+                .font(theme::semibold())
+                .width(Length::Fill),
+            text(app.i18n.text(Key::ReorderProjectsHint))
+                .size(12)
+                .style(theme::MUTED.text()),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center)
     ]
     .spacing(10);
     if draft.directories.is_empty() {
         projects = projects.push(
             text(app.i18n.text(Key::SpaceProjectsHint))
                 .size(13)
-                .color(theme::MUTED),
+                .style(theme::MUTED.text()),
         );
     } else {
-        let mut folders = Column::new().spacing(4);
+        let mut folders = Column::new().spacing(theme::SPACE_PROJECT_GAP);
         for (index, directory) in draft.directories.iter().enumerate() {
             let path = directory.to_string_lossy();
             let title = directory
@@ -55,13 +63,16 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                 .unwrap_or(directory.as_os_str())
                 .to_string_lossy();
             let remove = tooltip(
-                button(icon(Icon::Close, theme::MUTED))
-                    .padding(8)
-                    .style(theme::icon_action(false))
-                    .on_press_maybe(
-                        (!app.picking)
-                            .then_some(Message::Space(spaces::Message::RemoveProject(index))),
-                    ),
+                container(
+                    button(icon(Icon::Close, theme::MUTED))
+                        .padding(8)
+                        .style(theme::icon_action(false))
+                        .on_press_maybe(
+                            (!app.picking)
+                                .then_some(Message::Space(spaces::Message::RemoveProject(index))),
+                        ),
+                )
+                .id(format!("space-remove-project-{index}")),
                 text(app.i18n.text(Key::RemoveProject)).size(12),
                 tooltip::Position::Bottom,
             )
@@ -69,10 +80,13 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
             folders = folders.push(
                 container(
                     row![
+                        icon(Icon::Drag, theme::FAINT),
                         icon(Icon::Folder, theme::MUTED),
                         column![
                             text(short(&title, 32)).size(14),
-                            text(short_path(&path, 56)).size(11).color(theme::FAINT)
+                            text(short_path(&path, 56))
+                                .size(11)
+                                .style(theme::FAINT.text())
                         ]
                         .spacing(3)
                         .width(Length::Fill),
@@ -81,14 +95,31 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                     .spacing(12)
                     .align_y(Alignment::Center),
                 )
+                .id(format!("space-draft-project-{index}"))
+                .height(theme::SPACE_PROJECT_HEIGHT)
                 .padding([8, 10])
                 .style(theme::tooltip),
             );
         }
+        let count = draft.directories.len() as f32;
+        let height = count * theme::SPACE_PROJECT_HEIGHT + (count - 1.) * theme::SPACE_PROJECT_GAP;
+        let folders: Element<'_, Message> = if app.picking {
+            folders.into()
+        } else {
+            reorder::column(
+                folders,
+                46.,
+                |from, to| Message::Space(spaces::Message::MoveProject(None, from, to)),
+                |offset| Message::Space(spaces::Message::ScrollProjects(None, offset)),
+            )
+        };
         projects = projects.push(
             scrollable(folders)
+                .id("space-project-list")
                 .style(theme::scroll)
-                .height((draft.directories.len() as f32 * 60.).min(160.)),
+                .height(
+                    height.min(theme::SPACE_PROJECT_HEIGHT * 5.5 + theme::SPACE_PROJECT_GAP * 5.),
+                ),
         );
     }
     projects = projects.push(
@@ -152,11 +183,11 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         .font(theme::semibold()),
         text(app.i18n.text(Key::SpaceDescription))
             .size(14)
-            .color(theme::MUTED),
+            .style(theme::MUTED.text()),
         name,
         projects,
         actions,
     ]
-    .spacing(20);
+    .spacing(14);
     modal::overlay(base, content.into(), 560.)
 }

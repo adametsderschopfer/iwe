@@ -9,15 +9,22 @@ use iced::{
     },
     alignment,
 };
+use std::borrow::Cow;
 
 type Paragraph = <Renderer as text::Renderer>::Paragraph;
 
-pub(crate) fn text<'a, Message: 'a>(content: &'a str, size: f32) -> Element<'a, Message> {
-    Element::new(Ellipsis { content, size })
+pub(crate) fn text<'a, Message: 'a>(
+    content: impl Into<Cow<'a, str>>,
+    size: f32,
+) -> Element<'a, Message> {
+    Element::new(Ellipsis {
+        content: content.into(),
+        size,
+    })
 }
 
 struct Ellipsis<'a> {
-    content: &'a str,
+    content: Cow<'a, str>,
     size: f32,
 }
 
@@ -93,7 +100,7 @@ impl<Message> Widget<Message, Theme, Renderer> for Ellipsis<'_> {
     }
     fn layout(&mut self, tree: &mut Tree, _: &Renderer, limits: &layout::Limits) -> layout::Node {
         let state = tree.state.downcast_mut::<State>();
-        state.update(self.content, limits.max().width, self.size);
+        state.update(&self.content, limits.max().width, self.size);
         layout::Node::new(limits.resolve(
             Length::Fill,
             Length::Shrink,

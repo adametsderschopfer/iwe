@@ -176,6 +176,7 @@ pub(crate) struct Repository {
     pub commits: Vec<Commit>,
     pub next_history: Option<HistoryCursor>,
     pub remote: Option<Remote>,
+    pub remotes: Vec<String>,
     pub head: String,
 }
 

@@ -1,6 +1,7 @@
 use super::workspace::divider;
 use crate::{
     app::{App, Message, Panel, SettingsTab},
+    domain::workspace::Appearance,
     i18n::Key,
     ui::theme,
 };
@@ -56,10 +57,21 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 setting(
                     t(Key::Appearance),
                     t(Key::AppearanceDescription),
-                    container(text(t(Key::Dark)).size(13))
+                    row([Appearance::Dark, Appearance::Light].map(|appearance| {
+                        button(
+                            text(t(match appearance {
+                                Appearance::Dark => Key::Dark,
+                                Appearance::Light => Key::Light,
+                            }))
+                            .size(13),
+                        )
                         .padding([8, 14])
-                        .style(theme::badge)
+                        .on_press(Message::SetAppearance(appearance))
+                        .style(theme::action(preferences.appearance == appearance))
                         .into()
+                    }))
+                    .spacing(6)
+                    .into()
                 ),
             ]
             .spacing(16)
@@ -131,7 +143,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
             t(Key::AboutDescription),
             text(env!("CARGO_PKG_VERSION"))
                 .size(13)
-                .color(theme::MUTED)
+                .style(theme::MUTED.text())
                 .into(),
         ),
     };
@@ -141,7 +153,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 text(t(Key::Settings)).size(28).font(theme::semibold()),
                 text(t(Key::SettingsDescription))
                     .size(15)
-                    .color(theme::MUTED),
+                    .style(theme::MUTED.text()),
                 tabs,
                 divider(),
             ]
@@ -154,7 +166,9 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
             container(
                 column![
                     section,
-                    text(t(Key::SettingsSaved)).size(12).color(theme::FAINT)
+                    text(t(Key::SettingsSaved))
+                        .size(12)
+                        .style(theme::FAINT.text())
                 ]
                 .spacing(24)
                 .max_width(760)
@@ -195,7 +209,7 @@ fn setting<'a>(
             text(description)
                 .size(13)
                 .line_height(1.4)
-                .color(theme::MUTED)
+                .style(theme::MUTED.text())
         ]
         .spacing(6)
         .width(Length::Fill),

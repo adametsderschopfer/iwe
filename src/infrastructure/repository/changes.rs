@@ -159,17 +159,44 @@ async fn working_baseline(directory: &Path, path: &Path) -> Result<Option<String
 }
 
 pub(crate) async fn working_file(directory: PathBuf, path: PathBuf) -> Result<Source, Failure> {
-    let text = workspace::read(directory.clone(), path.clone()).await?;
+    let text = working_text(directory.clone(), path.clone()).await?;
     Ok(working_comparison(directory, path, text).await)
+}
+
+pub(crate) async fn working_text(directory: PathBuf, path: PathBuf) -> Result<String, Failure> {
+    match workspace::read(directory.clone(), path.clone()).await {
+        Ok(text) => Ok(text),
+        Err(error) => {
+            if error == Failure::Read
+                && !tokio::fs::try_exists(&path)
+                    .await
+                    .map_err(|_| Failure::Read)?
+            {
+                let status = working_status(directory.clone()).await?;
+                if status
+                    .files
+                    .get(&path)
+                    .is_some_and(|change| change.status == FileStatus::Deleted)
+                {
+                    return working_baseline(&directory, &path)
+                        .await?
+                        .ok_or(Failure::Read);
+                }
+            }
+            Err(error)
+        }
+    }
 }
 
 pub(crate) async fn working_comparison(directory: PathBuf, path: PathBuf, text: String) -> Source {
     let comparison = working_baseline(&directory, &path).await;
+    let deleted = matches!(tokio::fs::try_exists(&path).await, Ok(false))
+        && comparison.as_ref().is_ok_and(|before| before.is_some());
     Source {
         text,
+        deleted,
         comparison_failed: comparison.is_err(),
         previous: comparison.ok().flatten(),
-        ..Source::default()
     }
 }
 

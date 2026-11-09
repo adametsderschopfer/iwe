@@ -38,6 +38,30 @@ fn long_repository(count: usize) -> tempfile::TempDir {
 }
 
 #[tokio::test]
+async fn history_dates_include_hours_and_minutes_in_the_recorded_author_timezone() {
+    let directory = long_repository(1);
+    let root = directory.path();
+    command(
+        root,
+        &[
+            "-c",
+            "user.name=Test Author",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--amend",
+            "--allow-empty",
+            "--no-edit",
+            "--date=2026-11-09T14:37:26+0530",
+        ],
+    );
+    let repo = load(root.to_owned(), None).await.unwrap();
+    assert_eq!(repo.commits[0].date, "2026-11-09 14:37");
+}
+
+#[tokio::test]
 async fn lightweight_and_annotated_tags_open_their_history_without_checkout() {
     let directory = long_repository(3);
     let root = directory.path();

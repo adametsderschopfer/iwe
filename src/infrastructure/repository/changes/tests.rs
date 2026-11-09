@@ -108,6 +108,31 @@ async fn working_files_compare_head_and_include_staged_and_untracked_changes() {
 }
 
 #[tokio::test]
+async fn missing_working_files_show_deleted_baselines_but_unknown_paths_stay_unreadable() {
+    let directory = project();
+    let root = directory.path();
+    fs::write(root.join("deleted.rs"), "old contents\n").unwrap();
+    git_test(root, &["add", "."]);
+    git_test(root, &["commit", "-m", "Initial"]);
+    fs::remove_file(root.join("deleted.rs")).unwrap();
+    for staged in [false, true] {
+        if staged {
+            git_test(root, &["add", "-u"]);
+        }
+        let source = working_file(root.to_owned(), root.join("deleted.rs"))
+            .await
+            .unwrap();
+        assert_eq!(source.text, "old contents\n");
+        assert!(source.deleted);
+        assert!(!source.comparison_failed);
+    }
+    assert_eq!(
+        working_text(root.to_owned(), root.join("unknown.rs")).await,
+        Err(Failure::Read)
+    );
+}
+
+#[tokio::test]
 async fn commit_previews_compare_the_parent_and_preserve_deleted_content() {
     let directory = project();
     let root = directory.path();

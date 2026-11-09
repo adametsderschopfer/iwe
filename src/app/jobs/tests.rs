@@ -58,6 +58,7 @@ fn app(language: Language) -> App {
         .create_space("Work".into(), vec![PathBuf::from("/project")]);
     app.project_directory = app.workspace.directory().cloned();
     app.repository = Some(Repository {
+        remotes: vec!["origin".to_owned()],
         root: "/project".into(),
         branches: Vec::new(),
         commits: Vec::new(),

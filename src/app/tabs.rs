@@ -5,10 +5,11 @@ use crate::{
     domain::{
         Failure,
         repository::{ChangedFile, Commit},
+        workspace::DiffView,
     },
-    infrastructure::{repository, workspace},
+    infrastructure::repository,
     ui::{
-        code::{Document, folding::Folding, syntax_for},
+        code::{Document, comparison::Side, folding::Folding, syntax_for},
         theme,
     },
 };
@@ -38,7 +39,7 @@ impl Source {
 
     async fn read(self) -> Result<Document, Failure> {
         let text = match self {
-            Self::Working { root, path } => workspace::read(root, path).await?,
+            Self::Working { root, path } => repository::working_text(root, path).await?,
             Self::Commit { root, commit, file } => {
                 repository::commit_text(root, *commit, file).await?
             }
@@ -85,8 +86,11 @@ pub(crate) struct Preview {
     pub preparation: Preparation,
     pub scroll_x: f32,
     pub scroll_y: f32,
+    pub diff_scroll_x: [f32; 2],
+    pub diff_scroll_y: f32,
     pub folding: Folding,
     unfolded_scroll: (f32, f32),
+    diff_unfolded_scroll: ([f32; 2], f32),
     source: Option<Source>,
 }
 
@@ -266,6 +270,7 @@ impl App {
         id: u64,
         result: Result<Document, Failure>,
     ) -> Task<Message> {
+        let collapse = self.workspace.preferences.collapse_unchanged;
         let Some(preview) = self.preview_for_request(id) else {
             return Task::none();
         };
@@ -274,13 +279,17 @@ impl App {
             Ok(document) => {
                 if preview.document.as_ref().map(|old| old.fingerprint)
                     != Some(document.fingerprint)
+                    || preview.folding.collapsed != (collapse && document.can_fold())
                 {
-                    let collapsed = preview.folding.collapsed;
+                    preview.folding.collapsed = collapse;
                     preview.folding.refresh(&document);
-                    if collapsed {
+                    if preview.folding.collapsed {
                         preview.scroll_x = 0.;
                         preview.scroll_y = 0.;
                         preview.unfolded_scroll = (0., 0.);
+                        preview.diff_scroll_x = [0.; 2];
+                        preview.diff_scroll_y = 0.;
+                        preview.diff_unfolded_scroll = ([0.; 2], 0.);
                     }
                 }
                 preview.document = Some(Arc::new(document));
@@ -299,23 +308,80 @@ impl App {
         if self.preview().id != id {
             return Task::none();
         }
-        let preview = &mut self.tabs.files[self.tabs.active];
-        let Some(document) = preview
+        let Some(_) = self
+            .preview()
             .document
             .as_ref()
             .filter(|document| document.can_fold())
         else {
             return Task::none();
         };
-        if preview.folding.collapsed {
-            (preview.scroll_x, preview.scroll_y) = preview.unfolded_scroll;
-        } else {
-            preview.unfolded_scroll = (preview.scroll_x, preview.scroll_y);
-            preview.scroll_x = 0.;
-            preview.scroll_y = 0.;
+        let collapse = !self.preview().folding.collapsed;
+        self.workspace.preferences.collapse_unchanged = collapse;
+        for preview in self
+            .tabs
+            .files
+            .iter_mut()
+            .chain(self.tabs.closed.iter_mut())
+        {
+            if let Some(document) = &preview.document
+                && document.can_fold()
+                && preview.folding.collapsed != collapse
+            {
+                if collapse {
+                    preview.unfolded_scroll = (preview.scroll_x, preview.scroll_y);
+                    preview.diff_unfolded_scroll = (preview.diff_scroll_x, preview.diff_scroll_y);
+                    preview.scroll_x = 0.;
+                    preview.scroll_y = 0.;
+                    preview.diff_scroll_x = [0.; 2];
+                    preview.diff_scroll_y = 0.;
+                } else {
+                    (preview.scroll_x, preview.scroll_y) = preview.unfolded_scroll;
+                    (preview.diff_scroll_x, preview.diff_scroll_y) = preview.diff_unfolded_scroll;
+                }
+                preview.folding.toggle(document);
+            }
         }
-        preview.folding.toggle(document);
-        self.restore_preview_scroll()
+        Task::batch([self.restore_preview_scroll(), self.save()])
+    }
+
+    pub(super) fn toggle_diff_view(&mut self, id: u64) -> Task<Message> {
+        if self.preview().id != id
+            || self
+                .preview()
+                .document
+                .as_ref()
+                .is_none_or(|document| document.comparison.is_none())
+        {
+            return Task::none();
+        }
+        self.workspace.preferences.diff_view = match self.workspace.preferences.diff_view {
+            DiffView::Unified => DiffView::SideBySide,
+            DiffView::SideBySide => DiffView::Unified,
+        };
+        Task::batch([self.restore_preview_scroll(), self.save()])
+    }
+
+    pub(super) fn scroll_diff(&mut self, id: u64, side: Side, x: f32, y: f32) -> Task<Message> {
+        if self.preview().id != id || self.workspace.preferences.diff_view != DiffView::SideBySide {
+            return Task::none();
+        }
+        let preview = &mut self.tabs.files[self.tabs.active];
+        preview.diff_scroll_x[side.index()] = x;
+        let changed = (preview.diff_scroll_y - y).abs() > 0.1;
+        preview.diff_scroll_y = y;
+        if changed {
+            let other = side.other();
+            operation::scroll_to(
+                other.scroll_id(),
+                operation::AbsoluteOffset {
+                    x: preview.diff_scroll_x[other.index()],
+                    y,
+                },
+            )
+        } else {
+            Task::none()
+        }
     }
 
     pub(super) fn expand_unchanged(
@@ -439,6 +505,23 @@ impl App {
     }
 
     fn restore_preview_scroll(&self) -> Task<Message> {
+        if self.workspace.preferences.diff_view == DiffView::SideBySide
+            && self
+                .preview()
+                .document
+                .as_ref()
+                .is_some_and(|document| document.comparison.is_some())
+        {
+            return Task::batch([Side::Before, Side::After].map(|side| {
+                operation::scroll_to(
+                    side.scroll_id(),
+                    operation::AbsoluteOffset {
+                        x: self.preview().diff_scroll_x[side.index()],
+                        y: self.preview().diff_scroll_y,
+                    },
+                )
+            }));
+        }
         operation::scroll_to(
             "source-code",
             operation::AbsoluteOffset {

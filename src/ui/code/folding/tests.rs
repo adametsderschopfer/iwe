@@ -105,4 +105,26 @@ fn large_unchanged_ranges_use_single_rows() {
     assert_eq!(folding.len(&document), 4);
     assert_eq!(folding.row(0), Row::Fold(0..10_000));
     assert!(matches!(folding.row(3), Row::Fold(_)));
+    let comparison = document.comparison.as_ref().unwrap();
+    assert_eq!(folding.side_len(comparison), 3);
+    assert_eq!(folding.side_hunks(comparison)[0].start, 1);
+    assert!(matches!(folding.side_row(2), SideRow::Fold { .. }));
+}
+
+#[test]
+fn side_folds_share_expansion_and_keep_each_versions_line_numbers() {
+    let document = changed();
+    let comparison = document.comparison.as_ref().unwrap();
+    let mut folding = Folding::default();
+    folding.toggle(&document);
+    let index = folding.side_len(comparison) - 1;
+    let SideRow::Fold { range, numbers } = folding.side_row(index) else {
+        panic!("The final unchanged range must collapse")
+    };
+    assert_eq!(numbers, [4..5, 5..6]);
+    assert!(folding.rows.contains(&Row::Fold(range.clone())));
+    folding.expand(&document, range.clone());
+    assert!(matches!(folding.side_row(index), SideRow::Line(_)));
+    assert!(!folding.rows.contains(&Row::Fold(range)));
+    assert!(matches!(folding.side_row(0), SideRow::Fold { .. }));
 }
