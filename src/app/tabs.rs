@@ -196,7 +196,12 @@ impl App {
                 generation,
                 id,
                 request,
-                result.map(|page| page.map(|(document, history)| (Box::new(document), history))),
+                result.map(|page| {
+                    page.map(|(document, history)| super::line_navigation::LoadedPage {
+                        document: Box::new(document),
+                        history,
+                    })
+                }),
             ))
         })
     }
