@@ -4,6 +4,10 @@
 
 A native workspace for projects, source code, Git history, and pipelines. Built with Rust and Iced.
 
+Visit the [IWE Code website](https://adametsderschopfer.github.io/iwe-code/) for an overview and
+downloads. The Nuxt website lives in `website/`. See
+[website development and deployment](docs/website.md).
+
 Create named spaces and add local project folders. Browse files with syntax highlighting and inspect
 branches, commits, and historical file versions. Connect GitHub Actions or GitLab pipelines through
 browser sign-in. Self-hosted GitLab supports personal access tokens. Open settings with the gear at
