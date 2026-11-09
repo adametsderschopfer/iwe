@@ -130,6 +130,8 @@ impl App {
             }
             Message::Finished(request, result) if request == self.auth_request => match result {
                 Ok(username) => {
+                    self.pipeline_cache.clear();
+                    self.pipelines = PipelineState::Idle;
                     self.notifications
                         .success(Key::SignedIn, Some(username.clone()));
                     self.auth_cancel = None;
@@ -195,6 +197,7 @@ impl App {
                 };
                 self.cancel_auth();
                 self.reset_jobs();
+                self.pipeline_cache.clear();
                 self.disconnecting = true;
                 self.pipeline_request += 1;
                 self.pipeline_refreshing = false;

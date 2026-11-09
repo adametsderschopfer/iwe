@@ -186,6 +186,12 @@ identifiers. Visible Git or pipeline panels refresh loaded data every 30 seconds
 prevent overlapping loads, and generation identifiers reject stale responses. Failed loads stop
 automatic polling.
 
+`app/pipeline_cache.rs` retains successful pipeline lists for eight recently used repositories in
+memory. Keys combine the local repository root with the complete remote identity. Restored lists
+remain visible during background refresh. Temporary read failures retain these lists and stop
+polling. Access failures and account changes clear the session cache. The cache excludes credentials
+and does not persist to disk. Generation and request guards also apply to cache writes.
+
 Pipeline rows project GitLab stages or individual GitHub jobs into status icons. GitLab supplies
 stage statuses. Domain aggregation covers missing statuses and keeps unsuccessful or unfinished jobs
 visible. Connectors indicate display order, not inferred dependencies. Popup targets use stage names

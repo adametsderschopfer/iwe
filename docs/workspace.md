@@ -328,13 +328,20 @@ retains its 25-second deadline. Local fixtures verify reads and actions without 
 History marks commits with active runs from that list. Full commit identifiers connect runs to
 commits. Green markers indicate running jobs, while amber markers indicate waiting jobs. Loaded
 pipeline data refreshes every 30 seconds while Git or pipelines remains visible. Refresh preserves
-existing markers until results arrive. Failed requests clear the markers and stop automatic polling.
-Use the pipeline panel to retry or sign in.
+existing markers until results arrive. Temporary read failures preserve loaded runs and markers, but
+stop automatic polling. Access and credential failures clear loaded runs and the session cache. Use
+the pipeline panel to retry or sign in.
 
 Project refresh keeps known Git metadata, pipeline availability, account details, and loaded runs
 visible while replacement data loads. The pipeline panel retains its size during refresh. A
-confirmed remote change or removed repository invalidates cached pipeline data. Switching projects
-clears this cache so another project's data cannot appear.
+confirmed remote change or removed repository clears the displayed pipeline data.
+
+IWE Code keeps pipeline lists for eight recently used repositories in memory. Each entry includes up
+to 30 runs. Cache keys include the repository directory, remote host, remote project, and provider.
+Returning to a repository restores its list while a background request loads current data. Switching
+projects never displays another repository's runs. Signing in or signing out clears the session
+cache. The cache stores no credentials and does not survive application restarts. Stage summaries
+and job details still reload after project changes.
 
 An access error offers **Sign in**. GitHub opens the browser and displays a confirmation code.
 GitLab.com opens browser authorization and returns through a local callback. The panel refreshes

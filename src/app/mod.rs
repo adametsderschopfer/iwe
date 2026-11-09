@@ -6,6 +6,7 @@ pub(crate) mod files;
 pub(crate) mod git_actions;
 pub(crate) mod jobs;
 pub(crate) mod notifications;
+mod pipeline_cache;
 mod repositories;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
@@ -207,6 +208,8 @@ pub(crate) struct App {
     commit_request: u64,
     pipeline_request: u64,
     pipeline_refreshing: bool,
+    pipeline_cache: pipeline_cache::Cache,
+    pipeline_poll_blocked: bool,
     pipeline_reload_after_repository: bool,
     auth_service: crate::infrastructure::auth::Service,
     auth_cancel: Option<CancellationToken>,
@@ -366,6 +369,8 @@ impl App {
             commit_request: 0,
             pipeline_request: 0,
             pipeline_refreshing: false,
+            pipeline_cache: pipeline_cache::Cache::default(),
+            pipeline_poll_blocked: false,
             pipeline_reload_after_repository: false,
             auth_service: crate::infrastructure::auth::Service::new(),
             auth_cancel: None,
@@ -809,10 +814,32 @@ impl App {
             {
                 self.account_username = result.username;
                 self.pipeline_refreshing = false;
-                self.pipelines = match result.runs {
-                    Ok(runs) => PipelineState::Ready(runs),
-                    Err(error) => PipelineState::Failed(error),
-                };
+                match result.runs {
+                    Ok(runs) => {
+                        if let Some(repo) = self.active_repository()
+                            && let Some(remote) = &repo.remote
+                        {
+                            let root = repo.root.clone();
+                            let remote = remote.clone();
+                            self.pipeline_cache.insert(root, remote, runs.clone());
+                        }
+                        self.pipeline_poll_blocked = false;
+                        self.pipelines = PipelineState::Ready(runs);
+                    }
+                    Err(error) => {
+                        self.pipeline_poll_blocked = true;
+                        if matches!(
+                            error,
+                            Failure::Unavailable | Failure::Read | Failure::RateLimited
+                        ) && matches!(self.pipelines, PipelineState::Ready(_))
+                        {
+                            self.notifications.error(error_key(error), None);
+                        } else {
+                            self.pipeline_cache.clear();
+                            self.pipelines = PipelineState::Failed(error);
+                        }
+                    }
+                }
                 if let Some(selected) = &mut self.jobs.selected
                     && let PipelineState::Ready(runs) = &self.pipelines
                     && let Some(run) = runs.iter().find(|run| run.id == selected.id)
@@ -832,6 +859,7 @@ impl App {
                 self.reset_jobs();
                 self.cancel_auth();
                 self.account_username = None;
+                self.pipelines = PipelineState::Idle;
                 if let Some(remote) = self
                     .repository
                     .as_mut()
@@ -1035,6 +1063,12 @@ impl App {
         };
         self.pipeline_request += 1;
         self.pipeline_refreshing = true;
+        if !matches!(self.pipelines, PipelineState::Ready(_))
+            && let Some(root) = self.active_repository().map(|repo| repo.root.clone())
+            && let Some(runs) = self.pipeline_cache.get(&root, &remote)
+        {
+            self.pipelines = PipelineState::Ready(runs);
+        }
         if !matches!(self.pipelines, PipelineState::Ready(_)) {
             self.pipelines = PipelineState::Loading;
         }
@@ -1056,6 +1090,7 @@ impl App {
 
     fn pipeline_subscription(&self) -> Subscription<Message> {
         if self.navigation != Navigation::Settings
+            && !self.pipeline_poll_blocked
             && self.has_remote()
             && (self.workspace.preferences.show_git || self.workspace.preferences.show_pipelines)
             && matches!(self.pipelines, PipelineState::Ready(_))
