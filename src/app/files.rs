@@ -19,8 +19,18 @@ pub(crate) struct State {
     pub loading: BTreeSet<PathBuf>,
     pub errors: BTreeMap<PathBuf, Failure>,
     pub selected_path: Option<PathBuf>,
+    pub menu: Option<Menu>,
     cache: VecDeque<Cached>,
 }
+
+pub(crate) struct Menu {
+    pub path: PathBuf,
+    pub point: iced::Point,
+    pub copy_open: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum PathFormat { Absolute, Relative }
 
 struct Cached {
     root: PathBuf,
@@ -31,6 +41,10 @@ struct Cached {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
+    OpenMenu(PathBuf, iced::Point),
+    CopyOptions,
+    CopyPath(PathFormat),
+    DismissMenu,
     Index(u64, project_index::Event),
     Slow(u64, PathBuf, u64),
     Finished(u64),
@@ -39,6 +53,7 @@ pub(crate) enum Event {
 
 impl App {
     pub(super) fn load_file_tree(&mut self) -> Task<Message> {
+        self.files.menu = None;
         let root = self.workspace.directory().cloned();
         if root == self.files.root && self.files.worker.is_some() {
             let expanded: Vec<_> = self.expanded.iter().cloned().collect();
@@ -134,6 +149,33 @@ impl App {
 
     pub(super) fn update_files(&mut self, event: Event) -> Task<Message> {
         match event {
+            Event::OpenMenu(path, point) if self.space_draft.is_none()
+                && self.auth_dialog.is_none() && self.git_actions.dialog.is_none() => {
+                if self.workspace.directory().is_some_and(|root| path.is_absolute() && path.starts_with(root)) {
+                    self.project_menu = None;
+                    self.git_actions.menu = None;
+                    self.files.selected_path = Some(path.clone());
+                    self.files.menu = Some(Menu { path, point, copy_open: false });
+                }
+            }
+            Event::CopyOptions => {
+                if let Some(menu) = &mut self.files.menu { menu.copy_open = true; }
+            }
+            Event::DismissMenu => self.files.menu = None,
+            Event::CopyPath(format) => {
+                if let Some(menu) = self.files.menu.take() {
+                    let value = match format {
+                        PathFormat::Absolute => Some(menu.path.as_path()),
+                        PathFormat::Relative => self.path_copy_root(&menu.path)
+                            .and_then(|root| menu.path.strip_prefix(root).ok()),
+                    };
+                    if let Some(value) = value {
+                        let value = if value.as_os_str().is_empty() { ".".to_owned() }
+                            else { value.to_string_lossy().into_owned() };
+                        return iced::clipboard::write(value);
+                    }
+                }
+            }
             Event::Index(epoch, event) if epoch == self.files.epoch => match event {
                 project_index::Event::Cached(tree) => {
                     for (path, entries) in tree {
@@ -204,6 +246,17 @@ impl App {
             _ => {}
         }
         Task::none()
+    }
+
+    pub(crate) fn path_repository_root<'a>(&'a self, path: &std::path::Path) -> Option<&'a std::path::Path> {
+        self.changes.status.roots.iter().map(PathBuf::as_path)
+            .chain(self.repository.iter().flat_map(|set| set.repositories.iter().map(|repo| repo.root.as_path())))
+            .filter(|root| path.starts_with(root))
+            .max_by_key(|root| root.components().count())
+    }
+
+    fn path_copy_root<'a>(&'a self, path: &std::path::Path) -> Option<&'a std::path::Path> {
+        self.path_repository_root(path).or_else(|| self.workspace.directory().map(PathBuf::as_path))
     }
 }
 

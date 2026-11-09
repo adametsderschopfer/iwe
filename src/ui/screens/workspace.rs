@@ -68,7 +68,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         app,
         auth::overlay(
             app,
-            git_actions::overlay(app, project_menu(app, pipelines::overlay(app, base))),
+            git_actions::overlay(app, project_menu(app, super::file_menu::overlay(app, pipelines::overlay(app, base)))),
         ),
     );
     let base = crate::ui::notifications::overlay(
@@ -897,7 +897,7 @@ fn file_tree<'a>(
                 hint.push('\n');
                 hint.push_str(&app.i18n.text(changed_tree::status_key(status)));
             }
-            body = body.push(tooltip::view(
+            body = body.push(context_menu::trigger(tooltip::view(
                 container(
                     button(item)
                         .on_press(event)
@@ -910,7 +910,7 @@ fn file_tree<'a>(
                 .width(Length::Fill),
                 text(hint).size(12),
                 tooltip::Position::Right,
-            ));
+            ), |point| Message::Files(crate::app::files::Event::OpenMenu(entry.path.clone(), point))));
             if entry.directory && expanded {
                 body = file_tree(app, &entry.path, depth + 1, body);
             }

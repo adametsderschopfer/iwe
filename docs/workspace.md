@@ -16,6 +16,11 @@ unchanged. Removing a project only detaches its folder. The application never de
 The header shows **Space • Project** whenever a project is selected. Without a selected project,
 it shows only the space name. Settings keeps its own heading.
 
+Right-click a file or directory in the project tree to open its context menu. Click **Copy** to copy
+its absolute path. Hover **Copy** to choose an absolute path or a path relative to its repository
+root. Nested repositories use their own root. Paths outside detected repositories use the project
+root instead. Copying does not open files or change directory expansion.
+
 Right-click a project and choose the red **Remove project from space** action to detach it immediately.
 The action appears below **Pin project** or **Unpin project** and also works in the pinned list.
 It removes only that space's project entry and saves the change. Project files remain on disk.

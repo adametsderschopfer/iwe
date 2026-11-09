@@ -467,6 +467,7 @@ impl App {
                     && self.git_actions.dialog.is_none() =>
             {
                 self.git_actions.menu = None;
+                self.files.menu = None;
                 self.project_menu = Some((space, path, point));
             }
             Message::CloseProjectMenu => self.project_menu = None,
@@ -568,6 +569,7 @@ impl App {
             Message::SelectSettingsTab(tab) => self.settings_tab = tab,
             Message::Space(message) => return self.update_space(message),
             Message::DismissDialog => {
+                if self.files.menu.take().is_some() { return Task::none(); }
                 self.project_menu = None;
                 if self.git_actions.menu.is_some() || self.git_actions.dialog.is_some() {
                     return self.update_git(git_actions::Message::Close);

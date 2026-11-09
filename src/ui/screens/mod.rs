@@ -1,5 +1,6 @@
 mod auth;
 mod diff;
+mod file_menu;
 mod git;
 mod git_actions;
 mod modal;
