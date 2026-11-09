@@ -125,14 +125,14 @@ fn background_previews_preserve_scroll_and_reject_old_file_results() {
     let _ = app.update_changes(Event::PreviewLoaded(
         2,
         4,
-        Ok(Some(Document::new("stale".to_owned(), "txt"))),
+        Ok(Some(Box::new(Document::new("stale".to_owned(), "txt")))),
     ));
     assert_eq!(app.preview().document.as_ref().unwrap().text, "current");
     assert!(app.changes.preview_pending.is_none());
     let _ = app.update_changes(Event::PreviewLoaded(
         2,
         5,
-        Ok(Some(Document::new("updated".to_owned(), "txt"))),
+        Ok(Some(Box::new(Document::new("updated".to_owned(), "txt")))),
     ));
     assert_eq!(app.preview().document.as_ref().unwrap().text, "updated");
     assert_eq!(app.preview().scroll_y, 240.);

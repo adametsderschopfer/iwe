@@ -193,7 +193,10 @@ impl App {
         let generation = self.generation;
         Task::perform(source.read_line(line), move |result| {
             Message::GoToLine(super::line_navigation::Event::Loaded(
-                generation, id, request, result,
+                generation,
+                id,
+                request,
+                result.map(|page| page.map(|(document, history)| (Box::new(document), history))),
             ))
         })
     }
@@ -231,6 +234,7 @@ impl App {
         let Some(root) = self.workspace.directory().cloned() else {
             return Task::none();
         };
+        self.navigation = super::Navigation::Files;
         self.files.selected_path = Some(path.clone());
         self.open_source(Source::Working { root, path })
     }

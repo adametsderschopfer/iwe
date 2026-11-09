@@ -25,7 +25,7 @@ pub(crate) enum Event {
     Refresh,
     RefreshManually,
     Loaded(u64, u64, Result<Worktree, Failure>),
-    PreviewLoaded(u64, u64, Result<Option<Document>, Failure>),
+    PreviewLoaded(u64, u64, Result<Option<Box<Document>>, Failure>),
 }
 
 impl App {
@@ -108,7 +108,7 @@ impl App {
                     self.changes.preview_pending = None;
                 }
                 match result {
-                    Ok(Some(document)) => return self.finish_preview(request, Ok(document)),
+                    Ok(Some(document)) => return self.finish_preview(request, Ok(*document)),
                     Err(Failure::TooLarge) => return self.reload_large_preview(request),
                     result => {
                         if let Some(preview) = self.preview_for_request(request) {
@@ -155,7 +155,13 @@ impl App {
                     .await
                     .map(Some)
             },
-            move |result| Message::Worktree(Event::PreviewLoaded(generation, request, result)),
+            move |result| {
+                Message::Worktree(Event::PreviewLoaded(
+                    generation,
+                    request,
+                    result.map(|document| document.map(Box::new)),
+                ))
+            },
         )
     }
 }

@@ -33,7 +33,7 @@ pub(crate) enum Event {
         u64,
         u64,
         u64,
-        Result<Option<(Document, Vec<TextCursor>)>, Failure>,
+        Result<Option<(Box<Document>, Vec<TextCursor>)>, Failure>,
     ),
 }
 
@@ -135,7 +135,7 @@ impl App {
                             .as_ref()
                             .and_then(|dialog| dialog.value.trim().parse().ok())
                             .unwrap_or(1);
-                        let preparation = self.accept_line_preview(document, history);
+                        let preparation = self.accept_line_preview(*document, history);
                         self.reveal_source_line(line);
                         self.line_navigation = None;
                         return Task::batch([preparation, self.restore_preview_scroll()]);

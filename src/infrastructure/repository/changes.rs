@@ -208,10 +208,10 @@ pub(crate) async fn working_page(
         return workspace::pages::read(directory, path, cursor, version).await;
     }
     let status = working_status(directory.clone()).await?;
-    if !status
+    if status
         .files
         .get(&path)
-        .is_some_and(|change| change.status == FileStatus::Deleted)
+        .is_none_or(|change| change.status != FileStatus::Deleted)
     {
         return Err(Failure::Read);
     }
