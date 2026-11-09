@@ -10,6 +10,12 @@ use tokio::{io::AsyncReadExt, process::Command};
 pub(crate) use crate::domain::Failure;
 
 pub(crate) fn executable(name: &str) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    if name == "git"
+        && let Some(candidate) = windows_git()
+    {
+        return candidate;
+    }
     #[cfg(target_os = "macos")]
     for prefix in ["/opt/homebrew/bin", "/usr/local/bin"] {
         let candidate = Path::new(prefix).join(name);
@@ -18,6 +24,43 @@ pub(crate) fn executable(name: &str) -> PathBuf {
         }
     }
     PathBuf::from(name)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_git() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("PATH") {
+        for directory in std::env::split_paths(&path) {
+            if directory.as_os_str().is_empty() {
+                continue;
+            }
+            let candidate = directory.join("git.exe");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    let mut roots = Vec::new();
+    for variable in ["ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"] {
+        if let Some(directory) = std::env::var_os(variable)
+            && !directory.is_empty()
+        {
+            roots.push(PathBuf::from(directory).join("Git"));
+        }
+    }
+    if let Some(directory) = std::env::var_os("LOCALAPPDATA")
+        && !directory.is_empty()
+    {
+        roots.push(PathBuf::from(directory).join("Programs").join("Git"));
+    }
+    for root in roots {
+        for folder in ["cmd", "bin"] {
+            let candidate = root.join(folder).join("git.exe");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
 }
 
 pub(crate) async fn run(name: &str, args: &[&str], cwd: Option<&Path>) -> Result<Vec<u8>, Failure> {

@@ -53,6 +53,11 @@ metadata uses Serde and atomic temporary-file replacement. Native directory sele
 Syntect highlights source with bundled `two-face` grammars and the Gerry Darcula palette. `open`
 delegates approved links to the system browser.
 
+The shared process launcher resolves Git for repository reads and explicit Git operations. On
+Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
+directories. Custom installations still require `PATH` configuration. The launcher does not install
+Git or change the environment.
+
 Notifications keep typed message keys and optional user context in application memory. They never
 persist with workspace settings. Successful action responses enqueue notifications after request and
 project checks. Error messages use existing localized mappings. Timers run only while unpaused

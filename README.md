@@ -36,6 +36,11 @@ On macOS, install Xcode Command Line Tools. On Windows, install Visual Studio Bu
 C++ workload. On Linux, install `pkg-config`, `libx11-dev`, `libxkbcommon-dev`, `libwayland-dev`,
 and `libudev-dev`.
 
+On Windows, IWE Code first looks for `git.exe` in `PATH`. It also searches standard Git for Windows
+installations under Program Files and the current user's `LocalAppData/Programs` directory. Custom
+or portable installations require their Git directory in `PATH`. A project's `.git` directory
+contains repository data, not the Git executable.
+
 Linux accounts require a running Secret Service, such as GNOME Keyring or KWallet with Secret
 Service support. IWE does not require GitHub CLI or GitLab CLI. Browser sign-in requires registered
 provider applications. See [authentication setup](docs/authentication.md) for public Client IDs and
