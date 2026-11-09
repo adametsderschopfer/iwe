@@ -17,10 +17,24 @@ use iced::{
 };
 
 pub(crate) fn overlay<'a>(app: &'a App, content: Element<'a, Message>) -> Element<'a, Message> {
+    let edge = if app.window_maximized {
+        0.
+    } else {
+        theme::WINDOW_RESIZE_GRIP
+    };
+    let content = container(content)
+        .padding(iced::Padding {
+            right: edge,
+            ..iced::Padding::ZERO
+        })
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .style(theme::surface)
+        .into();
     let caption = container(controls(app))
         .padding(iced::Padding {
             top: 8.,
-            right: 24.,
+            right: 24. + edge,
             ..iced::Padding::ZERO
         })
         .width(Length::Fill)

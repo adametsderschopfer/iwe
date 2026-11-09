@@ -275,7 +275,9 @@ restore the window. Linux keeps its native title bar.
 Windows disables the native title bar and places minimize, maximize, restore, and close controls in
 the application header. `ui/window_chrome.rs` keeps these controls above dialogs and provides edge
 and corner resize handles. Window tasks use safe Iced APIs. Resize events update the maximize icon.
-Maximized windows disable resize handles without replacing the content widget tree.
+Maximized windows disable resize handles without replacing the content widget tree. Restored Windows
+windows reserve the right resize strip outside content. This keeps scrollbar clicks and wheel events
+outside that strip. Maximized windows return the strip's width to content.
 
 On macOS, renderer layers anchor their contents at the top left instead of stretching the previous
 frame during resizing. AppKit requests redraws during live resizing. This policy preserves display

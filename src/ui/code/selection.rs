@@ -10,7 +10,7 @@ use iced::{
     advanced::{
         Clipboard, Layout, Shell, Widget, layout, mouse, renderer,
         text::{self, Paragraph},
-        widget::{Tree, tree},
+        widget::{Operation, Tree, tree},
     },
     keyboard,
     widget::{rich_text, text as widget_text},
@@ -271,6 +271,21 @@ struct Selectable<'a> {
 }
 
 impl Widget<Message, Theme, Renderer> for Selectable<'_> {
+    fn operate(
+        &mut self,
+        tree: &mut Tree,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn Operation,
+    ) {
+        self.content.as_widget_mut().operate(
+            &mut tree.children[0],
+            layout.children().next().unwrap(),
+            renderer,
+            operation,
+        );
+    }
+
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<text::paragraph::Plain<TextParagraph>>()
     }
