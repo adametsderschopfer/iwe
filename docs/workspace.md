@@ -246,6 +246,9 @@ expand it. Each heading shows a small expansion arrow. Groups collapse independe
 the selected reference and nested folder states. Selecting a lightweight or annotated tag shows its
 commit history without checking it out.
 
+Git refresh and hide controls occupy a vertical toolbar to the left of the branches. A vertical
+separator divides the toolbar from the branches. Commit search remains above the history.
+
 The local group starts expanded. Remote branches, tags, and nested branch folders start collapsed
 when a project opens or refreshes. Their arrows expand each group independently.
 

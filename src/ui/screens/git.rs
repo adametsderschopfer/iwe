@@ -52,6 +52,29 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     } else {
         center_message(app, Key::Loading)
     };
+    let tools = container(
+        column![
+            icon_button(app, Icon::Refresh, Key::Refresh, Message::Refresh, false),
+            icon_button(
+                app,
+                Icon::Close,
+                Key::HidePanel,
+                Message::TogglePanel(Panel::Git),
+                false,
+            ),
+        ]
+        .spacing(theme::FILE_PANEL_TOOL_INSET)
+        .width(theme::FILE_PANEL_TOOL_SIZE),
+    )
+    .id("git-toolbar")
+    .padding(theme::FILE_PANEL_TOOL_INSET)
+    .height(Length::Fill)
+    .style(theme::sidebar);
+    let separator = container(space())
+        .width(1)
+        .height(Length::Fill)
+        .style(theme::separator);
+    let content = row![tools, separator, content].height(Length::Fill);
     container(column![
         responsive(move |size| header(app, size.width)).height(Length::Shrink),
         divider(),
@@ -63,10 +86,11 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
 }
 
 fn header(app: &App, width: f32) -> Element<'_, Message> {
+    let toolbar_width = theme::FILE_PANEL_TOOL_SIZE + 2. * theme::FILE_PANEL_TOOL_INSET + 1.;
     let regions = app.git_panes.layout().pane_regions(
         theme::GIT_PANE_SPACING,
         theme::GIT_PANE_MIN_SIZE,
-        Size::new(width, 1.),
+        Size::new((width - toolbar_width).max(0.), 1.),
     );
     let commits = app
         .git_panes
@@ -78,6 +102,7 @@ fn header(app: &App, width: f32) -> Element<'_, Message> {
         })
         .copied()
         .unwrap_or_default();
+    let commits_x = commits.x + toolbar_width;
     let status = if app.git_actions.pending {
         Some(Key::GitWorking)
     } else {
@@ -87,24 +112,9 @@ fn header(app: &App, width: f32) -> Element<'_, Message> {
     if let Some(status) = status {
         controls = controls.push(container(ellipsis::text(app.i18n.text(status), 11.)).width(132));
     }
-    controls = controls
-        .push(icon_button(
-            app,
-            Icon::Refresh,
-            Key::Refresh,
-            Message::Refresh,
-            false,
-        ))
-        .push(icon_button(
-            app,
-            Icon::Close,
-            Key::HidePanel,
-            Message::TogglePanel(Panel::Git),
-            false,
-        ));
-    let controls_width = 92. + if status.is_some() { 144. } else { 0. };
+    let controls_width = if status.is_some() { 144. } else { 0. };
     // Keep search usable when the branches column occupies most of the panel.
-    let controls_on_left = width - commits.x < controls_width + 136.;
+    let controls_on_left = width - commits_x < controls_width + 136.;
     let mut title = row![
         icon(Icon::Branch, theme::MUTED),
         text(app.i18n.text(Key::Log))
@@ -120,7 +130,7 @@ fn header(app: &App, width: f32) -> Element<'_, Message> {
         title = title.push(controls.take().unwrap());
     }
     let title = container(title)
-        .width(commits.x)
+        .width(commits_x)
         .height(56)
         .padding(iced::Padding {
             top: 8.,
@@ -135,7 +145,7 @@ fn header(app: &App, width: f32) -> Element<'_, Message> {
         controls_width + 24.
     };
     let search_width = (commits.width - 24.)
-        .min(width - commits.x - reserved - 24.)
+        .min(width - commits_x - reserved - 24.)
         .clamp(0., 560.);
     let search = container(
         text_input(&app.i18n.text(Key::SearchCommits), &app.query)
