@@ -17,6 +17,8 @@ enum Kind {
     Vue,
     Svelte,
     Rust,
+    Cpp,
+    CSharp,
     Go,
     Html,
     Css,
@@ -85,6 +87,9 @@ fn kind(path: &FilePath) -> Kind {
     if name.starts_with(".env.") {
         return Kind::Settings;
     }
+    if path.extension().and_then(|value| value.to_str()) == Some("C") {
+        return Kind::Cpp;
+    }
     match path
         .extension()
         .and_then(|value| value.to_str())
@@ -99,6 +104,9 @@ fn kind(path: &FilePath) -> Kind {
         "vue" => Kind::Vue,
         "svelte" => Kind::Svelte,
         "rs" => Kind::Rust,
+        "cpp" | "cc" | "cxx" | "c++" | "h" | "hpp" | "hh" | "hxx" | "h++" | "ipp"
+        | "tpp" | "inl" | "ixx" | "cppm" | "cxxm" => Kind::Cpp,
+        "cs" | "csx" => Kind::CSharp,
         "go" => Kind::Go,
         "html" | "htm" | "xml" => Kind::Html,
         "css" | "less" => Kind::Css,
@@ -417,6 +425,8 @@ impl<Message> canvas::Program<Message> for Drawing {
             other => {
                 let (text, color, size) = match other {
                     Kind::Rust => ("R", orange, 13.),
+                    Kind::Cpp => ("C++", blue, 8.),
+                    Kind::CSharp => ("C#", pink, 10.),
                     Kind::Go => ("GO", cyan, 9.),
                     Kind::Html => ("<>", orange, 11.),
                     Kind::Css => ("#", blue, 14.),

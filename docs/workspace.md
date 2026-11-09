@@ -155,6 +155,12 @@ grammar. Unknown formats remain readable as plain text. Supported grammars inclu
 JavaScript, TypeScript, TSX, Vue, Svelte, Python, Java, Kotlin, Swift, and C-family languages. They
 also include SQL, JSON, YAML, TOML, Dockerfile, Makefile, Terraform, Bash, and Markdown.
 
+C++ and C# files have dedicated icons in project trees, changed-file lists, and source tabs.
+C++ highlighting covers `.cpp`, `.cc`, `.cxx`, `.c++`, `.C`, `.h`, `.hpp`, `.hh`, `.hxx`, and `.h++`.
+It also covers `.ipp`, `.tpp`, `.inl`, `.ixx`, `.cppm`, and `.cxxm`. Headers with `.h` use the C++
+grammar, which also handles C declarations. C# highlighting covers `.cs` and `.csx`.
+These extensions also work in uppercase, with `.C` specifically selecting C++ instead of C.
+
 The project tree uses 24-pixel rows, 14-pixel text, 16-pixel icons, and 20-pixel nesting steps,
 following the supplied JetBrains reference. Each row centers its name and icon. Folders show
 separate expansion arrows and folder icons. Recognized Python packages show a package marker.

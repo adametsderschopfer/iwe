@@ -162,11 +162,19 @@ impl Document {
 }
 
 pub(crate) fn syntax_for(path: &std::path::Path) -> String {
-    path.extension()
+    let token = path.extension()
         .or_else(|| path.file_name())
         .and_then(|value| value.to_str())
-        .unwrap_or("txt")
-        .to_owned()
+        .unwrap_or("txt");
+    if token == "C" {
+        return "cpp".to_owned();
+    }
+    match token.to_ascii_lowercase().as_str() {
+        "cpp" | "cc" | "cxx" | "c++" | "h" | "hpp" | "hh" | "hxx" | "h++" | "ipp"
+        | "tpp" | "inl" | "ixx" | "cppm" | "cxxm" => "cpp".to_owned(),
+        "cs" | "csx" => "cs".to_owned(),
+        _ => token.to_owned(),
+    }
 }
 
 pub(crate) fn emphasized_spans<'a>(
