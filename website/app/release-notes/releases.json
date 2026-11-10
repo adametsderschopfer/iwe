@@ -697,10 +697,10 @@
   },
   {
     "version": "0.1.16",
-    "status": "prepared",
-    "publishedAt": null,
-    "tags": [],
-    "source": null,
+    "status": "released",
+    "publishedAt": "2026-11-10T11:27:08Z",
+    "tags": ["macos-v0.1.16", "windows-v0.1.16", "linux-v0.1.16", "v0.1.16"],
+    "source": "5aab570ab798eb313e58735950b24d60bab6ef73",
     "items": [
       {
         "id": "reliable-update-process-exit",
