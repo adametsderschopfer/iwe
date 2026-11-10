@@ -1001,10 +1001,10 @@
   },
   {
     "version": "1.0.1",
-    "status": "prepared",
-    "publishedAt": null,
-    "tags": [],
-    "source": null,
+    "status": "released",
+    "publishedAt": "2026-11-10T19:51:30Z",
+    "tags": ["linux-v1.0.1"],
+    "source": "aeb76a8eea213ac82e379b708d8fc5858b9b5ba6",
     "items": [
       {
         "id": "windows-ed25519-deployment",
@@ -1039,6 +1039,25 @@
           "src/modules/terminal/session/mod.rs",
           "src/modules/terminal/session/tests.rs"
         ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.2",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "windows-terminal-directory-verification",
+        "category": "maintenance",
+        "text": {
+          "en": "Terminal tests verify the actual working directory when Windows uses short directory names.",
+          "ru": "Тесты терминала проверяют фактическую рабочую папку, когда Windows использует короткие имена каталогов.",
+          "es": "Las pruebas del terminal verifican el directorio real cuando Windows utiliza nombres de directorio cortos."
+        },
+        "sources": ["src/modules/terminal/session/tests.rs"]
       }
     ]
   },

@@ -55,7 +55,7 @@ async fn project_shell_accepts_input_and_reports_output_and_exit() {
     session.input(b"hello-terminal\r".to_vec()).unwrap();
     #[cfg(windows)]
     session
-        .input(b"echo RESULT:hello-terminal\r\ncd\r\nexit\r\n".to_vec())
+        .input(b"echo RESULT:hello-terminal\r\ncd > terminal-cwd.txt\r\nexit\r\n".to_vec())
         .unwrap();
     let mut output = Vec::new();
     tokio::time::timeout(Duration::from_secs(15), async {
@@ -79,14 +79,17 @@ async fn project_shell_accepts_input_and_reports_output_and_exit() {
     let output = String::from_utf8_lossy(&output);
     assert!(output.contains("RESULT:hello-terminal"), "{output}");
     let expected = std::fs::canonicalize(directory.path()).unwrap();
-    let expected = expected.to_string_lossy();
     #[cfg(unix)]
-    assert!(output.contains(expected.as_ref()), "{output}");
-    #[cfg(windows)]
     assert!(
-        output.contains(expected.trim_start_matches(r"\\?\")),
+        output.contains(expected.to_string_lossy().as_ref()),
         "{output}"
     );
+    #[cfg(windows)]
+    {
+        // cmd may print an 8.3 path. Compare filesystem identity, not its spelling.
+        let actual = std::fs::read_to_string(directory.path().join("terminal-cwd.txt")).unwrap();
+        assert_eq!(std::fs::canonicalize(actual.trim()).unwrap(), expected);
+    }
 }
 
 #[cfg(unix)]
