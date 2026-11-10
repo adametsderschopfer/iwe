@@ -25,7 +25,7 @@
     "history": "Git history",
     "comparison": "Changes",
     "pipelines": "Pipelines",
-    "caption": "Current development build with sample data. Downloaded releases may differ.",
+    "caption": "IWE Code with sample data.",
     "altWorkspace": "IWE Code text editor with syntax highlighting, file tabs, a Save button, and a project tree.",
     "altHistory": "IWE Code Git history with branches and commits.",
     "altComparison": "IWE Code shows previous and current source files side by side with changed lines highlighted.",
@@ -86,7 +86,7 @@
         "description": "Uploads and downloads run in the background. Check their progress without reopening the deployment panel."
       }
     ],
-    "caption": "Side-by-side comparison in the current development build."
+    "caption": "Side-by-side file comparison."
   },
   "local": {
     "title": "Your workspace.\nYour choice of tools.",
@@ -111,7 +111,7 @@
     "linux": "64-bit & 32-bit",
     "download": "Download",
     "release": "Release notes",
-    "early": "Early releases. Active development.",
+    "early": "Open source. Active development.",
     "architecture": "Choose your platform",
     "detected": "Your system",
     "siliconHint": "Apple Silicon comes first. Choose Intel if your Mac uses an Intel processor.",
@@ -122,7 +122,7 @@
     "items": [
       {
         "question": "Is IWE Code a code editor?",
-        "answer": "Yes. The current development build supports editing and saving local and server text files. Git revisions and comparison views remain read-only."
+        "answer": "Yes. IWE Code supports editing and saving local and server text files. Git revisions and comparison views remain read-only."
       },
       {
         "question": "Do I need to move my projects?",

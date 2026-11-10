@@ -1044,10 +1044,10 @@
   },
   {
     "version": "1.0.2",
-    "status": "prepared",
-    "publishedAt": null,
-    "tags": [],
-    "source": null,
+    "status": "released",
+    "publishedAt": "2026-11-10T20:26:38Z",
+    "tags": ["macos-v1.0.2", "windows-v1.0.2", "linux-v1.0.2", "v1.0.2"],
+    "source": "37ce657466c37895430f7ce66bb69815b50fbf93",
     "items": [
       {
         "id": "windows-terminal-directory-verification",

@@ -25,7 +25,7 @@
     "history": "Historial de Git",
     "comparison": "Cambios",
     "pipelines": "Ejecuciones",
-    "caption": "Versión en desarrollo con datos de ejemplo. Las versiones publicadas pueden ser diferentes.",
+    "caption": "IWE Code con datos de ejemplo.",
     "altWorkspace": "Editor de IWE Code con resaltado de sintaxis, pestañas de archivos, botón Guardar y árbol del proyecto.",
     "altHistory": "Historial de Git en IWE Code con ramas y commits.",
     "altComparison": "IWE Code muestra las versiones anterior y actual de un archivo en paralelo y resalta las líneas modificadas.",
@@ -86,7 +86,7 @@
         "description": "Las transferencias se ejecutan en segundo plano. Consulta su progreso sin volver a abrir el panel de despliegue."
       }
     ],
-    "caption": "Comparación en paralelo en la versión actual en desarrollo."
+    "caption": "Comparación de archivos en paralelo."
   },
   "local": {
     "title": "Tu espacio.\nTus herramientas.",
@@ -111,7 +111,7 @@
     "linux": "64 y 32 bits",
     "download": "Descargar",
     "release": "Notas de las versiones",
-    "early": "Versiones iniciales. Desarrollo activo.",
+    "early": "Código abierto. Desarrollo activo.",
     "architecture": "Elige tu plataforma",
     "detected": "Tu sistema",
     "siliconHint": "Apple Silicon aparece primero. Elige Intel si tu Mac utiliza un procesador Intel.",
@@ -122,7 +122,7 @@
     "items": [
       {
         "question": "¿IWE Code es un editor de código?",
-        "answer": "Sí. La versión en desarrollo permite editar y guardar archivos de texto locales y remotos. Las revisiones de Git y comparaciones son de solo lectura."
+        "answer": "Sí. IWE Code permite editar y guardar archivos de texto locales y remotos. Las revisiones de Git y comparaciones son de solo lectura."
       },
       {
         "question": "¿Necesito mover mis proyectos?",

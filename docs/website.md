@@ -62,8 +62,8 @@ screenshots when the illustrated interface changes.
 
 The feature section covers editing, deployment, Git, pipelines, the terminal, and spaces. A separate
 deployment section explains connections, comparisons, and manual transfers. The workspace section
-explains optional modules. All text appears in English, Russian, and Spanish. The gallery identifies
-its screenshots as development-build previews. Published downloads may differ.
+explains optional modules. All text appears in English, Russian, and Spanish. The gallery shows the
+released interface with fictional sample data.
 
 `app::tests::render_website_screenshots_when_requested` renders the five website views from
 fictional English fixtures. Set `IWE_RENDER_DIR` to a new temporary directory and run that exact
@@ -81,8 +81,9 @@ on small screens.
 All website bitmap images use lossless WebP, including the product icon. Generated-page tests reject
 other bitmap formats in the published files.
 
-`DownloadSection.vue` links to verified packages from release `0.1.11`. Update its version when
-selecting a newer release. The release-notes link opens that download version's page on the website.
+`DownloadSection.vue` links to verified packages from release `1.0.2` through platform-specific
+tags. Windows links select the x64 and x86 installers. Update the version only after verifying the
+published packages. The release-notes link opens that download version's page on the website.
 
 The download cards use Apple, Windows, and Tux SVG paths from
 [Bootstrap Icons v1.13.1](https://github.com/twbs/icons/tree/v1.13.1). The website embeds these
