@@ -126,6 +126,9 @@ fn tree<'a>(state: &'a State, root: &str, depth: u16) -> Element<'a, Event> {
     }
     if let Some(entries) = state.tree.get(root) {
         for entry in entries {
+            if state.browsing && (!entry.directory || entry.symlink) {
+                continue;
+            }
             let symbol = if entry.directory {
                 if state.expanded.contains(&entry.path) {
                     Icon::Down
@@ -223,6 +226,11 @@ pub(crate) fn panel<'a>(
     heading = heading.push(
         row![
             control(Icon::Refresh, Key::DeploymentRefresh, Event::Refresh),
+            control(
+                Icon::CollapseLines,
+                Key::DeploymentCollapseAll,
+                Event::CollapseAll
+            ),
             control(Icon::Settings, Key::DeploymentSettings, Event::Settings),
             container(control(Icon::Minus, Key::HidePanel, Event::Toggle)).id("deployment-hide")
         ]
@@ -315,6 +323,8 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
     state: &'a State,
     i18n: &'a I18n,
     base: Element<'a, Message>,
+    profiles: &'a [Profile],
+    project: Option<&'a Path>,
     map: impl Fn(Event) -> Message + Copy + 'a,
 ) -> Element<'a, Message> {
     let Some(entry) = &state.menu else {
@@ -323,24 +333,86 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
     context_menu::overlay(
         base,
         state.menu_point,
-        iced::Size::new(260., 110.),
+        iced::Size::new(280., if entry.directory { 135. } else { 265. }),
         move || {
-            let mut actions = column![action(
-                i18n,
-                Key::DeploymentDownload,
-                Event::Run(Operation::Download(entry.path.clone(), false))
-            )]
-            .spacing(6);
+            let mapped = state
+                .active_profile(profiles, project)
+                .is_some_and(|profile| profile.to_local(&entry.path).is_ok());
+            let command = |key, event, enabled: bool| {
+                button(text(i18n.text(key)).size(13))
+                    .padding([8, 10])
+                    .width(Length::Fill)
+                    .style(theme::action(false))
+                    .on_press_maybe(enabled.then_some(event))
+            };
+            let mut actions = column![
+                command(
+                    Key::DeploymentUpload,
+                    Event::RemoteUpload(entry.path.clone()),
+                    mapped
+                ),
+                command(
+                    Key::DeploymentDownload,
+                    Event::Run(Operation::Download(entry.path.clone(), false)),
+                    mapped
+                ),
+            ]
+            .spacing(4);
             if !entry.directory {
-                actions = actions.push(action(
-                    i18n,
-                    Key::DeploymentCompare,
-                    Event::CurrentFile(true),
-                ));
+                actions = actions
+                    .push(command(
+                        Key::DeploymentCompareLocal,
+                        Event::RemoteCompare(entry.path.clone()),
+                        mapped,
+                    ))
+                    .push(command(
+                        Key::DeploymentOpenLocal,
+                        Event::OpenLocal(entry.path.clone()),
+                        mapped,
+                    ))
+                    .push(command(
+                        Key::DeploymentOpenRemote,
+                        Event::Run(Operation::Preview(entry.path.clone())),
+                        true,
+                    ));
             }
+            actions = actions.push(command(
+                Key::CopyAbsolutePath,
+                Event::CopyRemotePath(entry.path.clone()),
+                true,
+            ));
             Element::from(actions).map(map)
         },
         map(Event::DismissMenu),
+    )
+}
+
+pub(crate) fn target_dialog<'a>(state: &'a State, i18n: &'a I18n) -> Option<Element<'a, Event>> {
+    let (operation, choices) = state.target.as_ref()?;
+    let title = if matches!(operation, Operation::Compare(_)) {
+        Key::DeploymentCompare
+    } else {
+        Key::DeploymentUpload
+    };
+    let mut targets = column![].spacing(4);
+    for (id, name) in choices {
+        targets = targets.push(
+            button(text(name).size(14))
+                .width(Length::Fill)
+                .padding(10)
+                .style(theme::action(false))
+                .on_press(Event::ChooseTarget(id.clone())),
+        );
+    }
+    Some(
+        column![
+            text(i18n.text(title)).size(19),
+            text(i18n.text(Key::DeploymentChooseTarget)).size(13),
+            container(scrollable(targets).style(theme::scroll)).max_height(320),
+            action(i18n, Key::DeploymentCancel, Event::CloseDialog)
+        ]
+        .spacing(12)
+        .into(),
     )
 }
 

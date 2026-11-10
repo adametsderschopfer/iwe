@@ -217,10 +217,10 @@ fn deployment_editors_fit_the_settings_window_and_keep_keys_inside_connections()
         };
         app.workspace.spaces[0].deployments.push(profile.clone());
         app.modules.deployment.profile = Some(profile);
-        let _ = app.open_settings();
-        let id = app.windows.settings.unwrap();
+        let _ = app.open_deployment_settings();
+        let id = app.windows.deployment.unwrap();
         for tab in [SettingsTab::Connections, SettingsTab::Deployment] {
-            app.settings_tab = tab;
+            app.windows.deployment_connections = tab == SettingsTab::Connections;
             for size in [
                 settings_settings().size,
                 settings_settings().min_size.unwrap(),
@@ -336,4 +336,36 @@ fn deployment_editors_fit_the_settings_window_and_keep_keys_inside_connections()
             }
         }
     }
+}
+
+#[test]
+fn deployment_window_is_separate_reused_and_closes_independently() {
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    let _ = app.open_settings();
+    let settings = app.windows.settings.unwrap();
+    let _ = app.open_deployment_settings();
+    let deployment = app.windows.deployment.unwrap();
+    assert_ne!(settings, deployment);
+    assert_eq!(app.window_title(deployment), app.i18n.text(Key::Deployment));
+    let _ = app.open_deployment_settings();
+    assert_eq!(app.windows.deployment, Some(deployment));
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings::default(),
+        (1120., 760.),
+        app.view_window(settings),
+    );
+    assert!(
+        ui.find(iced::widget::Id::new("settings-tab-deployment"))
+            .is_err()
+    );
+    assert!(
+        ui.find(iced::widget::Id::new("settings-tab-connections"))
+            .is_err()
+    );
+    drop(ui);
+    let _ = app.update(Message::Window(Event::Closed(settings)));
+    assert_eq!(app.windows.deployment, Some(deployment));
+    assert!(app.windows.settings.is_none());
+    let _ = app.update(Message::Window(Event::Closed(deployment)));
+    assert!(app.windows.deployment.is_none());
 }

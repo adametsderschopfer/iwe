@@ -126,16 +126,6 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
             (SettingsTab::Panels, "panels", Key::GitDescription),
             (SettingsTab::Modules, "modules", Key::ModulesDescription),
             (
-                SettingsTab::Connections,
-                "connections",
-                Key::DeploymentConnectionsHelp,
-            ),
-            (
-                SettingsTab::Deployment,
-                "deployment",
-                Key::DeploymentProfilesHelp,
-            ),
-            (
                 SettingsTab::Shortcuts,
                 "shortcuts",
                 Key::CloseActiveTabDescription,
@@ -1197,7 +1187,7 @@ async fn hiding_and_resizing_the_file_panel_preserves_scroll_widget_state() {
             format!("{}\n", "x".repeat(400)).repeat(200),
         )),
     );
-    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
+    app.preview_mut().editor = None;
     let mut renderer =
         iced_test::renderer::Renderer::new(theme::font(), 16.into(), Some("tiny-skia"))
             .await
@@ -1295,7 +1285,7 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
         app.preview().id,
         Ok(Document::new("let value = 42;\n".repeat(80), "rs")),
     );
-    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
+    app.preview_mut().editor = None;
     let mut renderer =
         iced_test::renderer::Renderer::new(theme::font(), 16.into(), Some("tiny-skia"))
             .await
@@ -3467,7 +3457,7 @@ export function App() {
             "tsx",
         )),
     );
-    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
+    app.preview_mut().editor = None;
     capture(&app, "comparison-en", (1440., 920.));
     app.modules.pipelines.pipelines = PipelineState::Ready(
         subjects
@@ -3561,12 +3551,12 @@ export function App() {
     app.workspace.deployment.connections.push(connection);
     app.workspace.spaces[0].deployments.push(profile.clone());
     app.modules.deployment.profile = Some(profile);
-    let _ = app.open_settings();
-    app.settings_tab = SettingsTab::Deployment;
+    let _ = app.open_deployment_settings();
+    app.windows.deployment_connections = false;
     let mut ui = iced_test::Simulator::with_size(
         ui_settings(),
         (1200., 800.),
-        app.view_window(app.windows.settings.unwrap()),
+        app.view_window(app.windows.deployment.unwrap()),
     );
     ui.snapshot(&Theme::Dark)
         .unwrap()

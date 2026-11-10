@@ -551,13 +551,15 @@ size and line numbers. Opening Git closes pipelines. Opening pipelines closes Gi
 remain hidden. Drag the horizontal divider to resize the visible panel.
 
 On macOS, **Spaces**, **Projects**, **Settings**, and **Deployment** appear beside the **IWE Code**
-application menu. **Deployment** opens the connection or space profile section in settings. These
-sections also appear under the **Deployment** group inside settings. Shared SSH keys open from the
-connection section. **Spaces** contains only **New space**. **Settings** opens the settings window
-through its menu item. **Projects** groups projects by their space. An empty **Projects** menu shows
-a disabled **No projects yet** item. Choosing a project brings the workspace window forward. The
-menu follows language and workspace changes. Modal dialogs disable workspace navigation in the menu.
-Windows and Linux retain their existing sidebar controls.
+application menu. **Deployment** opens a separate window with connection and space profile sections.
+Shared SSH keys open from the connection section. **Spaces** contains only **New space**.
+**Settings** opens the settings window through its menu item. **Projects** groups projects by their
+space. An empty **Projects** menu shows a disabled **No projects yet** item. Choosing a project
+brings the workspace window forward. The menu follows language and workspace changes. Modal dialogs
+disable workspace navigation in the menu. Windows and Linux retain their existing sidebar controls.
+
+Escape closes the focused settings or deployment window. If a nested dialog is open, Escape
+dismisses that dialog first. While recording a shortcut, Escape cancels recording.
 
 Preferences and projects are saved automatically in the system configuration directory. Writes
 replace the previous configuration atomically. A damaged configuration is preserved without
@@ -616,18 +618,26 @@ release still requires the older dependency. No advisory exclusions are configur
 ## Text editing
 
 Local text files and server files open in an editable buffer when their size does not exceed 2 MB.
-Git revisions, comparison snapshots, and paged files retain the source viewer. Use Save or Command+S
-on macOS, or Ctrl+S on Windows and Linux. The shortcut can be changed in settings and follows
-physical keys across keyboard layouts. Undo uses Command+Z or Ctrl+Z. Add Shift for redo. The editor
-supports selection, cut, copy, paste, multiline syntax highlighting, and line navigation. Tab
-inserts four spaces. The tab marks unsaved changes. View saved version opens the existing source and
-comparison viewer. Switch back with Edit. This viewer shows the last disk snapshot, not unsaved
-text.
+The editor saves after an 800 ms typing pause. Server buffers save to their original deployment
+profile. Saving local files does not upload them. Command+S on macOS, or Ctrl+S on Windows and
+Linux, saves immediately or retries a failed save. Shortcuts remain configurable and follow physical
+keys across keyboard layouts. Undo uses Command+Z or Ctrl+Z. Add Shift for redo.
+
+The editor supports selection, cut, copy, paste, multiline syntax highlighting, and line navigation.
+Tab inserts four spaces. Line numbers follow the editor's layout and scrolling, including cursor
+navigation. The line-number preference controls their visibility. The separate save and
+saved-version toolbar is removed. The tab marks unsaved changes and shows save errors in its
+tooltip. Errors also appear in notifications. Failed saves stop automatic retries, including after
+further edits.
+
+Project files open without Git comparison preparation. The uncommitted-files section opens separate
+comparison tabs for the same paths. Comparison controls appear only in that section. Git revisions,
+comparison snapshots, and paged files retain the source viewer.
 
 Closing edited tabs, switching projects, disabling modules, installing updates, and closing the
-application require a save or discard decision. Cancel keeps the buffers open. Edits made during a
-save remain unsaved after that save completes. Save failures retain the buffer. Local saves prepare
-a temporary file beside the destination and preserve file permissions. The editor checks the disk
-content before replacement and refuses conflicting external edits. Symbolic link files must be
-opened through their original path before saving. Buffers and bounded undo history remain in memory;
-crash recovery is not provided.
+application flush pending edits first. Failed saves keep the buffer open for retry, discard, or
+cancel. Edits made during saving are scheduled again after completion. Local saves prepare a
+temporary file beside the destination and preserve file permissions. The editor checks disk content
+before replacement and refuses conflicting external edits. Symbolic link files must be opened
+through their original path before saving. Buffers and bounded undo history remain in memory; crash
+recovery is not provided.

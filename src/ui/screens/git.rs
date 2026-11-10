@@ -26,3 +26,10 @@ pub(super) fn context(app: &App) -> git::View<'_> {
 pub(crate) fn view(app: &App) -> iced::Element<'_, Message> {
     git::view(context(app)).map(crate::app::modules::git_message)
 }
+
+pub(super) fn activity(app: &App) -> Option<iced::Element<'_, Message>> {
+    if !app.module_enabled(crate::modules::ModuleId::Git) {
+        return None;
+    }
+    git::activity(context(app)).map(|activity| activity.map(crate::app::modules::git_message))
+}

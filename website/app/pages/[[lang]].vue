@@ -65,8 +65,6 @@ useSeoMeta({
 
       <FeatureSection :messages="messages" />
 
-      <DeploymentSection :messages="messages" />
-
       <section id="workflow" class="workflow section-space" aria-labelledby="workflow-title">
         <div class="workflow-copy">
           <h2 id="workflow-title" class="section-title preserve-lines">

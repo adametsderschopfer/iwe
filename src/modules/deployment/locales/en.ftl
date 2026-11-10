@@ -31,7 +31,7 @@ deployment-local-folder = Local path
 deployment-remote-folder = Deployment path
 deployment-remove = Remove
 deployment-add-mapping = Add mapping
-deployment-mapping-help = Use paths relative to the project and server root. Empty paths select their roots.
+deployment-mapping-help = The local path starts at the project folder. The server path is relative to the server root; leave it empty to use the root.
 deployment-exclusions = Excluded paths
 deployment-add-exclusion = Add exclusion
 deployment-default = Use by default for this project
@@ -82,7 +82,6 @@ deployment-project = Project
 deployment-duplicate = Duplicate
 deployment-rename = Rename
 deployment-edit = Edit
-deployment-revert = Revert changes
 deployment-continue = OK
 deployment-choose-connection = Select a connection or add a server.
 deployment-choose-profile = Select a profile or add one with the + button.
@@ -95,3 +94,9 @@ deployment-loading-remote = Loading server file…
 deployment-queued = Queued: { $count }
 
 deployment-comparison-ready = Comparison ready
+
+deployment-choose-target = Choose the deployment profile for this operation.
+deployment-compare-local = Compare with Local Version
+deployment-open-local = Edit Local File
+deployment-open-remote = Edit Remote File
+deployment-collapse-all = Collapse All

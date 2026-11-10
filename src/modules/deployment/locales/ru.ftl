@@ -31,7 +31,7 @@ deployment-local-folder = Локальный путь
 deployment-remote-folder = Путь на сервере
 deployment-remove = Убрать
 deployment-add-mapping = Добавить маппинг
-deployment-mapping-help = Указывайте пути относительно проекта и корня сервера. Пустой путь означает корневую папку.
+deployment-mapping-help = Локальный путь начинается с папки проекта. Путь на сервере укажите относительно корневой папки сервера. Пустой путь означает корневую папку.
 deployment-exclusions = Исключённые пути
 deployment-add-exclusion = Добавить исключение
 deployment-default = Использовать по умолчанию для проекта
@@ -82,7 +82,6 @@ deployment-project = Проект
 deployment-duplicate = Дублировать
 deployment-rename = Переименовать
 deployment-edit = Изменить
-deployment-revert = Отменить изменения
 deployment-continue = ОК
 deployment-choose-connection = Выберите подключение или добавьте сервер.
 deployment-choose-profile = Выберите профиль или добавьте его кнопкой «+».
@@ -95,3 +94,9 @@ deployment-loading-remote = Загрузка файла с сервера…
 deployment-queued = В очереди: { $count }
 
 deployment-comparison-ready = Сравнение готово
+
+deployment-choose-target = Выберите профиль деплоймента для этой операции.
+deployment-compare-local = Сравнить с локальной версией
+deployment-open-local = Открыть локальный файл
+deployment-open-remote = Открыть серверный файл
+deployment-collapse-all = Свернуть всё

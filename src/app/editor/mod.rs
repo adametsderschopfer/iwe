@@ -3,16 +3,14 @@
 use super::{App, Message};
 use crate::{domain::editor::Document, i18n::Key, infrastructure::editor};
 use iced::{Task, widget::text_editor};
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Duration};
+
+const AUTOSAVE_DELAY: Duration = Duration::from_millis(800);
 
 #[derive(Debug, Clone)]
 pub(crate) enum Target {
     Local(PathBuf),
-    Remote {
-        profile: String,
-        label: String,
-        path: String,
-    },
+    Remote { profile: String, path: String },
 }
 
 #[derive(Debug, Clone)]
@@ -20,10 +18,9 @@ pub(crate) struct Buffer {
     pub document: Document,
     pub content: text_editor::Content,
     pub target: Target,
-    pub reviewing: bool,
     pub saving: bool,
     pub error: Option<Key>,
-    pub saved_notice: bool,
+    autosave: u64,
     token: u64,
     snapshot: String,
 }
@@ -34,10 +31,9 @@ impl Buffer {
             content: text_editor::Content::with_text(&text),
             document: Document::new(text),
             target,
-            reviewing: false,
             saving: false,
             error: None,
-            saved_notice: false,
+            autosave: 0,
             token: 0,
             snapshot: String::new(),
         }
@@ -61,8 +57,9 @@ pub(crate) enum Event {
     Undo(u64, bool),
     Save,
     Saved(u64, Result<(), Key>),
-    ToggleReview(u64),
+    Autosave(u64, u64),
     SaveAll,
+    FlushPending,
     Discard,
     Cancel,
 }
@@ -73,6 +70,16 @@ impl App {
     }
 
     pub(crate) fn editor_pending_tab(&self, id: u64) -> bool {
+        if let Some(path) = self
+            .editor
+            .pending
+            .as_deref()
+            .and_then(|message| self.deployment_local_path(message))
+        {
+            return self.tabs.files.iter().find(|tab| tab.id == id)
+                .and_then(|tab| tab.editor.as_ref())
+                .is_some_and(|buffer| matches!(&buffer.target, Target::Local(local) if local.starts_with(&path)));
+        }
         match self.editor.pending.as_deref() {
             Some(Message::CloseTab(target)) => id == *target,
             Some(Message::CloseActiveTab) => id == self.preview().id,
@@ -84,6 +91,14 @@ impl App {
         if self.editor.bypass {
             self.editor.bypass = false;
             return false;
+        }
+        if let Some(path) = self.deployment_local_path(message) {
+            let protected = self.tabs.files.iter().filter_map(|tab| tab.editor.as_ref())
+                .any(|buffer| buffer.protected() && matches!(&buffer.target, Target::Local(local) if local.starts_with(&path)));
+            if protected && self.editor.pending.is_none() {
+                self.editor.pending = Some(Box::new(message.clone()));
+            }
+            return protected;
         }
         let target = match message {
             Message::CloseTab(id) => Some(*id),
@@ -118,10 +133,42 @@ impl App {
         false
     }
 
-    fn save_editor(&mut self, id: u64) -> Task<Message> {
-        if self.editor_buffer().is_none() && !self.editor.saving_all {
+    fn schedule_autosave(&mut self, id: u64) -> Task<Message> {
+        self.editor.next_token += 1;
+        let revision = self.editor.next_token;
+        let Some(buffer) = self
+            .tabs
+            .files
+            .iter_mut()
+            .find(|tab| tab.id == id)
+            .and_then(|tab| tab.editor.as_mut())
+        else {
+            return Task::none();
+        };
+        buffer.autosave = revision;
+        if buffer.error.is_some() || !buffer.document.dirty() {
             return Task::none();
         }
+        autosave_after(id, revision)
+    }
+
+    pub(super) fn flush_editor(&mut self) -> Task<Message> {
+        if self.editor.pending.is_none()
+            || self.tabs.files.iter().any(|tab| {
+                self.editor_pending_tab(tab.id)
+                    && tab
+                        .editor
+                        .as_ref()
+                        .is_some_and(|buffer| buffer.error.is_some())
+            })
+        {
+            return Task::none();
+        }
+        self.editor.saving_all = true;
+        self.save_next_editor()
+    }
+
+    fn save_editor(&mut self, id: u64) -> Task<Message> {
         self.editor.next_token += 1;
         let token = self.editor.next_token;
         let Some(buffer) = self
@@ -140,7 +187,7 @@ impl App {
         buffer.snapshot = buffer.document.text.clone();
         buffer.saving = true;
         buffer.error = None;
-        buffer.saved_notice = false;
+
         let text = buffer.snapshot.clone();
         let expected = buffer.document.saved.clone();
         match buffer.target.clone() {
@@ -196,7 +243,12 @@ impl App {
     pub(super) fn update_editor(&mut self, event: Event) -> Task<Message> {
         if !matches!(
             event,
-            Event::Saved(..) | Event::SaveAll | Event::Discard | Event::Cancel
+            Event::Saved(..)
+                | Event::Autosave(..)
+                | Event::FlushPending
+                | Event::SaveAll
+                | Event::Discard
+                | Event::Cancel
         ) && (self.auth_dialog.is_some()
             || self.line_navigation.is_some()
             || self.space_draft.is_some()
@@ -209,6 +261,7 @@ impl App {
         }
         match event {
             Event::Action(id, action) => {
+                let edited = action.is_edit();
                 if self.editor.pending.is_some()
                     || self.auth_dialog.is_some()
                     || self.line_navigation.is_some()
@@ -225,18 +278,20 @@ impl App {
                     .find(|tab| tab.id == id)
                     .and_then(|tab| tab.editor.as_mut())
                 {
-                    let edited = action.is_edit();
                     buffer.content.perform(action);
                     if edited {
                         let text = buffer.content.text();
                         if text.len() > crate::domain::editor::LIMIT {
                             buffer.content = text_editor::Content::with_text(&buffer.document.text);
                             buffer.error = Some(Key::EditorTooLarge);
+                            self.notifications.error(Key::EditorTooLarge, None);
                         } else {
                             buffer.document.edit(text);
-                            buffer.saved_notice = false;
                         }
                     }
+                }
+                if edited {
+                    return self.schedule_autosave(id);
                 }
             }
             Event::Undo(id, redo) if self.editor.pending.is_none() => {
@@ -251,19 +306,32 @@ impl App {
                     buffer.document.undo(redo);
                     buffer.content = text_editor::Content::with_text(&buffer.document.text);
                     buffer.content.move_to(cursor);
-                    buffer.saved_notice = false;
                 }
+                return self.schedule_autosave(id);
             }
-            Event::ToggleReview(id) => {
-                if let Some(buffer) = self
+            Event::Autosave(id, revision) => {
+                let Some(buffer) = self
                     .tabs
                     .files
-                    .iter_mut()
+                    .iter()
                     .find(|tab| tab.id == id)
-                    .and_then(|tab| tab.editor.as_mut())
+                    .and_then(|tab| tab.editor.as_ref())
+                else {
+                    return Task::none();
+                };
+                if buffer.autosave != revision
+                    || revision == 0
+                    || buffer.error.is_some()
+                    || buffer.saving
+                    || !buffer.document.dirty()
+                    || self.editor.pending.is_some()
                 {
-                    buffer.reviewing = !buffer.reviewing;
+                    return Task::none();
                 }
+                if matches!(buffer.target, Target::Remote { .. }) && self.modules.deployment.busy {
+                    return autosave_after(id, revision);
+                }
+                return self.save_editor(id);
             }
             Event::Save if self.editor.pending.is_none() => {
                 return self.save_editor(self.preview().id);
@@ -272,20 +340,23 @@ impl App {
                 let Some(tab) = self.tabs.files.iter_mut().find(|tab| {
                     tab.editor
                         .as_ref()
-                        .is_some_and(|buffer| buffer.token == token && token != 0)
+                        .is_some_and(|buffer| buffer.token == token && token != 0 && buffer.saving)
                 }) else {
                     return Task::none();
                 };
                 let buffer = tab.editor.as_mut().expect("Matched editor");
                 buffer.saving = false;
                 buffer.error = result.err();
-                buffer.saved_notice = result.is_ok();
+
                 if result.is_ok() {
                     buffer.document.saved.clone_from(&buffer.snapshot);
                 } else {
                     self.editor.saving_all = false;
                 }
                 let id = tab.id;
+                if let Err(error) = result {
+                    self.notifications.error(error, Some(tab.title.clone()));
+                }
                 let refresh = if result.is_ok() {
                     self.refresh_saved_editor(id)
                 } else {
@@ -294,7 +365,10 @@ impl App {
                 if self.editor.saving_all {
                     return Task::batch([refresh, self.save_next_editor()]);
                 }
-                return refresh;
+                return Task::batch([refresh, self.schedule_autosave(id)]);
+            }
+            Event::FlushPending if self.editor.saving_all => {
+                return self.flush_editor();
             }
             Event::SaveAll => {
                 self.editor.saving_all = true;
@@ -363,11 +437,30 @@ impl App {
             })
             .map(|tab| tab.id)
         {
+            let remote = self
+                .tabs
+                .files
+                .iter()
+                .find(|tab| tab.id == id)
+                .and_then(|tab| tab.editor.as_ref())
+                .is_some_and(|buffer| matches!(buffer.target, Target::Remote { .. }));
+            if remote && self.modules.deployment.busy {
+                return Task::perform(async { tokio::time::sleep(AUTOSAVE_DELAY).await }, |_| {
+                    Message::Editor(Event::FlushPending)
+                });
+            }
             self.save_editor(id)
         } else {
             self.continue_editor_action()
         }
     }
+}
+
+fn autosave_after(id: u64, revision: u64) -> Task<Message> {
+    Task::perform(
+        async { tokio::time::sleep(AUTOSAVE_DELAY).await },
+        move |_| Message::Editor(Event::Autosave(id, revision)),
+    )
 }
 
 #[cfg(test)]

@@ -17,6 +17,33 @@ impl App {
             .unwrap_or(&[])
     }
 
+    pub(crate) fn deployment_local_path(&self, message: &Message) -> Option<std::path::PathBuf> {
+        let Message::Module(super::Event::Deployment(event)) = message else {
+            return None;
+        };
+        let operation = match event {
+            Event::CurrentFile(_) => return self.active_local_file(),
+            Event::Run(operation) | Event::RunOnProfile(_, operation) => operation,
+            Event::ChooseTarget(_) => &self.modules.deployment.target.as_ref()?.0,
+            Event::RemoteCompare(path) | Event::RemoteUpload(path) => {
+                return self
+                    .modules
+                    .deployment
+                    .active_profile(
+                        self.deployment_profiles(),
+                        self.workspace.directory().map(|p| p.as_path()),
+                    )?
+                    .to_local(path)
+                    .ok();
+            }
+            _ => return None,
+        };
+        match operation {
+            Operation::Upload(path) | Operation::Compare(path) => Some(path.clone()),
+            _ => None,
+        }
+    }
+
     pub(super) fn update_deployment(&mut self, mut event: Event) -> Task<Message> {
         if !self.module_enabled(crate::modules::ModuleId::Deployment) {
             return Task::none();
@@ -30,8 +57,12 @@ impl App {
                 self.workspace.selected_space = Some(index);
             }
             self.space_menu = None;
-            self.settings_tab = SettingsTab::Deployment;
-            return Task::batch([self.load_directory(), self.save(), self.open_settings()]);
+            self.windows.deployment_connections = false;
+            return Task::batch([
+                self.load_directory(),
+                self.save(),
+                self.open_deployment_settings(),
+            ]);
         }
         let project = self.workspace.directory().cloned();
         self.modules
@@ -53,27 +84,7 @@ impl App {
             {
                 return Task::none();
             }
-            let remote_selection = self
-                .modules
-                .deployment
-                .menu
-                .as_ref()
-                .map(|entry| entry.path.clone());
-            let path = if let Some(remote) = remote_selection {
-                let path = self
-                    .modules
-                    .deployment
-                    .active_profile(self.deployment_profiles(), project.as_deref())
-                    .and_then(|profile| profile.to_local(&remote).ok());
-                if path.is_none() {
-                    self.modules.deployment.error = Some(crate::domain::deployment::Error::Mapping);
-                    self.settings_tab = SettingsTab::Deployment;
-                    return self.open_settings();
-                }
-                path
-            } else {
-                self.active_local_file()
-            };
+            let path = self.active_local_file();
             let Some(path) = path else {
                 return Task::none();
             };
@@ -118,6 +129,8 @@ impl App {
         let task = task.map(deployment_message);
         match effect {
             Effect::None => task,
+            Effect::OpenLocal(path) => Task::batch([task, self.open_file(path)]),
+            Effect::CopyPath(path) => Task::batch([task, iced::clipboard::write(path)]),
             Effect::CompareRequested {
                 profile,
                 label,
@@ -142,11 +155,11 @@ impl App {
             Effect::Save => Task::batch([task, self.save()]),
             Effect::Connections => {
                 let select = self.update(Message::SelectSettingsTab(SettingsTab::Connections));
-                Task::batch([task, select, self.open_settings()])
+                Task::batch([task, select, self.open_deployment_settings()])
             }
             Effect::Settings => {
                 let select = self.update(Message::SelectSettingsTab(SettingsTab::Deployment));
-                Task::batch([task, select, self.open_settings()])
+                Task::batch([task, select, self.open_deployment_settings()])
             }
             Effect::Preview(Output::Preview {
                 profile_id,

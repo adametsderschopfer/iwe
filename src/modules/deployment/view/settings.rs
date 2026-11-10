@@ -80,20 +80,24 @@ fn feedback<'a>(state: &'a State, i18n: &'a I18n) -> Element<'a, Event> {
     }
 }
 
-fn test_controls<'a>(state: &'a State, i18n: &I18n, event: Event) -> Element<'a, Event> {
-    let outcome = if state.busy {
-        Some((
-            if state.operation_label == Some(Key::DeploymentTest) {
-                Key::DeploymentChecking
-            } else {
-                state.operation_label.unwrap_or(Key::DeploymentWorking)
-            },
-            theme::MUTED,
-        ))
-    } else if let Some(error) = &state.error {
-        Some((error_key(error), theme::RED))
+fn test_controls<'a>(
+    state: &'a State,
+    i18n: &I18n,
+    event: Event,
+    connection: Option<&crate::domain::deployment::Connection>,
+) -> Element<'a, Event> {
+    let relevant = state.operation_label == Some(Key::DeploymentTest)
+        && state.test_connection.is_some()
+        && state.test_connection.as_ref() == connection;
+    let outcome = if !relevant {
+        None
+    } else if state.busy {
+        Some((Key::DeploymentChecking, theme::MUTED))
     } else {
-        state.status.map(|key| (key, theme::GREEN))
+        state.test_result.as_ref().map(|result| match result {
+            Ok(()) => (Key::DeploymentConnected, theme::GREEN),
+            Err(error) => (error_key(error), theme::RED),
+        })
     };
     let mut controls = column![].spacing(8).width(Length::Fill);
     if let Some((key, color)) = outcome {
@@ -103,7 +107,8 @@ fn test_controls<'a>(state: &'a State, i18n: &I18n, event: Event) -> Element<'a,
                 .width(Length::Fill),
         );
     }
-    if !state.busy
+    if relevant
+        && !state.busy
         && let Some(Error::HostUnknown(fingerprint)) = &state.error
     {
         controls = controls
@@ -126,7 +131,7 @@ fn test_controls<'a>(state: &'a State, i18n: &I18n, event: Event) -> Element<'a,
         .id("deployment-test-button"),
     ]
     .spacing(8);
-    if state.busy {
+    if relevant && state.busy {
         buttons = buttons.push(action(i18n, Key::DeploymentCancel, Event::Cancel));
     }
     controls = controls.push(buttons);
@@ -256,19 +261,9 @@ fn editor<'a>(
     .into()
 }
 
-fn footer<'a>(
-    i18n: &I18n,
-    save: Event,
-    revert: Event,
-    dirty: bool,
-    saving: bool,
-) -> Element<'a, Event> {
+fn footer<'a>(i18n: &I18n, save: Event, dirty: bool, saving: bool) -> Element<'a, Event> {
     row![
         space().width(Length::Fill),
-        button(text(i18n.text(Key::DeploymentRevert)).size(13))
-            .padding([7, 12])
-            .style(style::secondary)
-            .on_press_maybe((dirty && !saving).then_some(revert)),
         button(
             text(i18n.text(if saving {
                 Key::DeploymentSaving
@@ -375,7 +370,6 @@ pub(crate) fn connections_view<'a>(
             footer(
                 i18n,
                 Event::SaveConnection,
-                Event::RevertConnection,
                 state.connection_dirty(settings),
                 state.saving
             )
@@ -510,7 +504,11 @@ pub(super) fn connection_form<'a>(
                 .spacing(12),
             );
     }
-    form.push(test_controls(state, i18n, Event::Test)).into()
+    if state.operation_label.is_none() && state.error.is_some() {
+        form = form.push(feedback(state, i18n));
+    }
+    form.push(test_controls(state, i18n, Event::Test, Some(connection)))
+        .into()
 }
 
 pub(crate) fn profiles_view<'a>(
@@ -587,7 +585,6 @@ pub(crate) fn profiles_view<'a>(
             footer(
                 i18n,
                 Event::SaveProfile,
-                Event::RevertProfile,
                 state.profile_dirty(profiles),
                 false
             )
@@ -709,38 +706,21 @@ fn profile_form<'a>(
                     ]
                     .spacing(6),
                 ))
-                .push(test_controls(state, i18n, Event::TestProfile))
+                .push(test_controls(
+                    state,
+                    i18n,
+                    Event::TestProfile,
+                    settings
+                        .connections
+                        .iter()
+                        .find(|c| c.id == profile.connection),
+                ))
                 .push(
                     toggler(profile.default)
                         .label(i18n.text(Key::DeploymentDefault))
                         .on_toggle(Event::DefaultProfile)
                         .style(theme::toggle),
                 );
-            if state.browsing {
-                form = form.push(
-                    container(scrollable(tree(state, "/", 0)).style(theme::scroll)).height(200),
-                );
-                let mut controls = row![action(
-                    i18n,
-                    Key::DeploymentUseRoot,
-                    Event::UseRoot("/".into())
-                )]
-                .spacing(6);
-                if let Some(entry) = &state.selected
-                    && entry.directory
-                {
-                    controls = controls.push(action(
-                        i18n,
-                        Key::DeploymentUseFolder,
-                        Event::UseRoot(entry.path.clone()),
-                    ));
-                }
-                form = form.push(controls).push(action(
-                    i18n,
-                    Key::DeploymentCancel,
-                    Event::StopBrowsing,
-                ));
-            }
         }
         ProfileTab::Mappings => {
             form = form
@@ -774,14 +754,33 @@ fn profile_form<'a>(
                             form_row(
                                 i18n,
                                 Key::DeploymentLocalFolder,
-                                field(&mapping.local.to_string_lossy(), move |v| {
-                                    Event::MappingLocal(index, v)
-                                })
+                                row![
+                                    field(
+                                        &profile.project.join(&mapping.local).to_string_lossy(),
+                                        move |v| { Event::MappingLocal(index, v) }
+                                    ),
+                                    tool(
+                                        i18n,
+                                        Icon::Folder,
+                                        Key::DeploymentBrowse,
+                                        Some(Event::PickLocalMapping(index))
+                                    )
+                                ]
+                                .spacing(8)
                             ),
                             form_row(
                                 i18n,
                                 Key::DeploymentRemoteFolder,
-                                field(&mapping.remote, move |v| Event::MappingRemote(index, v))
+                                row![
+                                    field(&mapping.remote, move |v| Event::MappingRemote(index, v)),
+                                    tool(
+                                        i18n,
+                                        Icon::Folder,
+                                        Key::DeploymentBrowse,
+                                        (!state.busy).then_some(Event::BrowseMapping(index))
+                                    )
+                                ]
+                                .spacing(8)
                             ),
                         ]
                         .spacing(8),
@@ -820,7 +819,9 @@ fn profile_form<'a>(
             ));
         }
     }
-    if state.profile_tab != ProfileTab::Connection {
+    if state.profile_tab != ProfileTab::Connection
+        || matches!(state.error, Some(Error::Configuration | Error::Mapping))
+    {
         form = form.push(feedback(state, i18n));
     }
     form.into()
@@ -893,6 +894,45 @@ pub(crate) fn settings_dialog<'a>(
             .spacing(16)
             .into(),
         )
+    } else if state.browsing {
+        let selected = state
+            .selected
+            .as_ref()
+            .filter(|entry| entry.directory && !entry.symlink);
+        let mut browser = column![
+            container(scrollable(tree(state, state.browsing_root(), 0)).style(theme::scroll))
+                .id("deployment-folder-tree")
+                .height(320)
+                .width(Length::Fill),
+        ]
+        .spacing(12);
+        if state.busy {
+            browser = browser.push(text(i18n.text(Key::Loading)).size(12));
+        }
+        if let Some(error) = &state.error {
+            browser = browser.push(
+                text(i18n.text(super::error_key(error)))
+                    .size(12)
+                    .style(theme::RED.text()),
+            );
+        }
+        browser = browser.push(
+            row![
+                action(i18n, Key::DeploymentCancel, Event::StopBrowsing),
+                space().width(Length::Fill),
+                action(
+                    i18n,
+                    Key::DeploymentUseRoot,
+                    Event::UseRoot(state.browsing_root().to_owned())
+                ),
+                button(text(i18n.text(Key::DeploymentUseFolder)).size(13))
+                    .style(style::primary)
+                    .padding([8, 12])
+                    .on_press_maybe(selected.map(|entry| Event::UseRoot(entry.path.clone()))),
+            ]
+            .spacing(8),
+        );
+        (Key::DeploymentBrowse, browser.into())
     } else if let Some(name_action) = state.naming {
         let mut content = column![form_row(
             i18n,
@@ -910,6 +950,13 @@ pub(crate) fn settings_dialog<'a>(
                     Event::NewProtocol,
                 ),
             ));
+        }
+        if let Some(error) = &state.error {
+            content = content.push(
+                text(i18n.text(super::error_key(error)))
+                    .size(12)
+                    .style(theme::RED.text()),
+            );
         }
         content = content.push(
             row![

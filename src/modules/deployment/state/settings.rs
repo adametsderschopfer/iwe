@@ -12,9 +12,9 @@ impl State {
     }
 
     pub(crate) fn profile_dirty(&self, profiles: &[Profile]) -> bool {
-        self.profile
-            .as_ref()
-            .is_some_and(|draft| profiles.iter().find(|p| p.id == draft.id) != Some(draft))
+        self.profile.as_ref().is_some_and(|draft| {
+            profiles.iter().find(|p| p.id == draft.id) != Some(&normalized_profile(draft))
+        })
     }
 
     pub(super) fn guard_selection(
@@ -85,21 +85,48 @@ impl State {
                 }
                 (Task::none(), Effect::None)
             }
-            NameAction::RenameProfile | NameAction::DuplicateProfile => {
+            NameAction::RenameProfile => {
                 if let Some(profile) = &mut self.profile {
-                    if action == NameAction::DuplicateProfile {
-                        match identifier() {
-                            Ok(id) => profile.id = id,
-                            Err(error) => {
-                                self.error = Some(error);
-                                return (Task::none(), Effect::None);
-                            }
-                        }
-                        profile.default = false;
-                    }
                     profile.name = name;
                 }
                 (Task::none(), Effect::None)
+            }
+            NameAction::DuplicateProfile => {
+                let Some(source) = self.profile.as_ref().map(normalized_profile) else {
+                    return (Task::none(), Effect::None);
+                };
+                let validation = source.validate().and_then(|()| {
+                    if settings
+                        .connections
+                        .iter()
+                        .any(|c| c.id == source.connection)
+                    {
+                        Ok(())
+                    } else {
+                        Err(Error::Configuration)
+                    }
+                });
+                let id = match validation.and_then(|()| identifier()) {
+                    Ok(id) => id,
+                    Err(error) => {
+                        self.naming = Some(action);
+                        self.error = Some(error);
+                        return (Task::none(), Effect::None);
+                    }
+                };
+                // Preserve an unsaved source as well as existing saved profiles.
+                if !profiles.iter().any(|profile| profile.id == source.id) {
+                    profiles.push(source.clone());
+                }
+                let copy = Profile {
+                    id,
+                    name,
+                    default: false,
+                    ..source
+                };
+                profiles.push(copy.clone());
+                self.profile = Some(copy);
+                (Task::none(), Effect::Save)
             }
         };
         self.name_value.clear();
@@ -107,4 +134,16 @@ impl State {
         self.status = None;
         result
     }
+}
+
+/// Store paths relative to their project while accepting absolute paths from the form.
+pub(super) fn normalized_profile(draft: &Profile) -> Profile {
+    let mut profile = draft.clone();
+    for mapping in &mut profile.mappings {
+        mapping.remote = mapping.remote.trim_start_matches('/').to_owned();
+        if let Ok(relative) = mapping.local.strip_prefix(&profile.project) {
+            mapping.local = relative.to_owned();
+        }
+    }
+    profile
 }

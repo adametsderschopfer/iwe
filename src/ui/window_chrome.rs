@@ -25,7 +25,7 @@ pub(crate) fn settings_overlay<'a>(
     content: Element<'a, Message>,
     id: window::Id,
 ) -> Element<'a, Message> {
-    compose(app, content, Some(id), app.windows.maximized)
+    compose(app, content, Some(id), app.windows.secondary_maximized(id))
 }
 
 fn compose<'a>(

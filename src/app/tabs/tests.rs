@@ -27,9 +27,9 @@ fn collapse_mode_applies_to_all_tabs_new_files_and_restored_preferences() {
         )
     };
     let mut app = app();
-    let first = open(&mut app, "first.rs");
+    let first = open_change(&mut app, "first.rs");
     let _ = app.finish_preview(first, Ok(document()));
-    let second = open(&mut app, "second.rs");
+    let second = open_change(&mut app, "second.rs");
     let _ = app.finish_preview(second, Ok(document()));
     let _ = app.update(Message::ToggleUnchanged(second));
     assert!(app.workspace.preferences.collapse_unchanged);
@@ -39,14 +39,14 @@ fn collapse_mode_applies_to_all_tabs_new_files_and_restored_preferences() {
             .iter()
             .all(|preview| preview.folding.collapsed)
     );
-    let third = open(&mut app, "third.rs");
+    let third = open_change(&mut app, "third.rs");
     let _ = app.finish_preview(third, Ok(document()));
     assert!(app.preview().folding.collapsed);
     let serialized = serde_json::to_value(&app.workspace).unwrap();
     let mut restored = App::new(Rc::new(I18n::new(Language::English)));
     restored.workspace = serde_json::from_value(serialized).unwrap();
     restored.workspace.normalize();
-    let id = open(&mut restored, "restored.rs");
+    let id = open_change(&mut restored, "restored.rs");
     let _ = restored.finish_preview(id, Ok(document()));
     assert!(restored.preview().folding.collapsed);
     let _ = app.update(Message::ToggleUnchanged(third));
@@ -64,15 +64,19 @@ fn open(app: &mut App, path: &str) -> u64 {
     app.preview().id
 }
 
+fn open_change(app: &mut App, path: &str) -> u64 {
+    app.file_panel = crate::domain::workspace::FilePanel::Changes;
+    let _ = app.open_working_change(PathBuf::from("project").join(path));
+    app.preview().id
+}
+
 fn loaded(app: &mut App, id: u64, text: &str) {
     let _ = app.update(Message::FileLoaded(
         app.generation,
         id,
         Ok(Document::new(text.to_owned(), "rs")),
     ));
-    if let Some(buffer) = &mut app.preview_mut().editor {
-        buffer.reviewing = true;
-    }
+    app.preview_mut().editor = None;
 }
 
 fn diff_settings() -> iced::Settings {
@@ -85,7 +89,7 @@ fn diff_settings() -> iced::Settings {
 fn comparison_app() -> App {
     let mut app = app();
     app.panes = iced::widget::pane_grid::State::new(super::super::Panel::Workspace).0;
-    let id = open(&mut app, "balance.py");
+    let id = open_change(&mut app, "balance.py");
     let before = "from decimal import Decimal\n\ndef get_balance(account):\n    balance = account.balance\n    fee = Decimal('10.00')\n    return balance - fee\n\ndef serialize_account(account):\n    return {\n        'name': account.name,\n        'balance': get_balance(account),\n        'currency': 'USD',\n    }\n\n# End of account helpers\n";
     let after = "from decimal import Decimal\n\ndef get_balance(account):\n    balance = account.balance\n    fee = Decimal('5.00')\n    discount = account.discount\n    return balance - fee + discount\n\ndef serialize_account(account):\n    return {\n        'name': account.name,\n        'balance': get_balance(account),\n    }\n\n# End of account helpers\n\ndef is_active(account):\n    return account.enabled\n";
     let _ = app.finish_preview(
@@ -99,7 +103,7 @@ fn comparison_app() -> App {
             "py",
         )),
     );
-    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
+    assert!(app.preview().editor.is_none());
     app
 }
 
@@ -586,7 +590,7 @@ async fn diff_scrolling_synchronizes_widgets_and_keeps_horizontal_offsets_indepe
 }
 
 #[tokio::test]
-async fn opening_displays_text_before_highlighting_and_comparison() {
+async fn opening_changes_displays_text_before_highlighting_and_comparison() {
     use iced::futures::StreamExt;
     use iced_test::runtime::{Action, task};
     let directory = tempfile::tempdir().unwrap();
@@ -597,7 +601,7 @@ async fn opening_displays_text_before_highlighting_and_comparison() {
     app.loaded = true;
     app.workspace
         .create_space("Work".into(), vec![directory.path().to_owned()]);
-    let mut next = app.open_file(path);
+    let mut next = app.open_working_change(path);
     for stage in [Preparation::Text, Preparation::Syntax, Preparation::Changes] {
         let mut stream = task::into_stream(next).unwrap();
         let message = loop {
@@ -701,7 +705,7 @@ fn expanded_ranges_remain_specific_to_each_tab_under_the_shared_mode() {
         let mut app = app();
         app.workspace.preferences.diff_view = DiffView::Unified;
         app.i18n = Rc::new(I18n::new(language));
-        let first = open(&mut app, "diff.rs");
+        let first = open_change(&mut app, "diff.rs");
         let tail = (0..40)
             .map(|index| format!("// unchanged {index}\n"))
             .collect::<String>();
@@ -716,7 +720,7 @@ fn expanded_ranges_remain_specific_to_each_tab_under_the_shared_mode() {
             "rs",
         );
         let _ = app.finish_preview(first, Ok(document));
-        app.preview_mut().editor.as_mut().unwrap().reviewing = true;
+        assert!(app.preview().editor.is_none());
         app.preview_mut().scroll_y = 100.;
         let mut ui =
             iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
@@ -1099,6 +1103,7 @@ async fn suspended_pages_reopen_from_disk_and_detect_changed_files() {
     let content = "a\n".repeat(400_000);
     std::fs::write(&path, &content).unwrap();
     let source = Source::Working {
+        compare: false,
         root: directory.path().into(),
         path: path.clone(),
     };
@@ -1831,6 +1836,84 @@ async fn explicit_remote_comparison_keeps_identical_and_empty_files_side_by_side
                     .unwrap()
                     .visible_bounds()
                     .is_some()
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn project_files_skip_git_comparison_and_have_separate_change_tabs() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::Action;
+    let mut app = app();
+    let path = PathBuf::from("project/file.txt");
+    let _ = app.open_file(path.clone());
+    let local = app.preview().id;
+    app.preview_mut().preparation = Preparation::Syntax;
+    let task = app.continue_preview(
+        local,
+        Preparation::Syntax,
+        Ok(Document::plain("local".into())),
+    );
+    if let Some(mut stream) = iced_test::runtime::task::into_stream(task) {
+        while let Some(action) = stream.next().await {
+            assert!(!matches!(action, Action::Output(_)));
+        }
+    }
+    assert!(!app.preview().loading);
+    assert!(app.preview().editor.is_some());
+    assert!(
+        app.preview()
+            .document
+            .as_ref()
+            .unwrap()
+            .comparison
+            .is_none()
+    );
+    let _ = app.open_working_change(path.clone());
+    let change = app.preview().id;
+    assert_ne!(local, change);
+    app.preview_mut().preparation = Preparation::Syntax;
+    let task = app.continue_preview(
+        change,
+        Preparation::Syntax,
+        Ok(Document::plain("local".into())),
+    );
+    assert!(iced_test::runtime::task::into_stream(task).is_some());
+    assert_eq!(app.preview().preparation, Preparation::Changes);
+    assert!(app.preview().editor.is_none());
+    let _ = app.open_file(path);
+    assert_eq!(app.preview().id, local);
+    let _ = app.refresh_saved_editor(local);
+    app.preview_mut().preparation = Preparation::Syntax;
+    let _ = app.continue_preview(
+        local,
+        Preparation::Syntax,
+        Ok(Document::plain("saved".into())),
+    );
+    assert!(!app.preview().loading);
+    assert!(
+        app.preview()
+            .document
+            .as_ref()
+            .unwrap()
+            .comparison
+            .is_none()
+    );
+}
+
+#[test]
+fn comparison_controls_only_appear_in_the_changes_section() {
+    use crate::domain::workspace::FilePanel;
+    use iced::widget::Id;
+    let mut app = comparison_app();
+    for panel in [FilePanel::Project, FilePanel::Changes] {
+        app.file_panel = panel;
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1080., 720.), app.view());
+        for control in ["toggle-diff-view", "fold-unchanged"] {
+            assert_eq!(
+                ui.find(Id::from(control)).is_ok(),
+                panel == FilePanel::Changes
             );
         }
     }

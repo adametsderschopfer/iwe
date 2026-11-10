@@ -69,6 +69,8 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         &app.modules.deployment,
         &app.i18n,
         base,
+        app.deployment_profiles(),
+        app.workspace.directory().map(|path| path.as_path()),
         crate::app::modules::deployment_message,
     );
     let base = crate::ui::activity::overlay(
@@ -122,6 +124,17 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     );
     #[cfg(target_os = "windows")]
     let base = crate::ui::window_chrome::overlay(app, base);
+    let base = if let Some(dialog) =
+        crate::modules::deployment::target_dialog(&app.modules.deployment, &app.i18n)
+    {
+        super::modal::overlay(
+            base,
+            dialog.map(crate::app::modules::deployment_message),
+            520.,
+        )
+    } else {
+        base
+    };
     crate::ui::editor::overlay(app, base)
 }
 
@@ -226,12 +239,8 @@ fn footer(app: &App) -> Element<'_, Message> {
         tooltip::Position::Top
     ),]
     .spacing(16);
-    if app.loading {
-        content = content.push(
-            text(app.i18n.text(Key::Loading))
-                .size(12)
-                .style(theme::MUTED.text()),
-        );
+    if let Some(activity) = git::activity(app) {
+        content = content.push(activity);
     }
     if app.modules.deployment.activity_visible {
         content = content.push(
@@ -1143,7 +1152,9 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
 }
 
 fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
-    let ready = app.preview().error.is_none() && !app.preview().loading;
+    let ready = app.preview().error.is_none()
+        && !app.preview().loading
+        && app.file_panel == crate::domain::workspace::FilePanel::Changes;
     let comparison = ready
         && app
             .preview()
@@ -1200,6 +1211,20 @@ fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
             {
                 description.push_str(&format!("\n{}", app.i18n.text(Key::ComparisonFailed)));
             }
+            if let Some(buffer) = &preview.editor {
+                let status = buffer.error.or_else(|| {
+                    if buffer.saving {
+                        Some(Key::EditorSaving)
+                    } else if buffer.document.dirty() {
+                        Some(Key::EditorUnsaved)
+                    } else {
+                        None
+                    }
+                });
+                if let Some(status) = status {
+                    description.push_str(&format!("\n{}", app.i18n.text(status)));
+                }
+            }
             let select = tooltip::view(
                 container(
                     button(
@@ -1237,7 +1262,20 @@ fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
                             .as_ref()
                             .is_some_and(|buffer| buffer.document.dirty())
                         {
-                            text("•").size(18).style(theme::YELLOW.text()).into()
+                            text("•")
+                                .size(18)
+                                .style(
+                                    if preview
+                                        .editor
+                                        .as_ref()
+                                        .is_some_and(|buffer| buffer.error.is_some())
+                                    {
+                                        theme::RED.text()
+                                    } else {
+                                        theme::YELLOW.text()
+                                    },
+                                )
+                                .into()
                         } else {
                             icon(Icon::Close, theme::FAINT)
                         },
@@ -1375,9 +1413,7 @@ fn preview(app: &App) -> Element<'_, Message> {
         .files
         .iter()
         .any(|preview| !preview.title.is_empty());
-    let content: Element<'_, Message> = if let Some(buffer) =
-        app.editor_buffer().filter(|buffer| !buffer.reviewing)
-    {
+    let content: Element<'_, Message> = if let Some(buffer) = app.editor_buffer() {
         crate::ui::editor::view(app, buffer)
     } else if app.preview().loading && app.preview().document.is_none() {
         center_message(app, Key::Loading)
@@ -1725,18 +1761,9 @@ fn preview(app: &App) -> Element<'_, Message> {
                 .style(theme::source_progress)
         ]
         .height(Length::Fill);
-        let editor_toolbar: Element<'_, Message> = app.editor_buffer().map_or_else(
-            || Column::new().into(),
-            |buffer| crate::ui::editor::toolbar(app, buffer),
-        );
-        column![
-            file_tabs(app),
-            file_part_controls(app),
-            editor_toolbar,
-            content
-        ]
-        .height(Length::Fill)
-        .into()
+        column![file_tabs(app), file_part_controls(app), content]
+            .height(Length::Fill)
+            .into()
     } else {
         content
     }

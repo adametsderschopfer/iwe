@@ -33,8 +33,7 @@ impl Command {
                 Self::GoToLine if cfg!(target_os = "macos") => "L",
                 Self::GoToLine => "G",
                 Self::Copy | Self::DeploymentCompare => "C",
-                Self::DeploymentUpload => "V",
-                Self::SelectAll => "A",
+                Self::SelectAll | Self::DeploymentUpload => "A",
                 Self::SaveFile => "S",
                 Self::CloseTab => "W",
                 Self::ReopenTab => "T",
@@ -42,8 +41,11 @@ impl Command {
             .to_owned(),
             control: !cfg!(target_os = "macos"),
             super_key: cfg!(target_os = "macos"),
-            alt: matches!(self, Self::DeploymentCompare | Self::DeploymentUpload),
-            shift: self == Self::ReopenTab,
+            alt: false,
+            shift: matches!(
+                self,
+                Self::ReopenTab | Self::DeploymentCompare | Self::DeploymentUpload
+            ),
         }
     }
 }

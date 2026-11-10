@@ -215,7 +215,12 @@ impl App {
         if !enabled {
             match id {
                 ModuleId::Terminal => self.modules.terminal.reset(),
-                ModuleId::Deployment => self.modules.deployment.suspend(),
+                ModuleId::Deployment => {
+                    self.modules.deployment.suspend();
+                    if let Some(window) = self.windows.deployment.take() {
+                        tasks.push(iced::window::close(window));
+                    }
+                }
                 ModuleId::Git => {
                     self.modules.git.git_actions.request += 1;
                     self.modules.git.git_actions.pending = false;

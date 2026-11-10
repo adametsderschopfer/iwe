@@ -12,5 +12,10 @@ The local patch changes scrollbar geometry in `src/scrollable.rs`:
 
 The published widget has a fixed two-pixel minimum and provides no public setting for handle length.
 Cargo uses this directory through the root patch table. Application interaction tests verify
-grabbing and dragging on both axes. Keep unrelated source files identical to the published crate.
-Remove this patch when an upstream release provides equivalent behavior.
+grabbing and dragging on both axes.
+
+The patch also adds `text_editor::Content::with_editor`, a read-only layout inspection callback. The
+editor gutter uses visible layout runs to align line numbers with text during scrolling. The public
+content API otherwise exposes no visible-line positions. Application tests verify the gutter,
+scrolling, and its visibility preference. Keep other source files identical to the published crate.
+Remove each patch when upstream provides equivalent behavior.

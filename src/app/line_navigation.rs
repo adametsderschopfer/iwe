@@ -108,7 +108,6 @@ impl App {
                 if let Some(buffer) = self
                     .preview_for_request(id)
                     .and_then(|tab| tab.editor.as_mut())
-                    .filter(|buffer| !buffer.reviewing)
                 {
                     if line <= buffer.content.line_count() {
                         buffer.content.move_to(iced::widget::text_editor::Cursor {

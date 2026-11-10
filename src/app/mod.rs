@@ -283,6 +283,7 @@ pub(crate) enum Message {
     Worktree(changes::Event),
     ProjectChanges(project_changes::Event),
     OpenFile(PathBuf),
+    OpenWorkingChange(PathBuf),
     GoToLine(line_navigation::Event),
     CodeSelection(u64, crate::ui::code::selection::Action),
     ReadFilePart(u64, tabs::PageDirection),
@@ -417,14 +418,15 @@ impl App {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         if self.protect_editor(&message) {
-            return Task::none();
+            return self.flush_editor();
         }
         if self.editor.pending.is_some() && matches!(message, Message::DismissDialog) {
             return self.update_editor(editor::Event::Cancel);
         }
         use crate::modules::ModuleId;
         let required = match &message {
-            Message::Git(_)
+            Message::OpenWorkingChange(_)
+            | Message::Git(_)
             | Message::BranchSelection(_)
             | Message::RevealGitBranches
             | Message::RevealRepositoryBranches(_)
@@ -611,13 +613,22 @@ impl App {
             #[cfg(target_os = "macos")]
             Message::NativeMenu(event) => return self.update_native_menu(event),
             Message::WindowShortcut(id, message) => {
-                if self.windows.settings == Some(id) {
+                if self.windows.is_secondary(id) {
                     return match *message {
-                        Message::DismissDialog if self.modules.deployment.has_dialog() => self
-                            .update_module(modules::Event::Deployment(
+                        Message::DismissDialog if self.editor.pending.is_some() => {
+                            self.update_editor(editor::Event::Cancel)
+                        }
+                        Message::DismissDialog
+                            if self.windows.deployment == Some(id)
+                                && self.modules.deployment.has_dialog() =>
+                        {
+                            self.update_module(modules::Event::Deployment(
                                 crate::modules::deployment::Event::CloseDialog,
-                            )),
-                        Message::CloseActiveTab => self.update_window(windows::Event::Close(id)),
+                            ))
+                        }
+                        Message::DismissDialog | Message::CloseActiveTab => {
+                            self.update_window(windows::Event::Close(id))
+                        }
                         Message::Navigate(Navigation::Settings) => self.open_settings(),
                         _ => Task::none(),
                     };
@@ -637,9 +648,9 @@ impl App {
             }
             Message::WindowMaximized(maximized) => self.window_maximized = maximized,
             #[cfg(target_os = "windows")]
-            Message::WindowResized(id) if self.windows.settings == Some(id) => {
+            Message::WindowResized(id) if self.windows.is_secondary(id) => {
                 return window::is_maximized(id)
-                    .map(|value| Message::Window(windows::Event::Maximized(value)));
+                    .map(move |value| Message::Window(windows::Event::Maximized(id, value)));
             }
             #[cfg(target_os = "windows")]
             Message::WindowResized(id) if self.window_id == Some(id) => {
@@ -714,7 +725,12 @@ impl App {
                     return Task::none();
                 }
                 self.shortcuts = shortcuts::State::default();
-                self.settings_tab = tab;
+                if matches!(tab, SettingsTab::Connections | SettingsTab::Deployment) {
+                    self.windows.deployment_connections = tab == SettingsTab::Connections;
+                } else {
+                    self.settings_tab = tab;
+                    return Task::none();
+                }
                 let stop = self.update_module(modules::Event::Deployment(
                     crate::modules::deployment::Event::StopBrowsing,
                 ));
@@ -737,7 +753,10 @@ impl App {
             Message::Space(message) => return self.update_space(message),
             Message::ProjectAdd(message) => return self.update_project_add(message),
             Message::DismissDialog => {
-                if self.navigation == Navigation::Settings && self.modules.deployment.has_dialog() {
+                if self.modules.deployment.target.is_some()
+                    || (self.navigation == Navigation::Settings
+                        && self.modules.deployment.has_dialog())
+                {
                     return self.update_module(modules::Event::Deployment(
                         crate::modules::deployment::Event::CloseDialog,
                     ));
@@ -981,6 +1000,7 @@ impl App {
                 }
             }
             Message::OpenFile(path) => return self.open_file(path),
+            Message::OpenWorkingChange(path) => return self.open_working_change(path),
             Message::OpenCommitFile(index) => return self.open_commit_file(index),
             Message::FilePrepared(generation, request, stage, result)
                 if generation == self.generation =>

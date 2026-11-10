@@ -32,6 +32,7 @@ enum Source {
     Working {
         root: PathBuf,
         path: PathBuf,
+        compare: bool,
     },
     Commit {
         root: PathBuf,
@@ -57,7 +58,16 @@ impl Source {
                 ..
             } => repository::working_text(root, path).await,
             Self::Remote { text, .. } => Ok((*text).clone()),
-            Self::Working { root, path } => repository::working_text(root, path).await,
+            Self::Working {
+                root,
+                path,
+                compare: false,
+            } => crate::infrastructure::workspace::read(root, path).await,
+            Self::Working {
+                root,
+                path,
+                compare: true,
+            } => repository::working_text(root, path).await,
             Self::Commit { root, commit, file } => {
                 repository::commit_text(root, *commit, file).await
             }
@@ -79,9 +89,16 @@ impl Source {
     ) -> Result<Document, Failure> {
         let (text, page) = match self {
             Self::Remote { .. } => return Err(Failure::TooLarge),
-            Self::Working { root, path } => {
-                repository::working_page(root, path, cursor, version).await?
-            }
+            Self::Working {
+                root,
+                path,
+                compare: false,
+            } => crate::infrastructure::workspace::pages::read(root, path, cursor, version).await?,
+            Self::Working {
+                root,
+                path,
+                compare: true,
+            } => repository::working_page(root, path, cursor, version).await?,
             Self::Commit { root, commit, file } => {
                 let revision = if file.status == 'D' {
                     commit.parents.first().cloned().ok_or(Failure::Read)?
@@ -141,7 +158,9 @@ impl Source {
                 previous: previous.map(|p| (*p).clone()),
                 ..Default::default()
             },
-            Self::Working { root, path } => repository::working_comparison(root, path, text).await,
+            Self::Working { root, path, .. } => {
+                repository::working_comparison(root, path, text).await
+            }
             Self::Commit { root, commit, file } => {
                 repository::commit_comparison(root, *commit, file, text).await
             }
@@ -201,6 +220,10 @@ pub(crate) struct Preview {
 }
 
 impl Preview {
+    pub(crate) fn working_comparison(&self) -> bool {
+        matches!(self.source, Some(Source::Working { compare: true, .. }))
+    }
+
     pub(crate) fn comparison_received(&self) -> bool {
         matches!(
             &self.source,
@@ -413,12 +436,24 @@ impl App {
     }
 
     pub(super) fn open_file(&mut self, path: PathBuf) -> Task<Message> {
+        self.open_working_file(path, false)
+    }
+
+    pub(super) fn open_working_change(&mut self, path: PathBuf) -> Task<Message> {
+        self.open_working_file(path, true)
+    }
+
+    fn open_working_file(&mut self, path: PathBuf, compare: bool) -> Task<Message> {
         let Some(root) = self.workspace.directory().cloned() else {
             return Task::none();
         };
         self.navigation = super::Navigation::Files;
         self.files.selected_path = Some(path.clone());
-        self.open_source(Source::Working { root, path })
+        self.open_source(Source::Working {
+            root,
+            path,
+            compare,
+        })
     }
 
     pub(super) fn open_commit_file(&mut self, index: usize) -> Task<Message> {
@@ -454,7 +489,7 @@ impl App {
                 format!("{label}: {remote}"),
                 Some(format!("{identity}:{remote}")),
             ),
-            Source::Working { root, path } => (
+            Source::Working { root, path, .. } => (
                 path.clone(),
                 path.strip_prefix(root)
                     .unwrap_or(path)
@@ -469,7 +504,10 @@ impl App {
             ),
         };
         let existing = self.tabs.files.iter().position(|preview| {
-            preview.path.as_ref() == Some(&path) && preview.revision == revision
+            preview.path.as_ref() == Some(&path)
+                && preview.revision == revision
+                && preview.working_comparison()
+                    == matches!(source, Source::Working { compare: true, .. })
         });
         if let Some(index) = existing
             && (!matches!(source, Source::Remote { .. })
@@ -636,6 +674,7 @@ impl App {
             }
             Preparation::Syntax => {
                 if document.page.is_some()
+                    || matches!(source, Source::Working { compare: false, .. })
                     || (!git_enabled && matches!(source, Source::Working { .. }))
                 {
                     return self.finish_preview(id, Ok(Arc::unwrap_or_clone(document)));
@@ -695,12 +734,13 @@ impl App {
                 }
                 if document.page.is_none() && document.text.len() <= crate::domain::editor::LIMIT {
                     let target = match &preview.source {
-                        Some(Source::Working { path, .. }) => {
-                            Some(super::editor::Target::Local(path.clone()))
-                        }
+                        Some(Source::Working {
+                            path,
+                            compare: false,
+                            ..
+                        }) => Some(super::editor::Target::Local(path.clone())),
                         Some(Source::Remote {
                             identity,
-                            label,
                             remote,
                             previous: None,
                             local_root: None,
@@ -708,26 +748,19 @@ impl App {
                         }) if preview.pending_comparison.is_none() => {
                             Some(super::editor::Target::Remote {
                                 profile: identity.clone(),
-                                label: label.clone(),
                                 path: remote.clone(),
                             })
                         }
                         _ => None,
                     };
                     if let Some(target) = target {
-                        let reviewing = preview
-                            .editor
-                            .as_ref()
-                            .is_some_and(|buffer| buffer.reviewing);
                         if preview
                             .editor
                             .as_ref()
                             .is_none_or(|buffer| buffer.document.text != document.text)
                         {
-                            let mut buffer =
-                                super::editor::Buffer::new(document.text.clone(), target);
-                            buffer.reviewing = reviewing;
-                            preview.editor = Some(buffer);
+                            preview.editor =
+                                Some(super::editor::Buffer::new(document.text.clone(), target));
                         }
                     } else {
                         preview.editor = None;
@@ -763,7 +796,7 @@ impl App {
     }
 
     pub(super) fn toggle_unchanged(&mut self, id: u64) -> Task<Message> {
-        if self.preview().id != id {
+        if self.preview().id != id || self.preview().editor.is_some() {
             return Task::none();
         }
         let Some(_) = self
@@ -774,12 +807,6 @@ impl App {
         else {
             return Task::none();
         };
-        if let Some(buffer) = self
-            .preview_for_request(id)
-            .and_then(|tab| tab.editor.as_mut())
-        {
-            buffer.reviewing = true;
-        }
         let collapse = !self.preview().folding.collapsed;
         self.workspace.preferences.collapse_unchanged = collapse;
         for preview in self
@@ -811,6 +838,7 @@ impl App {
 
     pub(super) fn toggle_diff_view(&mut self, id: u64) -> Task<Message> {
         if self.preview().id != id
+            || self.preview().editor.is_some()
             || self
                 .preview()
                 .document
@@ -818,12 +846,6 @@ impl App {
                 .is_none_or(|document| document.comparison.is_none())
         {
             return Task::none();
-        }
-        if let Some(buffer) = self
-            .preview_for_request(id)
-            .and_then(|tab| tab.editor.as_mut())
-        {
-            buffer.reviewing = true;
         }
         self.workspace.preferences.diff_view = match self.workspace.preferences.diff_view {
             DiffView::Unified => DiffView::SideBySide,
@@ -918,12 +940,11 @@ impl App {
 
     pub(super) fn reopen_closed_tab(&mut self) -> Task<Message> {
         while let Some(mut preview) = self.tabs.closed.pop() {
-            if self
-                .tabs
-                .files
-                .iter()
-                .any(|open| open.path == preview.path && open.revision == preview.revision)
-            {
+            if self.tabs.files.iter().any(|open| {
+                open.path == preview.path
+                    && open.revision == preview.revision
+                    && open.working_comparison() == preview.working_comparison()
+            }) {
                 continue;
             }
             let Some(source) = preview.source.clone() else {

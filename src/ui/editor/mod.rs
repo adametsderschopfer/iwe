@@ -1,11 +1,15 @@
 //! Render editable source buffers and unsaved-change decisions.
 
+mod gutter;
 mod syntax;
+
+const TEXT_PADDING: f32 = 12.;
+const LINE_HEIGHT: f32 = 1.65;
 
 use crate::{
     app::{
         App, Message,
-        editor::{Buffer, Event, Target},
+        editor::{Buffer, Event},
     },
     domain::shortcuts::Command,
     i18n::Key,
@@ -15,57 +19,6 @@ use iced::{
     Element, Length,
     widget::{button, column, container, row, space, text, text_editor},
 };
-
-pub(crate) fn toolbar<'a>(app: &'a App, buffer: &'a Buffer) -> Element<'a, Message> {
-    let t = |key| app.i18n.text(key);
-    let id = app.preview().id;
-    let status = if let Some(error) = buffer.error {
-        (t(error), theme::RED)
-    } else if buffer.saving {
-        (t(Key::EditorSaving), theme::MUTED)
-    } else if buffer.document.dirty() {
-        (t(Key::EditorUnsaved), theme::YELLOW)
-    } else if buffer.saved_notice {
-        (t(Key::EditorSaved), theme::GREEN)
-    } else {
-        (String::new(), theme::MUTED)
-    };
-    let target = match &buffer.target {
-        Target::Local(_) => t(Key::DeploymentLocal),
-        Target::Remote { label, .. } => label.clone(),
-    };
-    container(
-        column![
-            row![
-                text(target).size(12).style(theme::MUTED.text()),
-                space().width(Length::Fill),
-                button(
-                    text(t(if buffer.reviewing {
-                        Key::EditorEdit
-                    } else {
-                        Key::EditorReview
-                    }))
-                    .size(12)
-                )
-                .on_press(Message::Editor(Event::ToggleReview(id)))
-                .style(theme::action(false)),
-                button(text(t(Key::EditorSave)).size(12))
-                    .on_press_maybe(
-                        (buffer.document.dirty() && !buffer.saving)
-                            .then_some(Message::Editor(Event::Save))
-                    )
-                    .style(theme::action(false)),
-            ]
-            .spacing(8)
-            .align_y(iced::Alignment::Center),
-            text(status.0).size(12).style(status.1.text()),
-        ]
-        .spacing(5),
-    )
-    .padding([6, 12])
-    .width(Length::Fill)
-    .into()
-}
 
 pub(crate) fn view<'a>(app: &'a App, buffer: &'a Buffer) -> Element<'a, Message> {
     let id = app.preview().id;
@@ -88,8 +41,9 @@ pub(crate) fn view<'a>(app: &'a App, buffer: &'a Buffer) -> Element<'a, Message>
         .on_action(move |action| Message::Editor(Event::Action(id, action)))
         .font(theme::code_font())
         .size(app.workspace.preferences.code_size as f32)
+        .line_height(iced::widget::text::LineHeight::Relative(LINE_HEIGHT))
         .height(Length::Fill)
-        .padding(12)
+        .padding(TEXT_PADDING)
         .wrapping(iced::widget::text::Wrapping::None)
         .highlight_with::<syntax::Highlighter>(extension.to_owned(), |tone, theme| {
             iced::advanced::text::highlighter::Format {
@@ -140,8 +94,25 @@ pub(crate) fn view<'a>(app: &'a App, buffer: &'a Buffer) -> Element<'a, Message>
             selection: theme::CODE_SELECTION.resolve(style_theme),
         });
     let cursor = buffer.content.cursor().position;
+    let mut body = row![];
+    if app.workspace.preferences.line_numbers {
+        let size = app.workspace.preferences.code_size as f32;
+        let digits = buffer.content.line_count().max(1).ilog10() + 1;
+        body = body.push(
+            container(
+                iced::widget::canvas(gutter::Gutter {
+                    content: &buffer.content,
+                    size,
+                })
+                .width(size * 0.65 * digits.max(3) as f32 + 16.)
+                .height(Length::Fill),
+            )
+            .id("editor-line-numbers"),
+        );
+    }
+    body = body.push(editor).height(Length::Fill);
     column![
-        editor,
+        body,
         container(
             text(format!("{}:{}", cursor.line + 1, cursor.column + 1))
                 .size(11)
@@ -154,7 +125,7 @@ pub(crate) fn view<'a>(app: &'a App, buffer: &'a Buffer) -> Element<'a, Message>
 }
 
 pub(crate) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Message> {
-    if app.editor.pending.is_none() {
+    if app.editor.pending.is_none() || app.editor.saving_all {
         return base;
     }
     let busy = app

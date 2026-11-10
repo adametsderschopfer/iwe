@@ -5,11 +5,11 @@ use std::rc::Rc;
 
 #[test]
 fn deployment_shortcuts_use_physical_keys_for_russian_layouts() {
-    for (letter, code, compare) in [("с", key::Code::KeyC, true), ("м", key::Code::KeyV, false)] {
+    for (letter, code, compare) in [("С", key::Code::KeyC, true), ("Ф", key::Code::KeyA, false)] {
         let message = key_message(
             &KeyboardKey::Character(letter.into()),
             key::Physical::Code(code),
-            Modifiers::COMMAND | Modifiers::ALT,
+            Modifiers::COMMAND | Modifiers::SHIFT,
             &crate::domain::shortcuts::Shortcuts::default(),
         );
         assert!(
@@ -164,4 +164,88 @@ fn shortcut_buttons_and_conflicts_render_in_all_languages() {
             );
         }
     }
+}
+
+fn escape(id: window::Id, status: Status) -> Event {
+    Event::Key(
+        id,
+        keyboard::Event::KeyPressed {
+            key: KeyboardKey::Named(key::Named::Escape),
+            modified_key: KeyboardKey::Named(key::Named::Escape),
+            physical_key: key::Physical::Code(key::Code::Escape),
+            location: keyboard::Location::Standard,
+            modifiers: Modifiers::NONE,
+            repeat: false,
+            text: None,
+        },
+        status,
+    )
+}
+
+#[tokio::test]
+async fn escape_closes_only_the_focused_secondary_window() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::{Action, task, window::Action as WindowAction};
+    for deployment in [false, true] {
+        let mut app = App::new(Rc::new(I18n::new(Language::English)));
+        let main = window::Id::unique();
+        let settings = window::Id::unique();
+        let server = window::Id::unique();
+        app.window_id = Some(main);
+        app.windows.settings = Some(settings);
+        app.windows.deployment = Some(server);
+        let focused = if deployment { server } else { settings };
+        let tabs = app.tabs.files.len();
+        let action = app.update_shortcuts(escape(focused, Status::Ignored));
+        let actions = task::into_stream(action).unwrap().collect::<Vec<_>>().await;
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], Action::Window(WindowAction::Close(id)) if id == focused));
+        assert_eq!(app.tabs.files.len(), tabs);
+        assert_eq!(app.window_id, Some(main));
+        let _ = app.update(Message::Window(super::super::windows::Event::Closed(
+            focused,
+        )));
+        assert_eq!(
+            app.windows.settings,
+            if deployment { Some(settings) } else { None }
+        );
+        assert_eq!(
+            app.windows.deployment,
+            if deployment { None } else { Some(server) }
+        );
+    }
+}
+
+#[test]
+fn escape_dismisses_nested_dialogs_and_shortcut_recording_before_closing_windows() {
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    let settings = window::Id::unique();
+    let deployment = window::Id::unique();
+    app.windows.settings = Some(settings);
+    app.windows.deployment = Some(deployment);
+    app.settings_tab = SettingsTab::Shortcuts;
+    let _ = app.update_shortcuts(Event::Record(Command::CloseTab));
+    assert_eq!(
+        app.update_shortcuts(escape(settings, Status::Ignored))
+            .units(),
+        0
+    );
+    assert!(app.shortcuts.recording.is_none());
+    assert_eq!(app.windows.settings, Some(settings));
+    let _ = app.update(super::super::modules::deployment_message(
+        crate::modules::deployment::Event::NewKey,
+    ));
+    assert_eq!(
+        app.update_shortcuts(escape(deployment, Status::Ignored))
+            .units(),
+        0
+    );
+    assert!(!app.modules.deployment.has_dialog());
+    assert_eq!(app.windows.deployment, Some(deployment));
+    assert_eq!(
+        app.update_shortcuts(escape(settings, Status::Captured))
+            .units(),
+        0
+    );
+    assert_eq!(app.windows.settings, Some(settings));
 }

@@ -27,13 +27,13 @@ credential namespace. Views never perform network or filesystem operations. See
 [deployment](deployment.md) for behavior, limits, and verification.
 
 The settings window uses persistent left navigation and a separate scrollable section on the right.
-Deployment groups connections and space profiles under one navigation heading. Each editor uses a
-server list, aligned fields, independent scrolling, and a persistent save footer. Profile tabs
+Deployment uses an independent secondary window for connections and space profiles. Each editor uses
+a server list, aligned fields, independent scrolling, and a persistent save footer. Profile tabs
 separate connection settings, mappings, and exclusions. Shared SSH keys open from the connections
-editor. Module-owned dialogs name new items, edit SSH key references, and confirm discarded drafts.
-The host supplies the shared modal overlay. The key dialog preserves its parent connection draft and
-rejects obsolete file-picker responses. The settings window extends into the macOS titlebar, with an
-opaque header below native window controls.
+editor. Module-owned dialogs name new items, select server folders, edit SSH key references, and
+confirm discarded drafts. The host supplies the shared modal overlay. The key dialog preserves its
+parent connection draft and rejects obsolete file-picker responses. The settings window extends into
+the macOS titlebar, with an opaque header below native window controls.
 
 `app/repository_cache/` keeps the last successful initial Git snapshot for eight recent project
 directories. Snapshots include repository identities, history cursors, the selected branch, and
@@ -409,11 +409,12 @@ for the extension boundary.
 
 ## Window and graphics
 
-`app/windows.rs` owns the secondary settings window and routes window-specific closing and keyboard
-actions. The Iced daemon opens the workspace explicitly and exits when that window closes. Settings
-reuses one window and keeps workspace navigation, tabs, and scroll positions intact. macOS and Linux
-keep native settings window controls. Windows uses the existing application caption and resize
-handles.
+`app/windows.rs` owns independent settings and deployment windows and routes window-specific closing
+and keyboard actions. The Iced daemon opens the workspace explicitly and exits when that window
+closes. Settings reuses one window and keeps workspace navigation, tabs, and scroll positions
+intact. Deployment reuses its own window. Failed-save quit decisions appear above content in every
+window. macOS and Linux keep native settings window controls. Windows uses the existing application
+caption and resize handles.
 
 On macOS, `app/native_menu.rs` projects localized workspace data into a native application menu.
 `infrastructure/native_menu.rs` retains Muda menu objects on the AppKit event-loop thread. A guarded
@@ -535,9 +536,14 @@ run. See [workspace behavior](workspace.md) for feature limits and provider auth
 ### Editable text buffers
 
 `domain/editor` tracks text, saved baselines, and bounded undo history without Iced. `app/editor`
-coordinates native text actions, save snapshots, and unsaved-change decisions. `ui/editor` renders
-Iced text editors with incremental syntax highlighting and source-view controls.
-`infrastructure/editor` replaces local files through temporary files after checking the saved
-baseline. Server saves use typed deployment operations and completion effects. The module does not
-import application state. Save completions carry operation tokens and never replace newer draft
-text.
+coordinates native text actions, debounced saves, save snapshots, and failed-save decisions.
+Autosave timers carry unique revisions and ignore superseded or closed buffers. Completion tokens
+protect newer drafts. Navigation flushes pending snapshots before releasing buffers. Failed writes
+stop automatic retries. Remote saves wait for the deployment queue before submission. `ui/editor`
+renders Iced text editors with incremental syntax highlighting and synchronized line numbers. Its
+gutter reads visible layout runs through the local widget's read-only inspection API. Project-file
+sources skip Git comparison preparation. Uncommitted-file sources use separate tabs and retain the
+comparison viewer. `infrastructure/editor` replaces local files through temporary files after
+checking the saved baseline. Server saves use typed deployment operations and completion effects.
+The module does not import application state. Save completions carry operation tokens and never
+replace newer draft text.

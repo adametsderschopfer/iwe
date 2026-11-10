@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "IWE Code — Edit, compare, deploy",
-    "description": "A native workspace for editing local and server files, comparing changes, and deploying over SFTP, FTP or FTPS. With Git, pipelines and a terminal."
+    "title": "IWE Code — A native code editor",
+    "description": "Edit code, organize projects, and review Git changes in one native workspace. With a terminal, pipelines, and optional modules."
   },
   "nav": {
     "features": "Features",
@@ -13,8 +13,8 @@
   },
   "hero": {
     "release": "Meet IWE Code",
-    "title": "From your code\nto your server.",
-    "description": "Edit files, compare changes, and send them to your server. Keep projects, Git, pipelines, and a terminal in one native workspace.",
+    "title": "Your code.\nYour workspace.",
+    "description": "Edit code, organize projects, and review changes in one native application. Keep Git, a terminal, and project tools close.",
     "download": "Get IWE Code",
     "source": "Explore on GitHub",
     "platforms": "Made for macOS, Windows, and Linux."
@@ -26,7 +26,7 @@
     "comparison": "Changes",
     "pipelines": "Pipelines",
     "caption": "IWE Code with sample data.",
-    "altWorkspace": "IWE Code text editor with syntax highlighting, file tabs, a Save button, and a project tree.",
+    "altWorkspace": "IWE Code editor with syntax highlighting, line numbers, file tabs, and a project tree.",
     "altHistory": "IWE Code Git history with branches and commits.",
     "altComparison": "IWE Code shows previous and current source files side by side with changed lines highlighted.",
     "altPipelines": "IWE Code pipeline list with the status of individual jobs.",
@@ -35,17 +35,17 @@
   },
   "features": {
     "title": "The tools you need.\nIn the same workspace.",
-    "description": "From a local edit to a server upload, keep each part of your workflow close.",
+    "description": "Write code, review changes, and organize your projects with tools that work together.",
     "items": [
       {
-        "title": "Edit local and server files",
-        "description": "Write with syntax highlighting, undo changes, and save when ready. Unsaved changes stay visible in your tabs.",
+        "title": "Edit your code",
+        "description": "Write with syntax highlighting, line numbers, and undo. Autosave keeps your changes on disk as you work.",
         "icon": "code"
       },
       {
-        "title": "Deploy with a clear destination",
-        "description": "Connect through SFTP, FTP, or FTPS. Map folders, exclude paths, and choose a deployment profile for each project.",
-        "icon": "server"
+        "title": "Organize work into spaces",
+        "description": "Group projects by team or task. Switch between spaces and keep each project’s files and tools together.",
+        "icon": "spaces"
       },
       {
         "title": "Follow changes in Git",
@@ -53,37 +53,37 @@
         "icon": "branch"
       },
       {
-        "title": "Keep track of pipelines",
-        "description": "Connect GitHub Actions or GitLab. Inspect runs, stages, and jobs alongside the project they belong to.",
-        "icon": "pipeline"
-      },
-      {
         "title": "Use a terminal in context",
         "description": "Open a terminal in your project. Run commands without leaving the workspace, then collapse the panel when finished.",
         "icon": "terminal"
       },
       {
-        "title": "Organize work into spaces",
-        "description": "Group projects by team or task. Keep deployment profiles within each space and reuse connections across the editor.",
-        "icon": "spaces"
+        "title": "Keep track of pipelines",
+        "description": "Connect GitHub Actions or GitLab. Inspect runs, stages, and jobs alongside the project they belong to.",
+        "icon": "pipeline"
+      },
+      {
+        "title": "Deploy with a clear destination",
+        "description": "Connect through SFTP, FTP, or FTPS. Map folders, exclude paths, and choose a deployment profile for each project.",
+        "icon": "server"
       }
     ]
   },
   "workflow": {
     "title": "See the change.\nKeep the context.",
-    "description": "Move between editing and comparison. Review a Git revision or compare your local file with the server copy.",
+    "description": "Open a project, edit its files, and review changes in Git. Keep the file tree and history within reach.",
     "items": [
       {
-        "title": "Edit, then save",
-        "description": "Work with file tabs, syntax highlighting, and undo. Save local files or send edited server files back explicitly."
+        "title": "Start with your project",
+        "description": "Add an existing folder and open files in tabs. Keep your current directory structure."
       },
       {
-        "title": "Compare both versions",
-        "description": "View changes side by side or in one column. Fold unchanged lines to focus on the differences."
+        "title": "Edit with autosave",
+        "description": "Write and undo changes in the editor. Autosave keeps local files up to date."
       },
       {
-        "title": "Keep working during transfers",
-        "description": "Uploads and downloads run in the background. Check their progress without reopening the deployment panel."
+        "title": "Review changes in Git",
+        "description": "Compare file versions side by side or in one column. Fold unchanged lines and browse the commit history."
       }
     ],
     "caption": "Side-by-side file comparison."
@@ -122,7 +122,7 @@
     "items": [
       {
         "question": "Is IWE Code a code editor?",
-        "answer": "Yes. IWE Code supports editing and saving local and server text files. Git revisions and comparison views remain read-only."
+        "answer": "Yes. IWE Code provides text editing, syntax highlighting, undo, and autosave. Git revisions and comparison views remain read-only."
       },
       {
         "question": "Do I need to move my projects?",
@@ -137,8 +137,8 @@
         "answer": "The application and this website support English, Russian, and Spanish."
       },
       {
-        "question": "Does deployment upload files automatically?",
-        "answer": "No. You choose when to upload, download, or save a server file. Downloading over existing local files requires confirmation."
+        "question": "How are my changes saved?",
+        "answer": "Text files autosave after a short typing pause. If saving fails, the editor keeps your draft and shows an error."
       },
       {
         "question": "Can I turn off modules?",
@@ -147,7 +147,7 @@
     ]
   },
   "footer": {
-    "description": "Edit, compare, deploy. In one workspace.",
+    "description": "Code, projects, and everyday tools in one workspace.",
     "developer": "Developed by",
     "source": "Source code",
     "releases": "Releases"
@@ -187,25 +187,5 @@
     "description": "IWE Code is licensed under the Apache License, Version 2.0. Read the original license text below.",
     "fullText": "Full license text",
     "source": "View the license on GitHub"
-  },
-  "deployment": {
-    "eyebrow": "Deployment",
-    "title": "Your server.\nPart of your workspace.",
-    "description": "Set up a connection once. Give each project its own destination, folder mappings, and excluded paths.",
-    "items": [
-      {
-        "title": "Connect",
-        "description": "Use an SSH key, SSH agent, or password. Save passwords in the operating system credential store."
-      },
-      {
-        "title": "Compare",
-        "description": "Load the server copy into a separate comparison tab. Review both versions without replacing your local file."
-      },
-      {
-        "title": "Transfer",
-        "description": "Upload or download files and folders manually. Follow progress in the status area while you continue working."
-      }
-    ],
-    "caption": "A deployment profile links a project to a saved connection."
   }
 }

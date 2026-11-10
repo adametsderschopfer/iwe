@@ -60,10 +60,12 @@ The screenshots come from existing Iced rendering tests with fictional fixture p
 the actual application interface in English. The website opens in English by default. Regenerate the
 screenshots when the illustrated interface changes.
 
-The feature section covers editing, deployment, Git, pipelines, the terminal, and spaces. A separate
-deployment section explains connections, comparisons, and manual transfers. The workspace section
-explains optional modules. All text appears in English, Russian, and Spanish. The gallery shows the
-released interface with fictional sample data.
+The landing page presents IWE Code as a native code editor and project workspace. The introduction
+and workflow cover local editing, autosave, project organization, and Git review. Six feature cards
+cover editing, spaces, Git, the terminal, pipelines, and deployment. Deployment has no separate
+promotional section. The gallery starts with the editor and places deployment last. The workspace
+section explains optional modules. All text appears in English, Russian, and Spanish. The gallery
+shows the current interface with fictional sample data.
 
 `app::tests::render_website_screenshots_when_requested` renders the five website views from
 fictional English fixtures. Set `IWE_RENDER_DIR` to a new temporary directory and run that exact

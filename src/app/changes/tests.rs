@@ -218,7 +218,7 @@ fn uncommitted_files_are_visible_in_the_side_panel_and_open_from_the_tree() {
     ]);
     ui.click("changed.py").unwrap();
     assert!(
-        matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::OpenFile(file)] if *file == path)
+        matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::OpenWorkingChange(file)] if *file == path)
     );
 }
 

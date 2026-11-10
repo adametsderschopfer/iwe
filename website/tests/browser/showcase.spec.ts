@@ -29,7 +29,7 @@ for (const language of ['', 'ru/', 'es/']) {
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
       }
       await expect(page.locator('#features article')).toHaveCount(6)
-      await expect(page.locator('.deployment-steps li')).toHaveCount(3)
+      await expect(page.locator('.deployment')).toHaveCount(0)
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         width,
       )
@@ -37,8 +37,8 @@ for (const language of ['', 'ru/', 'es/']) {
       await page.locator('#features').screenshot({
         path: test.info().outputPath('features.png'),
       })
-      await page.locator('.deployment').screenshot({
-        path: test.info().outputPath('deployment.png'),
+      await page.locator('.hero').screenshot({
+        path: test.info().outputPath('editor-overview.png'),
       })
     })
   }

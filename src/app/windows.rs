@@ -1,4 +1,4 @@
-//! Keep settings in one secondary window without replacing the workspace.
+//! Keep settings and deployment in independent secondary windows.
 
 use super::{App, Message};
 use crate::{
@@ -11,8 +11,27 @@ use iced::{Element, Length, Size, Task, widget::container, window};
 #[derive(Default)]
 pub(crate) struct State {
     pub settings: Option<window::Id>,
+    pub deployment: Option<window::Id>,
+    pub deployment_connections: bool,
+    #[cfg(target_os = "windows")]
+    pub deployment_maximized: bool,
     #[cfg(target_os = "windows")]
     pub maximized: bool,
+}
+
+impl State {
+    pub(crate) fn is_secondary(&self, id: window::Id) -> bool {
+        self.settings == Some(id) || self.deployment == Some(id)
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn secondary_maximized(&self, id: window::Id) -> bool {
+        if self.deployment == Some(id) {
+            self.deployment_maximized
+        } else {
+            self.maximized
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -25,7 +44,7 @@ pub(crate) enum Event {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     ToggleMaximized(window::Id),
     #[cfg(target_os = "windows")]
-    Maximized(bool),
+    Maximized(window::Id, bool),
     #[cfg(target_os = "windows")]
     Minimize(window::Id),
     #[cfg(target_os = "windows")]
@@ -84,8 +103,24 @@ impl App {
         open.map(Message::WindowOpened)
     }
 
+    pub(super) fn open_deployment_settings(&mut self) -> Task<Message> {
+        if !self.module_enabled(crate::modules::ModuleId::Deployment) {
+            return Task::none();
+        }
+        if let Some(id) = self.windows.deployment {
+            return window::minimize::<Message>(id, false).chain(window::gain_focus(id));
+        }
+        let (id, open) = window::open(settings_settings());
+        self.windows.deployment = Some(id);
+        #[cfg(target_os = "windows")]
+        {
+            self.windows.deployment_maximized = false;
+        }
+        open.map(Message::WindowOpened)
+    }
+
     pub(super) fn window_opened(&mut self, id: window::Id) -> Task<Message> {
-        if self.windows.settings == Some(id) {
+        if self.windows.is_secondary(id) {
             return window::run(id, |window| {
                 window_effect::apply(window);
             })
@@ -105,47 +140,58 @@ impl App {
 
     pub(super) fn update_window(&mut self, event: Event) -> Task<Message> {
         match event {
-            Event::Close(id) if self.windows.settings == Some(id) => {
+            Event::Close(id) if self.windows.deployment == Some(id) => {
                 let cleanup = self.update_module(super::modules::Event::Deployment(
                     crate::modules::deployment::Event::CloseSettings,
                 ));
                 return Task::batch([cleanup, window::close(id)]);
             }
+            Event::Close(id) if self.windows.settings == Some(id) => return window::close(id),
             Event::Close(id) if self.window_id == Some(id) => {
                 if self.protect_editor(&Message::Window(Event::Close(id))) {
-                    return Task::none();
+                    return self.flush_editor();
                 }
                 return iced::exit();
             }
             Event::Closed(id) if self.windows.settings == Some(id) => {
                 self.windows.settings = None;
                 self.shortcuts = super::shortcuts::State::default();
+            }
+            Event::Closed(id) if self.windows.deployment == Some(id) => {
+                self.windows.deployment = None;
                 return self.update_module(super::modules::Event::Deployment(
                     crate::modules::deployment::Event::CloseSettings,
                 ));
             }
             Event::Closed(id) if self.window_id == Some(id) => return iced::exit(),
             #[cfg(any(target_os = "macos", target_os = "windows"))]
-            Event::Drag(id) if self.windows.settings == Some(id) => return window::drag(id),
+            Event::Drag(id) if self.windows.is_secondary(id) => return window::drag(id),
             #[cfg(target_os = "macos")]
-            Event::ToggleMaximized(id) if self.windows.settings == Some(id) => {
+            Event::ToggleMaximized(id) if self.windows.is_secondary(id) => {
                 return window::toggle_maximize(id);
             }
             #[cfg(target_os = "windows")]
-            Event::ToggleMaximized(id) if self.windows.settings == Some(id) => {
+            Event::ToggleMaximized(id) if self.windows.is_secondary(id) => {
                 return window::toggle_maximize::<Message>(id).chain(
-                    window::is_maximized(id).map(|value| Message::Window(Event::Maximized(value))),
+                    window::is_maximized(id)
+                        .map(move |value| Message::Window(Event::Maximized(id, value))),
                 );
             }
             #[cfg(target_os = "windows")]
-            Event::Maximized(value) => self.windows.maximized = value,
+            Event::Maximized(id, value) if self.windows.deployment == Some(id) => {
+                self.windows.deployment_maximized = value
+            }
             #[cfg(target_os = "windows")]
-            Event::Minimize(id) if self.windows.settings == Some(id) => {
+            Event::Maximized(id, value) if self.windows.settings == Some(id) => {
+                self.windows.maximized = value
+            }
+            #[cfg(target_os = "windows")]
+            Event::Minimize(id) if self.windows.is_secondary(id) => {
                 return window::minimize(id, true);
             }
             #[cfg(target_os = "windows")]
             Event::Resize(id, direction)
-                if self.windows.settings == Some(id) && !self.windows.maximized =>
+                if self.windows.is_secondary(id) && !self.windows.secondary_maximized(id) =>
             {
                 return window::drag_resize(id, direction);
             }
@@ -155,7 +201,9 @@ impl App {
     }
 
     pub(super) fn window_title(&self, id: window::Id) -> String {
-        self.i18n.text(if self.windows.settings == Some(id) {
+        self.i18n.text(if self.windows.deployment == Some(id) {
+            Key::Deployment
+        } else if self.windows.settings == Some(id) {
             Key::Settings
         } else {
             Key::AppTitle
@@ -163,17 +211,21 @@ impl App {
     }
 
     pub(super) fn view_window(&self, id: window::Id) -> Element<'_, Message> {
-        if self.windows.settings != Some(id) {
+        if !self.windows.is_secondary(id) {
             return self.view();
         }
-        let content = screens::settings::view(self);
+        let content = if self.windows.deployment == Some(id) {
+            screens::settings::deployment_view(self)
+        } else {
+            screens::settings::view(self)
+        };
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         let content: Element<'_, Message> = {
             use iced::widget::{column, mouse_area, text};
             let inset = if cfg!(target_os = "macos") { 90. } else { 16. };
             let header = mouse_area(
                 container(
-                    text(self.i18n.text(Key::Settings))
+                    text(self.window_title(id))
                         .size(13)
                         .font(theme::semibold())
                         .style(theme::MUTED.text()),
@@ -196,11 +248,13 @@ impl App {
         };
         #[cfg(target_os = "windows")]
         let content = crate::ui::window_chrome::settings_overlay(self, content, id);
-        container(content)
+        let content = container(content)
             .width(Length::Fill)
             .height(Length::Fill)
             .style(theme::surface)
-            .into()
+            .into();
+        // Quit decisions must remain reachable when a secondary window covers the workspace.
+        crate::ui::editor::overlay(self, content)
     }
 }
 

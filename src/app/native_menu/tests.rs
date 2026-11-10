@@ -89,8 +89,100 @@ fn deployment_menu_opens_matching_settings_and_preserves_project() {
         (Action::DeploymentProfiles, SettingsTab::Deployment),
     ] {
         let _ = app.update_native_menu(Event::Polled(Ok(vec![action])));
-        assert_eq!(app.settings_tab, tab);
-        assert!(app.windows.settings.is_some());
+        assert_eq!(
+            app.windows.deployment_connections,
+            tab == SettingsTab::Connections
+        );
+        assert!(app.windows.deployment.is_some());
+        assert!(app.windows.settings.is_none());
         assert_eq!(app.workspace.directory(), project.as_ref());
+    }
+}
+
+#[tokio::test]
+async fn quit_flushes_edits_before_exit_and_keeps_conflicting_drafts_open() {
+    use iced::{futures::StreamExt, widget::text_editor};
+    use iced_test::runtime::{Action as RuntimeAction, task};
+    use std::{collections::VecDeque, sync::Arc};
+    for conflict in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("quit.txt");
+        std::fs::write(&path, "original").unwrap();
+        let mut app = App::new(Rc::new(I18n::new(Language::English)));
+        app.loaded = true;
+        app.workspace
+            .create_space("Test".into(), vec![directory.path().into()]);
+        app.window_id = Some(iced::window::Id::unique());
+        let _ = app.open_file(path.clone());
+        let id = app.preview().id;
+        let _ = app.finish_preview(id, Ok(crate::ui::code::Document::plain("original".into())));
+        let _ = app.update_editor(super::super::editor::Event::Action(
+            id,
+            text_editor::Action::SelectAll,
+        ));
+        let _ = app.update_editor(super::super::editor::Event::Action(
+            id,
+            text_editor::Action::Edit(text_editor::Edit::Paste(Arc::new(
+                "saved before quit".into(),
+            ))),
+        ));
+        if conflict {
+            std::fs::write(&path, "external").unwrap();
+        }
+        let quit = app.update_native_menu(Event::Polled(Ok(vec![Action::Quit])));
+        assert!(app.editor.pending.is_some());
+        let mut tasks = VecDeque::from([quit]);
+        let mut exited = false;
+        while let Some(next) = tasks.pop_front() {
+            if let Some(mut actions) = task::into_stream(next) {
+                while let Some(action) = actions.next().await {
+                    match action {
+                        RuntimeAction::Output(message) => tasks.push_back(app.update(message)),
+                        RuntimeAction::Exit => {
+                            exited = true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        assert_eq!(exited, !conflict);
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            if conflict {
+                "external"
+            } else {
+                "saved before quit"
+            }
+        );
+        assert_eq!(app.editor.pending.is_some(), conflict);
+        if conflict {
+            assert_eq!(
+                app.editor_buffer().unwrap().document.text,
+                "saved before quit"
+            );
+            assert_eq!(
+                app.editor_buffer().unwrap().error,
+                Some(Key::EditorConflict)
+            );
+            let _ = app.open_settings();
+            let _ = app.open_deployment_settings();
+            for window in [
+                app.windows.settings.unwrap(),
+                app.windows.deployment.unwrap(),
+            ] {
+                let mut ui = iced_test::Simulator::with_size(
+                    iced::Settings::default(),
+                    (1120., 760.),
+                    app.view_window(window),
+                );
+                assert!(
+                    ui.find(app.i18n.text(Key::EditorUnsavedTitle))
+                        .unwrap()
+                        .visible_bounds()
+                        .is_some()
+                );
+            }
+        }
     }
 }

@@ -11,6 +11,31 @@ use iced::{
 };
 
 pub(crate) fn view(app: &App) -> Element<'_, Message> {
+    view_for(app, false)
+}
+
+pub(crate) fn deployment_view(app: &App) -> Element<'_, Message> {
+    let base = view_for(app, true);
+    crate::modules::deployment::overlay(
+        &app.modules.deployment,
+        &app.i18n,
+        base,
+        app.deployment_profiles(),
+        app.workspace.directory().map(|path| path.as_path()),
+        crate::app::modules::deployment_message,
+    )
+}
+
+fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
+    let selected = if deployment {
+        if app.windows.deployment_connections {
+            SettingsTab::Connections
+        } else {
+            SettingsTab::Deployment
+        }
+    } else {
+        app.settings_tab
+    };
     let t = |key| app.i18n.text(key);
     let preferences = &app.workspace.preferences;
     let mut tabs = column![].spacing(4);
@@ -33,35 +58,21 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         (SettingsTab::About, Key::About, "about"),
     ];
     for &(tab, key, id) in &sections {
-        if matches!(tab, SettingsTab::Connections | SettingsTab::Deployment)
-            && !app.module_enabled(crate::modules::ModuleId::Deployment)
-        {
+        if matches!(tab, SettingsTab::Connections | SettingsTab::Deployment) != deployment {
             continue;
         }
-        if tab == SettingsTab::Connections {
-            tabs = tabs.push(
-                container(text(t(Key::Deployment)).size(13).font(theme::semibold()))
-                    .id("settings-deployment-group")
-                    .padding([12, 12]),
-            );
-        }
-        let nested = matches!(tab, SettingsTab::Connections | SettingsTab::Deployment);
         tabs = tabs.push(
             container(
                 button(text(t(key)).size(13))
                     .padding([8, 12])
                     .width(Length::Fill)
                     .on_press(Message::SelectSettingsTab(tab))
-                    .style(theme::action(app.settings_tab == tab)),
+                    .style(theme::action(selected == tab)),
             )
-            .id(format!("settings-tab-{id}"))
-            .padding(iced::Padding {
-                left: if nested { 12. } else { 0. },
-                ..iced::Padding::ZERO
-            }),
+            .id(format!("settings-tab-{id}")),
         );
     }
-    let section: Element<'_, Message> = match app.settings_tab {
+    let section: Element<'_, Message> = match selected {
         SettingsTab::General => {
             let language = preferences.language.as_deref().unwrap_or("auto");
             let mut languages = row![].spacing(6);
@@ -254,7 +265,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     };
     let heading = sections
         .iter()
-        .find(|(tab, _, _)| *tab == app.settings_tab)
+        .find(|(tab, _, _)| *tab == selected)
         .map_or(Key::General, |(_, key, _)| *key);
     let navigation = container(
         scrollable(tabs.padding(12))
@@ -265,10 +276,6 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .width(theme::SETTINGS_SIDEBAR_WIDTH)
     .height(Length::Fill)
     .style(theme::sidebar);
-    let deployment = matches!(
-        app.settings_tab,
-        SettingsTab::Connections | SettingsTab::Deployment
-    );
     let body: Element<'_, Message> = if deployment {
         container(section)
             .id("settings-content")
@@ -309,11 +316,13 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .height(Length::Fill)
         .width(Length::Fill)
         .into();
-    if let Some(dialog) = crate::modules::deployment::settings_dialog(
-        &app.modules.deployment,
-        &app.workspace.deployment,
-        &app.i18n,
-    ) {
+    if deployment
+        && let Some(dialog) = crate::modules::deployment::settings_dialog(
+            &app.modules.deployment,
+            &app.workspace.deployment,
+            &app.i18n,
+        )
+    {
         super::modal::overlay(
             base,
             dialog.map(crate::app::modules::deployment_message),

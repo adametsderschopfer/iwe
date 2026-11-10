@@ -105,7 +105,7 @@ impl App {
                                 _ => SettingsTab::Deployment,
                             };
                             let select = self.update(Message::SelectSettingsTab(tab));
-                            let open = self.open_settings();
+                            let open = self.open_deployment_settings();
                             Task::batch([select, open])
                         }
                         Action::About if !self.modules.deployment.has_dialog() => {

@@ -85,7 +85,7 @@ interactive writes through an ordered background worker. See
 
 Apply save, revision, locking, and journal requirements when implementing mutable managed documents.
 Keep Git revisions and explicit comparisons read-only. Editable local and server buffers use
-explicit saves.
+debounced autosave with explicit retry after failures.
 
 - Keep disk access outside UI callbacks and rendering. Keep active graph data in memory during
   interactions.

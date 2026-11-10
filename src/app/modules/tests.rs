@@ -582,3 +582,51 @@ fn module_panel_controls_emit_typed_events() {
         Message::Module(Event::Git(crate::modules::git::Event::Refresh))
     )));
 }
+
+#[test]
+fn git_processing_appears_only_in_the_shared_footer_even_with_hidden_panel() {
+    use iced::widget::Id;
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = app();
+        app.loaded = true;
+        app.i18n = Rc::new(I18n::new(language));
+        for state in 0..4 {
+            app.loading = state == 0;
+            app.modules.git.git_actions.pending = state == 1;
+            app.modules.git.history_loading = state == 2;
+            app.modules.git.changes_loading = state == 3;
+            for open in [false, true] {
+                if app.module_open(ModuleId::Git) != open {
+                    let _ = app.update_module(Event::Toggle(ModuleId::Git));
+                }
+                let mut ui = iced_test::Simulator::with_size(
+                    iced::Settings::default(),
+                    (1080., 720.),
+                    app.view(),
+                );
+                let bounds = ui
+                    .find(Id::new("git-activity"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                assert!(bounds.y > 650.);
+                drop(ui);
+                let mut panel = iced_test::Simulator::with_size(
+                    iced::Settings::default(),
+                    (1080., 400.),
+                    crate::ui::screens::git::view(&app),
+                );
+                for key in [Key::GitWorking, Key::LoadingHistory, Key::Loading] {
+                    assert!(panel.find(app.i18n.text(key)).is_err());
+                }
+            }
+        }
+        app.loading = false;
+        app.modules.git.git_actions.pending = false;
+        app.modules.git.history_loading = false;
+        app.modules.git.changes_loading = false;
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
+        assert!(ui.find(Id::new("git-activity")).is_err());
+    }
+}

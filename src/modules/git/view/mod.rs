@@ -23,6 +23,33 @@ use iced::{
     },
 };
 
+/// Show Git work in the shared status bar, including when the panel is hidden.
+pub(crate) fn activity<'a>(app: View<'a>) -> Option<Element<'a, Message>> {
+    let status = if app.state.git_actions.pending {
+        Key::GitWorking
+    } else if app.state.history_loading {
+        Key::LoadingHistory
+    } else if app.loading || app.state.changes_loading {
+        Key::Loading
+    } else {
+        return None;
+    };
+    Some(
+        container(tooltip::view(
+            row![
+                icon(Icon::Branch, theme::MUTED),
+                container(ellipsis::text(app.i18n.text(status), 12.)).width(180)
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center),
+            text(app.i18n.text(status)).size(12),
+            tooltip::Position::Top,
+        ))
+        .id("git-activity")
+        .into(),
+    )
+}
+
 pub(crate) fn view<'a>(app: View<'a>) -> Element<'a, Message> {
     let content: Element<'_, Message> = if let Some(error) = app.repository_error {
         center_message(app.i18n, error_key(error))
@@ -55,7 +82,7 @@ pub(crate) fn view<'a>(app: View<'a>) -> Element<'a, Message> {
         .height(Length::Fill)
         .into()
     } else {
-        center_message(app.i18n, Key::Loading)
+        space().width(Length::Fill).height(Length::Fill).into()
     };
     let tools = container(
         scrollable(
@@ -119,16 +146,7 @@ fn header<'a>(app: View<'a>, width: f32) -> Element<'a, Message> {
         .copied()
         .unwrap_or_default();
     let commits_x = commits.x + toolbar_width;
-    let status = if app.state.git_actions.pending {
-        Some(Key::GitWorking)
-    } else {
-        app.loading.then_some(Key::Loading)
-    };
-    let mut controls = Row::new().spacing(12).align_y(Alignment::Center);
-    if let Some(status) = status {
-        controls = controls.push(container(ellipsis::text(app.i18n.text(status), 11.)).width(132));
-    }
-    controls = controls.push(
+    let controls = row![
         container(icon_button(
             app.i18n,
             Icon::Minus,
@@ -136,9 +154,9 @@ fn header<'a>(app: View<'a>, width: f32) -> Element<'a, Message> {
             Message::Hide,
             false,
         ))
-        .id("git-hide"),
-    );
-    let controls_width = if status.is_some() { 184. } else { 40. };
+        .id("git-hide")
+    ];
+    let controls_width = 40.;
     // Keep search usable when the branches column occupies most of the panel.
     let controls_on_left = width - commits_x < controls_width + 136.;
     let mut title = row![
@@ -624,12 +642,13 @@ fn commit_table<'a>(
         })
         .collect::<Vec<_>>();
     if matching.is_empty() {
+        if app.state.history_loading {
+            return space().width(Length::Fill).height(Length::Fill).into();
+        }
         return column![
             center_message(
                 app.i18n,
-                if app.state.history_loading {
-                    Key::LoadingHistory
-                } else if repo.commits.is_empty() {
+                if repo.commits.is_empty() {
                     Key::NoCommits
                 } else {
                     Key::NoResults
@@ -906,14 +925,7 @@ fn commit_table<'a>(
 
 fn history_footer<'a>(app: View<'a>) -> Element<'a, Message> {
     if app.state.history_loading {
-        return container(
-            text(app.i18n.text(Key::LoadingHistory))
-                .size(12)
-                .style(theme::MUTED.text()),
-        )
-        .padding(12)
-        .center_x(Length::Fill)
-        .into();
+        return space().height(0).into();
     }
     if app
         .repository
@@ -1003,13 +1015,6 @@ fn changed_files_content<'a>(app: View<'a>, width: f32, height: f32) -> Element<
         width,
         0,
     ));
-    if app.state.changes_loading {
-        files = files.push(
-            text(app.i18n.text(Key::Loading))
-                .size(12)
-                .style(theme::MUTED.text()),
-        );
-    }
     if let Some(error) = app.state.changes_error {
         files = files.push(
             text(app.i18n.text(error_key(error)))

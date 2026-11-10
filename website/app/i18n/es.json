@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "IWE Code — Edita, compara y despliega",
-    "description": "Un espacio nativo para editar archivos locales y remotos, comparar cambios y transferir por SFTP, FTP o FTPS. Con Git, pipelines y terminal."
+    "title": "IWE Code — Un editor de código nativo",
+    "description": "Edita código, organiza proyectos y revisa cambios de Git en un espacio nativo. Incluye terminal, pipelines y módulos opcionales."
   },
   "nav": {
     "features": "Funciones",
@@ -13,8 +13,8 @@
   },
   "hero": {
     "release": "Conoce IWE Code",
-    "title": "De tu código\na tu servidor.",
-    "description": "Edita archivos, compara cambios y envíalos a tu servidor. Reúne proyectos, Git, pipelines y una terminal en una aplicación nativa.",
+    "title": "Tu código.\nTu espacio de trabajo.",
+    "description": "Edita código, organiza proyectos y revisa cambios en una aplicación nativa. Mantén Git, la terminal y tus herramientas cerca.",
     "download": "Obtener IWE Code",
     "source": "Explorar en GitHub",
     "platforms": "Para macOS, Windows y Linux."
@@ -26,7 +26,7 @@
     "comparison": "Cambios",
     "pipelines": "Ejecuciones",
     "caption": "IWE Code con datos de ejemplo.",
-    "altWorkspace": "Editor de IWE Code con resaltado de sintaxis, pestañas de archivos, botón Guardar y árbol del proyecto.",
+    "altWorkspace": "Editor de IWE Code con resaltado de sintaxis, números de línea, pestañas de archivos y árbol del proyecto.",
     "altHistory": "Historial de Git en IWE Code con ramas y commits.",
     "altComparison": "IWE Code muestra las versiones anterior y actual de un archivo en paralelo y resalta las líneas modificadas.",
     "altPipelines": "Lista de ejecuciones en IWE Code con el estado de cada tarea.",
@@ -35,17 +35,17 @@
   },
   "features": {
     "title": "Tus herramientas.\nEn un mismo espacio.",
-    "description": "Desde una edición local hasta una transferencia al servidor, mantén cada paso cerca del código.",
+    "description": "Escribe código, revisa cambios y organiza tus proyectos con herramientas que trabajan juntas.",
     "items": [
       {
-        "title": "Edita archivos locales y remotos",
-        "description": "Escribe con resaltado de sintaxis, deshaz cambios y guarda cuando quieras. Las pestañas indican los cambios sin guardar.",
+        "title": "Edita tu código",
+        "description": "Escribe con resaltado de sintaxis, números de línea y deshacer. El guardado automático conserva tus cambios en disco.",
         "icon": "code"
       },
       {
-        "title": "Configura cada despliegue",
-        "description": "Conecta por SFTP, FTP o FTPS. Asigna carpetas, excluye rutas y elige perfiles de despliegue para cada proyecto.",
-        "icon": "server"
+        "title": "Organiza proyectos en espacios",
+        "description": "Agrupa proyectos por equipo o tarea. Cambia de espacio y conserva juntos los archivos y las herramientas de cada proyecto.",
+        "icon": "spaces"
       },
       {
         "title": "Revisa los cambios en Git",
@@ -53,37 +53,37 @@
         "icon": "branch"
       },
       {
-        "title": "Consulta tus pipelines",
-        "description": "Conecta GitHub Actions o GitLab. Revisa ejecuciones, etapas y tareas junto al proyecto correspondiente.",
-        "icon": "pipeline"
-      },
-      {
         "title": "Abre una terminal en el proyecto",
         "description": "Ejecuta comandos sin salir de la aplicación. Contrae el panel de la terminal cuando termines.",
         "icon": "terminal"
       },
       {
-        "title": "Organiza proyectos en espacios",
-        "description": "Agrupa proyectos por equipo o tarea. Guarda los perfiles dentro de cada espacio y comparte conexiones entre proyectos.",
-        "icon": "spaces"
+        "title": "Consulta tus pipelines",
+        "description": "Conecta GitHub Actions o GitLab. Revisa ejecuciones, etapas y tareas junto al proyecto correspondiente.",
+        "icon": "pipeline"
+      },
+      {
+        "title": "Configura cada despliegue",
+        "description": "Conecta por SFTP, FTP o FTPS. Asigna carpetas, excluye rutas y elige perfiles de despliegue para cada proyecto.",
+        "icon": "server"
       }
     ]
   },
   "workflow": {
     "title": "Ve los cambios.\nConserva el contexto.",
-    "description": "Alterna entre edición y comparación. Revisa una versión de Git o compara un archivo local con la copia del servidor.",
+    "description": "Abre un proyecto, edita sus archivos y revisa los cambios en Git. Conserva a mano el árbol y el historial.",
     "items": [
       {
-        "title": "Edita y guarda",
-        "description": "Usa pestañas, resaltado de sintaxis y deshacer. Guarda archivos locales o envía explícitamente los cambios de archivos remotos."
+        "title": "Empieza con tu proyecto",
+        "description": "Añade una carpeta existente y abre archivos en pestañas. Conserva la estructura actual de tus carpetas."
       },
       {
-        "title": "Compara ambas versiones",
-        "description": "Ve los cambios en paralelo o en una columna. Contrae las líneas sin cambios para centrarte en las diferencias."
+        "title": "Edita con guardado automático",
+        "description": "Escribe y deshaz cambios en el editor. El guardado automático mantiene actualizados los archivos locales."
       },
       {
-        "title": "Trabaja durante las transferencias",
-        "description": "Las transferencias se ejecutan en segundo plano. Consulta su progreso sin volver a abrir el panel de despliegue."
+        "title": "Revisa los cambios en Git",
+        "description": "Compara versiones en paralelo o en una columna. Contrae las líneas sin cambios y consulta el historial de commits."
       }
     ],
     "caption": "Comparación de archivos en paralelo."
@@ -122,7 +122,7 @@
     "items": [
       {
         "question": "¿IWE Code es un editor de código?",
-        "answer": "Sí. IWE Code permite editar y guardar archivos de texto locales y remotos. Las revisiones de Git y comparaciones son de solo lectura."
+        "answer": "Sí. IWE Code permite editar texto con resaltado de sintaxis, deshacer y guardado automático. Las revisiones y comparaciones son de solo lectura."
       },
       {
         "question": "¿Necesito mover mis proyectos?",
@@ -137,8 +137,8 @@
         "answer": "La aplicación y este sitio web admiten inglés, ruso y español."
       },
       {
-        "question": "¿El despliegue sube archivos automáticamente?",
-        "answer": "No. Tú decides cuándo subir, descargar o guardar un archivo remoto. Reemplazar archivos locales durante una descarga requiere confirmación."
+        "question": "¿Cómo se guardan mis cambios?",
+        "answer": "Los archivos de texto se guardan tras una breve pausa al escribir. Si falla, el editor conserva el borrador y avisa."
       },
       {
         "question": "¿Puedo desactivar módulos?",
@@ -147,7 +147,7 @@
     ]
   },
   "footer": {
-    "description": "Edita, compara y despliega en un mismo espacio.",
+    "description": "Código, proyectos y herramientas diarias en un mismo espacio.",
     "developer": "Desarrollado por",
     "source": "Código fuente",
     "releases": "Versiones"
@@ -187,25 +187,5 @@
     "description": "IWE Code se distribuye bajo la Apache License, Version 2.0. A continuación se muestra el texto original de la licencia.",
     "fullText": "Texto completo de la licencia",
     "source": "Ver la licencia en GitHub"
-  },
-  "deployment": {
-    "eyebrow": "Despliegue",
-    "title": "Tu servidor.\nEn tu espacio de trabajo.",
-    "description": "Configura una conexión una vez. Define el destino, las asignaciones de carpetas y las exclusiones de cada proyecto.",
-    "items": [
-      {
-        "title": "Conecta",
-        "description": "Usa una clave SSH, un agente SSH o una contraseña. Guarda las contraseñas en el almacén del sistema operativo."
-      },
-      {
-        "title": "Compara",
-        "description": "Carga la copia del servidor en una pestaña de comparación. Revisa ambas versiones sin reemplazar el archivo local."
-      },
-      {
-        "title": "Transfiere",
-        "description": "Sube o descarga archivos y carpetas manualmente. Consulta el progreso en la barra de estado mientras sigues trabajando."
-      }
-    ],
-    "caption": "Un perfil de despliegue vincula un proyecto con una conexión guardada."
   }
 }

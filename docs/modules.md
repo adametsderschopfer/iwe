@@ -150,3 +150,7 @@ Module translations live in each module's own `locales/` directory. Shared appli
 remain under root `locales/`. The shared localizer embeds and combines both resource sets. Duplicate
 message identifiers reject the combined catalog. Typed built-in message keys remain registered in
 `src/i18n/mod.rs`. Catalog tests validate each source and the combined messages.
+
+Git loading and operation status appear in the shared bottom status bar, even when its panel is
+collapsed. The Git header, history list, and changed-file list do not repeat progress messages.
+Errors and retry controls remain beside the affected content.

@@ -1062,6 +1062,135 @@
     ]
   },
   {
+    "version": "1.0.3",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "text-autosave-and-gutter",
+        "category": "changed",
+        "text": {
+          "en": "Local and server text files autosave after typing pauses. The editor shows line numbers without the previous save toolbar.",
+          "ru": "Локальные и серверные текстовые файлы сохраняются после паузы при вводе. Редактор показывает номера строк без прежней панели сохранения.",
+          "es": "Los archivos locales y remotos se guardan tras una pausa. El editor muestra números de línea sin la antigua barra."
+        },
+        "sources": ["src/app/editor/mod.rs", "src/ui/editor/mod.rs", "src/ui/editor/gutter.rs"]
+      },
+      {
+        "id": "project-file-git-separation",
+        "category": "fixed",
+        "text": {
+          "en": "Opening project files no longer starts Git comparisons. Comparison controls appear only for uncommitted changes.",
+          "ru": "Открытие файлов проекта больше не запускает сравнение с Git. Кнопки сравнения появляются только для незакоммиченных изменений.",
+          "es": "Abrir archivos del proyecto ya no inicia comparaciones de Git. Los controles aparecen solo para cambios sin confirmar."
+        },
+        "sources": ["src/app/tabs.rs", "src/ui/screens/workspace.rs"]
+      },
+      {
+        "id": "quit-save-decisions-and-escape",
+        "category": "fixed",
+        "text": {
+          "en": "Save errors remain visible when quitting from secondary windows. Escape closes settings and deployment dialogs.",
+          "ru": "Ошибки сохранения остаются видимыми при выходе из дополнительных окон. Escape закрывает настройки и диалоги деплоймента.",
+          "es": "Los errores de guardado permanecen visibles al salir desde ventanas secundarias. Escape cierra ajustes y diálogos de despliegue."
+        },
+        "sources": ["src/app/windows.rs", "src/app/mod.rs", "src/app/native_menu/tests.rs"]
+      },
+      {
+        "id": "deployment-window-and-mapping-selection",
+        "category": "changed",
+        "text": {
+          "en": "Deployment opens in a separate window. Mappings prefill the project path and provide local and server folder pickers.",
+          "ru": "Деплоймент открывается в отдельном окне. Маппинги подставляют путь проекта и позволяют выбирать локальные и серверные папки.",
+          "es": "El despliegue abre una ventana independiente. Las asignaciones completan la ruta del proyecto y permiten elegir carpetas locales y remotas."
+        },
+        "sources": [
+          "src/app/windows.rs",
+          "src/modules/deployment/view/settings.rs",
+          "src/modules/deployment/state/mod.rs"
+        ]
+      },
+      {
+        "id": "deployment-profile-identity-and-paths",
+        "category": "fixed",
+        "text": {
+          "en": "Duplicating a profile creates a separate profile. Absolute local paths and server mapping paths with leading slashes work correctly.",
+          "ru": "Дублирование создаёт отдельный профиль. Абсолютные локальные пути и серверные пути маппинга с начальным слешем работают корректно.",
+          "es": "Duplicar crea un perfil independiente. Las rutas locales absolutas y las asignaciones remotas con barra inicial funcionan correctamente."
+        },
+        "sources": [
+          "src/modules/deployment/state/settings.rs",
+          "src/modules/deployment/state/tests.rs"
+        ]
+      },
+      {
+        "id": "deployment-explicit-target-and-current-text",
+        "category": "fixed",
+        "text": {
+          "en": "Browsing servers preserves the default profile. Upload and comparison save pending local edits first and request missing targets.",
+          "ru": "Просмотр серверов сохраняет профиль по умолчанию. Отправка и сравнение сначала сохраняют локальные правки и запрашивают отсутствующее назначение.",
+          "es": "Explorar servidores conserva el perfil predeterminado. La subida y comparación guardan primero los cambios locales y solicitan destinos ausentes."
+        },
+        "sources": [
+          "src/app/editor/mod.rs",
+          "src/app/modules/deployment.rs",
+          "src/modules/deployment/state/mod.rs"
+        ]
+      },
+      {
+        "id": "deployment-browser-and-test-feedback",
+        "category": "changed",
+        "text": {
+          "en": "The server menu opens local counterparts and copies paths. Refresh clears cached folders; connection tests show their own results.",
+          "ru": "Меню сервера открывает локальные файлы и копирует пути. Обновление очищает кэш папок; проверки подключения показывают собственные результаты.",
+          "es": "El menú remoto abre copias locales y copia rutas. Actualizar vacía la caché; las pruebas de conexión muestran resultados propios."
+        },
+        "sources": ["src/modules/deployment/view/mod.rs", "src/modules/deployment/view/settings.rs"]
+      },
+      {
+        "id": "deployment-shortcuts-and-compact-status",
+        "category": "changed",
+        "text": {
+          "en": "Upload uses Command+Shift+A; comparison uses Command+Shift+C. Windows and Linux use Ctrl. Git progress appears in the bottom status area.",
+          "ru": "Отправка использует Command+Shift+A, сравнение — Command+Shift+C. Windows и Linux используют Ctrl. Ход операций Git отображается внизу окна.",
+          "es": "Subir usa Command+Shift+A; comparar usa Command+Shift+C. Windows y Linux usan Ctrl. El progreso de Git aparece abajo."
+        },
+        "sources": [
+          "src/domain/shortcuts/mod.rs",
+          "src/modules/git/view/mod.rs",
+          "src/ui/screens/git.rs"
+        ]
+      },
+      {
+        "id": "concise-module-controls",
+        "category": "changed",
+        "text": {
+          "en": "Module switches no longer repeat enabled or disabled labels.",
+          "ru": "Переключатели модулей больше не дублируют подписи «Включён» и «Выключен».",
+          "es": "Los interruptores de módulos ya no repiten las etiquetas de activación."
+        },
+        "sources": ["src/ui/modules.rs", "src/i18n/mod.rs"]
+      },
+      {
+        "id": "editor-first-website",
+        "category": "changed",
+        "text": {
+          "en": "The website introduces code editing and project workflows. Deployment remains one optional feature. Screenshots show the current editor.",
+          "ru": "Лендинг представляет редактор кода и работу с проектами. Деплоймент остаётся одной из отключаемых функций. Скриншоты показывают текущий редактор.",
+          "es": "El sitio presenta la edición y los proyectos. El despliegue sigue como función opcional. Las capturas muestran el editor actual."
+        },
+        "sources": [
+          "website/app/i18n/en.json",
+          "website/app/i18n/ru.json",
+          "website/app/components/ProductShowcase.vue",
+          "src/app/tests.rs"
+        ]
+      }
+    ]
+  },
+  {
     "version": "unreleased",
     "status": "prepared",
     "publishedAt": null,

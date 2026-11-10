@@ -79,4 +79,4 @@ impl Default for State {
 }
 
 mod view;
-pub(crate) use view::{Event, View, overlay, view};
+pub(crate) use view::{Event, View, activity, overlay, view};

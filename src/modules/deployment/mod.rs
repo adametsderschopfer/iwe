@@ -9,5 +9,5 @@ pub(crate) use state::{Effect, Event, State};
 pub(crate) use transfer::{Operation, Output};
 pub(crate) use view::{
     activity, activity_details, connections_view, error_key, overlay, panel, profiles_view,
-    settings_dialog,
+    settings_dialog, target_dialog,
 };

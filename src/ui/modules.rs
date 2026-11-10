@@ -70,7 +70,6 @@ pub(crate) fn settings(app: &App) -> Element<'_, Message> {
                     .style(theme::badge),
                     container(
                         toggler(app.module_enabled(module.id))
-                            .label(app.i18n.text(Key::ModuleEnabled))
                             .style(theme::toggle)
                             .on_toggle(move |enabled| Message::Module(Event::SetEnabled(
                                 module.id, enabled

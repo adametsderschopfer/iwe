@@ -172,6 +172,7 @@ fn connection_test_feedback_precedes_the_button_and_keeps_recovery_controls() {
         let mut settings = Connections::default();
         let _ = state.update(Event::NewConnection, &mut settings, &mut vec![], None);
         state.operation_label = Some(Key::DeploymentTest);
+        state.test_connection = state.connection.clone();
         for (name, busy, error, status, message) in [
             ("loading", true, None, None, Key::DeploymentChecking),
             (
@@ -197,6 +198,11 @@ fn connection_test_feedback_precedes_the_button_and_keeps_recovery_controls() {
             ),
         ] {
             state.busy = busy;
+            state.test_result = if busy {
+                None
+            } else {
+                Some(error.clone().map_or(Ok(()), Err))
+            };
             state.error = error;
             state.status = status;
             for appearance in [iced::Theme::Dark, iced::Theme::Light] {
@@ -347,4 +353,228 @@ fn activity_controls_work_without_the_remote_tree_in_all_languages() {
                 .any(|event| matches!(event, Event::ConfirmDownload))
         );
     }
+}
+
+#[test]
+fn server_folder_dialog_shows_directories_and_selects_without_opening_files() {
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let i18n = I18n::new(language);
+        let mut state = State::default();
+        state.browsing = true;
+        let directory = Entry {
+            path: "/site".into(),
+            name: "site".into(),
+            directory: true,
+            symlink: false,
+            size: 0,
+        };
+        state.selected = Some(directory.clone());
+        state.tree.insert(
+            "/".into(),
+            vec![
+                directory,
+                Entry {
+                    path: "/file.txt".into(),
+                    name: "file.txt".into(),
+                    directory: false,
+                    symlink: false,
+                    size: 5,
+                },
+                Entry {
+                    path: "/link".into(),
+                    name: "link".into(),
+                    directory: true,
+                    symlink: true,
+                    size: 0,
+                },
+            ],
+        );
+        let connections = Connections::default();
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings::default(),
+            (700., 540.),
+            settings::settings_dialog(&state, &connections, &i18n).unwrap(),
+        );
+        assert!(ui.find("site").unwrap().visible_bounds().is_some());
+        assert!(ui.find("file.txt").is_err());
+        assert!(ui.find("link").is_err());
+        ui.click(i18n.text(Key::DeploymentUseFolder)).unwrap();
+        assert!(
+            ui.into_messages()
+                .any(|message| matches!(message, Event::UseRoot(path) if path == "/site"))
+        );
+    }
+}
+
+#[test]
+fn remote_menu_limits_mapped_actions_and_keeps_the_selected_remote_path() {
+    use crate::domain::deployment::Mapping;
+    for mapped in [false, true] {
+        let i18n = I18n::new(Language::English);
+        let project = std::env::temp_dir().join("iwe-menu-test");
+        let profiles = vec![Profile {
+            id: "profile".into(),
+            name: "Server".into(),
+            project: project.clone(),
+            connection: "connection".into(),
+            root: "/srv".into(),
+            mappings: vec![Mapping {
+                local: "".into(),
+                remote: "mapped".into(),
+            }],
+            ..Default::default()
+        }];
+        let path = if mapped {
+            "/srv/mapped/file.txt"
+        } else {
+            "/srv/outside.txt"
+        };
+        let mut state = State::default();
+        state.menu = Some(Entry {
+            path: path.into(),
+            name: "file.txt".into(),
+            directory: false,
+            symlink: false,
+            size: 10,
+        });
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings::default(),
+            (800., 600.),
+            overlay(
+                &state,
+                &i18n,
+                iced::widget::space()
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into(),
+                &profiles,
+                Some(&project),
+                |event| event,
+            ),
+        );
+        for key in [
+            Key::DeploymentUpload,
+            Key::DeploymentDownload,
+            Key::DeploymentCompareLocal,
+            Key::DeploymentOpenLocal,
+            Key::DeploymentOpenRemote,
+            Key::CopyAbsolutePath,
+        ] {
+            ui.click(i18n.text(key)).unwrap();
+        }
+        let events: Vec<_> = ui.into_messages().collect();
+        assert_eq!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::RemoteCompare(p) if p == path)),
+            mapped
+        );
+        assert_eq!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::RemoteUpload(p) if p == path)),
+            mapped
+        );
+        assert_eq!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::OpenLocal(p) if p == path)),
+            mapped
+        );
+        assert_eq!(
+            events.iter().any(
+                |event| matches!(event, Event::Run(Operation::Download(p, false)) if p == path)
+            ),
+            mapped
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::Run(Operation::Preview(p)) if p == path))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::CopyRemotePath(p) if p == path))
+        );
+    }
+}
+
+#[test]
+fn target_picker_selects_profiles_and_cancels_in_all_languages() {
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let i18n = I18n::new(language);
+        let mut state = State::default();
+        state.target = Some((
+            Operation::Upload("file.txt".into()),
+            vec![
+                ("dev".into(), "Development".into()),
+                ("prod".into(), "Production".into()),
+            ],
+        ));
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings::default(),
+            (520., 500.),
+            target_dialog(&state, &i18n).unwrap(),
+        );
+        ui.click("Production").unwrap();
+        ui.click(i18n.text(Key::DeploymentCancel)).unwrap();
+        let events: Vec<_> = ui.into_messages().collect();
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::ChooseTarget(id) if id == "prod"))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, Event::CloseDialog))
+        );
+    }
+}
+
+#[test]
+fn connection_test_status_does_not_leak_to_another_connection_or_transfer() {
+    let i18n = I18n::new(Language::English);
+    let settings = Connections::default();
+    let mut state = State::default();
+    let connection = crate::domain::deployment::Connection {
+        id: "first".into(),
+        ..Default::default()
+    };
+    state.connection = Some(connection.clone());
+    state.test_connection = Some(connection);
+    state.test_result = Some(Ok(()));
+    state.operation_label = Some(Key::DeploymentTest);
+    state.error = Some(Error::Mapping);
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings::default(),
+        (600., 1000.),
+        connection_form(&state, &settings, &i18n),
+    );
+    assert!(ui.find(i18n.text(Key::DeploymentConnected)).is_ok());
+    drop(ui);
+    state.connection.as_mut().unwrap().id = "other".into();
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings::default(),
+        (600., 1000.),
+        connection_form(&state, &settings, &i18n),
+    );
+    assert!(
+        ui.find(iced::widget::Id::new("deployment-test-status"))
+            .is_err()
+    );
+    drop(ui);
+    state.connection = state.test_connection.clone();
+    state.operation_label = Some(Key::DeploymentUpload);
+    state.busy = true;
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings::default(),
+        (600., 1000.),
+        connection_form(&state, &settings, &i18n),
+    );
+    assert!(
+        ui.find(iced::widget::Id::new("deployment-test-status"))
+            .is_err()
+    );
 }

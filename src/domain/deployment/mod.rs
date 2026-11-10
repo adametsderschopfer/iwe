@@ -150,12 +150,12 @@ impl Connection {
 
 impl Profile {
     pub(crate) fn validate(&self) -> Result<(), Error> {
-        if self.name.trim().is_empty()
-            || self.connection.is_empty()
-            || !self.project.is_absolute()
-            || self.mappings.is_empty()
+        if self.name.trim().is_empty() || self.connection.is_empty() || !self.project.is_absolute()
         {
             return Err(Error::Configuration);
+        }
+        if self.mappings.is_empty() {
+            return Err(Error::Mapping);
         }
         remote_path(&self.root)?;
         for (index, mapping) in self.mappings.iter().enumerate() {

@@ -13,13 +13,6 @@ const tabs = computed(() => [
     height: 2000,
   },
   {
-    id: 'deployment',
-    title: messages.preview.deployment,
-    alt: messages.preview.altDeployment,
-    width: 2400,
-    height: 1600,
-  },
-  {
     id: 'history',
     title: messages.preview.history,
     alt: messages.preview.altHistory,
@@ -39,6 +32,13 @@ const tabs = computed(() => [
     alt: messages.preview.altPipelines,
     width: 2160,
     height: 1440,
+  },
+  {
+    id: 'deployment',
+    title: messages.preview.deployment,
+    alt: messages.preview.altDeployment,
+    width: 2400,
+    height: 1600,
   },
 ])
 </script>

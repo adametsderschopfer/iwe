@@ -66,8 +66,6 @@ pub(crate) enum Event {
     ConfirmName,
     NewProtocol(Protocol),
     DiscardChanges,
-    RevertConnection,
-    RevertProfile,
     ProfileTab(ProfileTab),
     TestProfile,
     OpenKeys,
@@ -104,6 +102,9 @@ pub(crate) enum Event {
     DeleteProfile,
     SelectProfile(String),
     BrowseRoot,
+    BrowseMapping(usize),
+    PickLocalMapping(usize),
+    LocalMappingPicked(Profile, usize, Option<PathBuf>),
     StopBrowsing,
     UseRoot(String),
     Folder(String),
@@ -112,6 +113,13 @@ pub(crate) enum Event {
     DismissMenu,
     Refresh,
     Run(Operation),
+    RunOnProfile(String, Operation),
+    ChooseTarget(String),
+    RemoteCompare(String),
+    RemoteUpload(String),
+    OpenLocal(String),
+    CopyRemotePath(String),
+    CollapseAll,
     CurrentFile(bool),
     Finished(u64, Result<Output, Error>),
     TrustHost,
@@ -136,14 +144,19 @@ pub(crate) enum Effect {
         remote: String,
     },
     Transferred(String),
+    OpenLocal(PathBuf),
+    CopyPath(String),
 }
 
 #[derive(Default)]
 pub(crate) struct State {
     pub open: bool,
+    pub target: Option<(Operation, Vec<(String, String)>)>,
     pub activity_visible: bool,
     pub activity_expanded: bool,
     pub operation_label: Option<Key>,
+    pub test_connection: Option<Connection>,
+    pub test_result: Option<Result<(), Error>>,
     pub operation_path: String,
     pub profile_tab: ProfileTab,
     pub keys_open: bool,
@@ -169,6 +182,7 @@ pub(crate) struct State {
     pub menu: Option<Entry>,
     pub menu_point: iced::Point,
     pub browsing: bool,
+    pub browse_mapping: Option<usize>,
     pub error: Option<Error>,
     pub status: Option<Key>,
     pub busy: bool,
@@ -214,7 +228,12 @@ impl State {
     }
 
     pub(crate) fn has_dialog(&self) -> bool {
-        self.key_dialog || self.keys_open || self.naming.is_some() || self.pending.is_some()
+        self.key_dialog
+            || self.keys_open
+            || self.naming.is_some()
+            || self.pending.is_some()
+            || self.browsing
+            || self.target.is_some()
     }
 
     fn close_key_dialog(&mut self) {
@@ -287,8 +306,10 @@ impl State {
         self.expanded.clear();
         self.selected = None;
         self.selected_profile = None;
+        self.target = None;
         self.profile = None;
         self.browsing = false;
+        self.browse_mapping = None;
         self.error = None;
         self.status = None;
         self.menu = None;
@@ -338,6 +359,9 @@ impl State {
         self.busy = true;
         self.error = None;
         self.status = None;
+        self.test_result = None;
+        self.test_connection =
+            matches!(request.operation, Operation::Test).then(|| request.connection.clone());
         self.operation_name = if request.profile.name.is_empty() {
             request.connection.name.clone()
         } else {
@@ -375,15 +399,31 @@ impl State {
         )
     }
 
+    pub(crate) fn browsing_root(&self) -> &str {
+        if self.browse_mapping.is_some() {
+            self.profile
+                .as_ref()
+                .map(|profile| profile.root.as_str())
+                .unwrap_or("/")
+        } else {
+            "/"
+        }
+    }
+
     fn request(
         &self,
         settings: &Connections,
         profiles: &[Profile],
         project: Option<&Path>,
         operation: Operation,
+        profile_id: Option<&str>,
     ) -> Result<Request, Error> {
         let browsing = self.browsing && matches!(operation, Operation::List(_));
-        let profile = if browsing {
+        let profile = if let Some(id) = profile_id {
+            profiles
+                .iter()
+                .find(|p| p.id == id && Some(p.project.as_path()) == project)
+        } else if browsing {
             self.profile.as_ref()
         } else {
             self.active_profile(profiles, project)
@@ -396,9 +436,9 @@ impl State {
             .find(|c| c.id == profile.connection)
             .ok_or(Error::Configuration)?
             .clone();
-        let mut profile = profile;
+        let mut profile = settings::normalized_profile(&profile);
         if browsing {
-            profile.root = "/".to_owned();
+            profile.root = self.browsing_root().to_owned();
         }
         Ok(Request {
             profile,
@@ -407,6 +447,56 @@ impl State {
             operation,
             secret: None,
         })
+    }
+
+    fn run_request(&mut self, request: Result<Request, Error>) -> (Task<Event>, Effect) {
+        let mut effect = Effect::None;
+        match request {
+            Ok(request) => {
+                if let Operation::Upload(path) = &request.operation
+                    && let Err(error) = request.profile.to_remote(path)
+                {
+                    self.error = Some(error);
+                    return (Task::none(), Effect::Settings);
+                }
+                if let Operation::Compare(path) = &request.operation {
+                    let remote = match request.profile.to_remote(path) {
+                        Ok(remote) => remote,
+                        Err(error) => {
+                            self.error = Some(error);
+                            return (Task::none(), Effect::Settings);
+                        }
+                    };
+                    effect = Effect::CompareRequested {
+                        profile: request.profile.id.clone(),
+                        label: request.profile.name.clone(),
+                        path: path.clone(),
+                        remote,
+                    };
+                    if self
+                        .current
+                        .iter()
+                        .chain(self.queue.iter())
+                        .any(|existing| {
+                            existing.profile.id == request.profile.id
+                                && existing.operation == request.operation
+                        })
+                    {
+                        return (Task::none(), effect);
+                    }
+                    if self.busy && self.queue.len() >= 32 {
+                        self.error = Some(Error::TooLarge);
+                        self.activity_expanded = true;
+                        return (Task::none(), Effect::None);
+                    }
+                }
+                (self.start(request), effect)
+            }
+            Err(error) => {
+                self.error = Some(error);
+                (Task::none(), Effect::Settings)
+            }
+        }
     }
 
     pub(crate) fn update(
@@ -447,6 +537,7 @@ impl State {
             }
             Event::ShowConnections => return (Task::none(), Effect::Connections),
             Event::BeginName(action) => {
+                self.error = None;
                 self.name_value = match action {
                     NameAction::NewConnection | NameAction::NewProfile => String::new(),
                     NameAction::DuplicateConnection | NameAction::RenameConnection => self
@@ -478,21 +569,6 @@ impl State {
                     return self.update(*event, settings, profiles, project);
                 }
             }
-            Event::RevertConnection if !self.saving => {
-                let id = self.connection.as_ref().map(|c| c.id.clone());
-                let cleanup = self.close_connection();
-                if let Some(id) = id {
-                    let (select, _) =
-                        self.update(Event::EditConnection(id), settings, profiles, project);
-                    return (Task::batch([cleanup, select]), effect);
-                }
-            }
-            Event::RevertProfile => {
-                let id = self.profile.take().map(|p| p.id);
-                if let Some(id) = id {
-                    return self.update(Event::EditProfile(id), settings, profiles, project);
-                }
-            }
             Event::ProfileTab(tab) => self.profile_tab = tab,
             Event::OpenKeys => self.keys_open = true,
             Event::EditKey(id) => {
@@ -515,7 +591,7 @@ impl State {
                     let request = Request {
                         connection: connection.clone(),
                         settings: settings.clone(),
-                        profile: profile.clone(),
+                        profile: settings::normalized_profile(profile),
                         operation: Operation::Test,
                         secret: None,
                     };
@@ -601,6 +677,7 @@ impl State {
                 }
             },
             Event::Password(secret) => {
+                self.test_connection = None;
                 self.secret = secret;
                 self.secret_changed = true;
             }
@@ -623,6 +700,8 @@ impl State {
                 }
             }
             Event::SaveConnection if !self.saving => {
+                self.operation_label = None;
+                self.test_connection = None;
                 if let Some(connection) = self.connection.clone() {
                     let validation = connection.validate().and_then(|()| {
                         if let Authentication::Key(id) = &connection.authentication
@@ -702,6 +781,12 @@ impl State {
                 self.key_name.clear();
                 self.key_path.clear();
                 self.key_error = None;
+            }
+            Event::CloseDialog if self.target.is_some() => {
+                self.target = None;
+            }
+            Event::CloseDialog if self.browsing => {
+                return self.update(Event::StopBrowsing, settings, profiles, project);
             }
             Event::CloseDialog => {
                 if self.pending.take().is_some() || self.naming.take().is_some() {
@@ -890,7 +975,7 @@ impl State {
                 }
             }
             Event::SaveProfile => {
-                if let Some(mut profile) = self.profile.clone() {
+                if let Some(mut profile) = self.profile.as_ref().map(settings::normalized_profile) {
                     profile.excluded.retain(|p| !p.as_os_str().is_empty());
                     match profile.validate() {
                         Ok(())
@@ -935,23 +1020,54 @@ impl State {
                 self.expanded.clear();
                 self.selected = None;
                 self.browsing = false;
-                if let Some(selected) = profiles.iter().find(|p| p.id == id).cloned() {
-                    for p in profiles
-                        .iter_mut()
-                        .filter(|p| p.project == selected.project)
-                    {
-                        p.default = p.id == id;
-                    }
-                }
-                let (task, _) = self.update(Event::Refresh, settings, profiles, project);
-                return (task, Effect::Save);
+                return self.update(Event::Refresh, settings, profiles, project);
             }
-            Event::BrowseRoot => {
+            Event::PickLocalMapping(index) => {
+                if let Some(profile) = self.profile.clone()
+                    && let Some(mapping) = profile.mappings.get(index)
+                {
+                    let directory = profile.project.join(&mapping.local);
+                    return (
+                        Task::perform(
+                            async move {
+                                let path = rfd::AsyncFileDialog::new()
+                                    .set_directory(directory)
+                                    .pick_folder()
+                                    .await
+                                    .map(|folder| folder.path().to_owned());
+                                (profile, path)
+                            },
+                            move |(profile, path)| Event::LocalMappingPicked(profile, index, path),
+                        ),
+                        Effect::None,
+                    );
+                }
+            }
+            Event::LocalMappingPicked(snapshot, index, Some(path))
+                if self.profile.as_ref() == Some(&snapshot) =>
+            {
+                if path.strip_prefix(&snapshot.project).is_ok() {
+                    return self.update(
+                        Event::MappingLocal(index, path.to_string_lossy().into_owned()),
+                        settings,
+                        profiles,
+                        project,
+                    );
+                }
+                self.error = Some(Error::Mapping);
+            }
+            Event::BrowseRoot | Event::BrowseMapping(_) if !self.busy => {
+                self.browse_mapping = match event {
+                    Event::BrowseMapping(index) => Some(index),
+                    _ => None,
+                };
+                self.selected = None;
+                self.menu = None;
                 self.browsing = true;
                 self.tree.clear();
                 self.expanded.clear();
                 return self.update(
-                    Event::Run(Operation::List("/".to_owned())),
+                    Event::Run(Operation::List(self.browsing_root().to_owned())),
                     settings,
                     profiles,
                     project,
@@ -970,15 +1086,28 @@ impl State {
                     self.selected = None;
                     self.menu = None;
                     self.browsing = false;
+                    self.browse_mapping = None;
                 }
             }
             Event::UseRoot(root) => {
                 if let Some(profile) = &mut self.profile {
-                    profile.root = root;
+                    if let Some(index) = self.browse_mapping {
+                        let base = profile.root.trim_end_matches('/');
+                        let relative = if root.trim_end_matches('/') == base {
+                            Some("")
+                        } else {
+                            root.strip_prefix(&format!("{base}/"))
+                        };
+                        if let Some(relative) = relative
+                            && let Some(mapping) = profile.mappings.get_mut(index)
+                        {
+                            mapping.remote = relative.to_owned();
+                        }
+                    } else {
+                        profile.root = root;
+                    }
                 }
-                self.browsing = false;
-                self.tree.clear();
-                self.expanded.clear();
+                return self.update(Event::StopBrowsing, settings, profiles, project);
             }
             Event::Select(entry) => self.selected = Some(entry),
             Event::Menu(entry, point) => {
@@ -1001,9 +1130,12 @@ impl State {
                     );
                 }
             }
-            Event::Refresh => {
+            Event::Refresh if !self.busy => {
+                self.tree.clear();
+                self.expanded.clear();
+                self.selected = None;
                 let root = if self.browsing {
-                    Some("/".to_owned())
+                    Some(self.browsing_root().to_owned())
                 } else {
                     self.active_profile(profiles, project)
                         .map(|p| p.root.clone())
@@ -1069,51 +1201,99 @@ impl State {
                     Effect::None,
                 );
             }
+            Event::CollapseAll => {
+                self.expanded.clear();
+            }
+            Event::CopyRemotePath(path) => {
+                self.menu = None;
+                return (Task::none(), Effect::CopyPath(path));
+            }
+            Event::RemoteCompare(ref path)
+            | Event::RemoteUpload(ref path)
+            | Event::OpenLocal(ref path) => {
+                let Some(profile) = self.active_profile(profiles, project) else {
+                    return (Task::none(), Effect::Settings);
+                };
+                let Ok(local) = profile.to_local(path) else {
+                    self.error = Some(Error::Mapping);
+                    self.menu = None;
+                    return (Task::none(), Effect::None);
+                };
+                if matches!(event, Event::OpenLocal(_)) {
+                    self.menu = None;
+                    return (Task::none(), Effect::OpenLocal(local));
+                }
+                let operation = if matches!(event, Event::RemoteCompare(_)) {
+                    Operation::Compare(local)
+                } else {
+                    Operation::Upload(local)
+                };
+                return self.update(
+                    Event::RunOnProfile(profile.id.clone(), operation),
+                    settings,
+                    profiles,
+                    project,
+                );
+            }
+            Event::ChooseTarget(id) => {
+                if let Some((operation, choices)) = self.target.take()
+                    && choices.iter().any(|(choice, _)| choice == &id)
+                {
+                    return self.update(
+                        Event::RunOnProfile(id, operation),
+                        settings,
+                        profiles,
+                        project,
+                    );
+                }
+            }
             Event::Run(operation) => {
                 self.menu = None;
-                match self.request(settings, profiles, project, operation) {
-                    Ok(request) => {
-                        if let Operation::Compare(path) = &request.operation {
-                            let remote = match request.profile.to_remote(path) {
-                                Ok(remote) => remote,
-                                Err(error) => {
-                                    self.error = Some(error);
-                                    return (Task::none(), Effect::Settings);
-                                }
-                            };
-                            effect = Effect::CompareRequested {
-                                profile: request.profile.id.clone(),
-                                label: request.profile.name.clone(),
-                                path: path.clone(),
-                                remote,
-                            };
-                            if self
-                                .current
-                                .iter()
-                                .chain(self.queue.iter())
-                                .any(|existing| {
-                                    existing.profile.id == request.profile.id
-                                        && existing.operation == request.operation
-                                })
-                            {
-                                return (Task::none(), effect);
-                            }
-                            if self.busy && self.queue.len() >= 32 {
-                                self.error = Some(Error::TooLarge);
-                                self.activity_expanded = true;
-                                return (Task::none(), Effect::None);
-                            }
-                        }
-                        return (self.start(request), effect);
+                if matches!(operation, Operation::Upload(_) | Operation::Compare(_)) {
+                    if let Some(default) = profiles
+                        .iter()
+                        .find(|p| Some(p.project.as_path()) == project && p.default)
+                    {
+                        return self.update(
+                            Event::RunOnProfile(default.id.clone(), operation),
+                            settings,
+                            profiles,
+                            project,
+                        );
                     }
-                    Err(error) => {
-                        self.error = Some(error);
+                    let choices: Vec<_> = profiles
+                        .iter()
+                        .filter(|p| Some(p.project.as_path()) == project)
+                        .map(|p| (p.id.clone(), p.name.clone()))
+                        .collect();
+                    if choices.is_empty() {
                         return (Task::none(), Effect::Settings);
                     }
+                    self.target = Some((operation, choices));
+                    return (Task::none(), Effect::None);
                 }
+                return self
+                    .run_request(self.request(settings, profiles, project, operation, None));
+            }
+            Event::RunOnProfile(id, operation) => {
+                self.menu = None;
+                return self.run_request(self.request(
+                    settings,
+                    profiles,
+                    project,
+                    operation,
+                    Some(&id),
+                ));
             }
             Event::Finished(id, result) if id == self.request => {
                 self.busy = false;
+                if self
+                    .current
+                    .as_ref()
+                    .is_some_and(|request| matches!(request.operation, Operation::Test))
+                {
+                    self.test_result = Some(result.as_ref().map(|_| ()).map_err(Clone::clone));
+                }
                 match result {
                     Ok(output) => {
                         self.error = None;
@@ -1191,6 +1371,9 @@ impl State {
                 }
             }
             Event::Cancel => {
+                if self.test_connection.is_some() {
+                    self.test_result = Some(Err(Error::Cancelled));
+                }
                 self.progress.cancel.cancel();
                 self.queue.clear();
                 self.failed = None;

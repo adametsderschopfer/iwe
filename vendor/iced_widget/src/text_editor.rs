@@ -396,6 +396,13 @@ impl<R> Content<R>
 where
     R: text::Renderer,
 {
+    /// Inspects the laid-out editor without changing its content or cursor.
+    ///
+    /// Companion widgets can use this to align decorations with visible text.
+    pub fn with_editor<T>(&self, inspect: impl FnOnce(&R::Editor) -> T) -> T {
+        inspect(&self.0.borrow().editor)
+    }
+
     /// Creates an empty [`Content`].
     pub fn new() -> Self {
         Self::with_text("")

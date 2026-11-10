@@ -31,7 +31,7 @@ deployment-local-folder = Ruta local
 deployment-remote-folder = Ruta del servidor
 deployment-remove = Quitar
 deployment-add-mapping = Añadir correspondencia
-deployment-mapping-help = Use rutas relativas al proyecto y la raíz del servidor. Las rutas vacías seleccionan sus raíces.
+deployment-mapping-help = La ruta local empieza en la carpeta del proyecto. La ruta del servidor es relativa a su raíz; déjala vacía para usar la raíz.
 deployment-exclusions = Rutas excluidas
 deployment-add-exclusion = Añadir exclusión
 deployment-default = Usar por defecto para este proyecto
@@ -82,7 +82,6 @@ deployment-project = Proyecto
 deployment-duplicate = Duplicar
 deployment-rename = Renombrar
 deployment-edit = Editar
-deployment-revert = Revertir cambios
 deployment-continue = Aceptar
 deployment-choose-connection = Selecciona una conexión o añade un servidor.
 deployment-choose-profile = Selecciona un perfil o añádelo con el botón +.
@@ -95,3 +94,9 @@ deployment-loading-remote = Cargando archivo del servidor…
 deployment-queued = En cola: { $count }
 
 deployment-comparison-ready = Comparación lista
+
+deployment-choose-target = Seleccione el perfil de despliegue para esta operación.
+deployment-compare-local = Comparar con la versión local
+deployment-open-local = Editar archivo local
+deployment-open-remote = Editar archivo remoto
+deployment-collapse-all = Contraer todo

@@ -148,7 +148,7 @@ fn tree<'a>(app: &'a App, root: &Path, prefix: &str, minimum_width: f32) -> Elem
                 .join("/"),
             status: change.status,
             selected: app.preview().revision.is_none() && app.preview().path.as_ref() == Some(path),
-            open: Message::OpenFile(path.clone()),
+            open: Message::OpenWorkingChange(path.clone()),
         })
         .collect();
     let collapsed: BTreeSet<_> = app
