@@ -770,6 +770,44 @@ fn file_panel_app(language: Language) -> App {
 }
 
 #[test]
+fn project_file_rows_fill_the_resized_panel_and_open_from_the_trailing_edge() {
+    use iced::widget::Id;
+    let mut app = file_panel_app(Language::English);
+    app.tree.insert(
+        PathBuf::from("project"),
+        vec![FileEntry {
+            path: PathBuf::from("project/example.rs"),
+            name: "example.rs".into(),
+            directory: false,
+        }],
+    );
+    for width in [320., 480.] {
+        app.workspace.preferences.file_panel_width = width;
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (1440., 720.), app.view());
+        let panel = ui
+            .find(Id::new("project-files-panel"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let file = ui
+            .find(Id::new("file-tree-project/example.rs"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!((file.x - panel.x - theme::FILE_PANEL_CONTENT_INSET).abs() < 1.);
+        assert!(
+            (file.x + file.width - (panel.x + panel.width - theme::FILE_PANEL_CONTENT_INSET)).abs()
+                < 1.
+        );
+        ui.point_at((file.x + file.width - 2., file.center_y()));
+        ui.simulate(iced_test::simulator::click());
+        assert!(
+            matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::OpenFile(path)] if path == &PathBuf::from("project/example.rs"))
+        );
+    }
+}
+
+#[test]
 fn file_panel_buttons_toggle_without_changing_open_files() {
     use iced::widget::Id;
     let mut app = file_panel_app(Language::Russian);

@@ -54,7 +54,7 @@ pub(super) fn view<'a>(
     .width(BRIDGE_WIDTH)
     .height(Length::Fill);
     column![
-        heading,
+        container(heading).style(theme::surface),
         divider(),
         row![
             pane(app, document, comparison, Side::Before),

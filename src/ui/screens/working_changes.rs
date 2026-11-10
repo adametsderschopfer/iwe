@@ -15,7 +15,7 @@ use iced::{
 };
 use std::{collections::BTreeSet, path::Path};
 
-pub(super) fn view(app: &App) -> Element<'_, Message> {
+pub(super) fn view(app: &App, minimum_width: f32) -> Element<'_, Message> {
     let Some(directory) = app.workspace.directory() else {
         return Column::new().into();
     };
@@ -47,7 +47,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                     .style(theme::MUTED.text()),
             );
         } else {
-            content = content.push(tree(app, directory, ""));
+            content = content.push(tree(app, directory, "", minimum_width));
         }
     } else {
         for (index, root) in status.roots.iter().enumerate() {
@@ -97,9 +97,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                     .padding([4, 22])
                     .into()
                 } else {
-                    container(tree(app, root, &prefix))
-                        .padding([0., theme::FILE_TREE_INDENT])
-                        .into()
+                    tree(app, root, &prefix, minimum_width)
                 };
                 group = group.push(children);
             }
@@ -130,7 +128,7 @@ fn owner<'a>(app: &'a App, path: &Path) -> Option<&'a Path> {
         .map(|root| root.as_path())
 }
 
-fn tree<'a>(app: &'a App, root: &Path, prefix: &str) -> Element<'a, Message> {
+fn tree<'a>(app: &'a App, root: &Path, prefix: &str, minimum_width: f32) -> Element<'a, Message> {
     let entries = app
         .changes
         .status
@@ -146,6 +144,7 @@ fn tree<'a>(app: &'a App, root: &Path, prefix: &str) -> Element<'a, Message> {
                 .collect::<Vec<_>>()
                 .join("/"),
             status: change.status,
+            selected: app.preview().revision.is_none() && app.preview().path.as_ref() == Some(path),
             open: Message::OpenFile(path.clone()),
         })
         .collect();
@@ -154,7 +153,12 @@ fn tree<'a>(app: &'a App, root: &Path, prefix: &str) -> Element<'a, Message> {
         .iter()
         .filter_map(|path| path.strip_prefix(prefix).map(str::to_owned))
         .collect();
-    changed_tree::view(entries, &collapsed, &app.i18n, |path| {
-        Message::ToggleWorktreeFolder(format!("{prefix}{path}"))
-    })
+    changed_tree::view(
+        entries,
+        &collapsed,
+        &app.i18n,
+        |path| Message::ToggleWorktreeFolder(format!("{prefix}{path}")),
+        minimum_width,
+        usize::from(!prefix.is_empty()),
+    )
 }

@@ -260,6 +260,13 @@ pub(crate) fn surface(theme: &Theme) -> container::Style {
     }
 }
 
+pub(crate) fn code_surface(theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(CODE_BACKGROUND.resolve(theme).into()),
+        ..surface(theme)
+    }
+}
+
 pub(crate) fn sidebar(theme: &Theme) -> container::Style {
     container::Style {
         background: Some(SIDEBAR.resolve(theme).into()),
@@ -489,6 +496,27 @@ pub(crate) fn window_control(theme: &Theme, status: button::Status) -> button::S
     let mut style = action(false)(theme, status);
     style.border.radius = 0.0.into();
     style
+}
+
+pub(crate) fn file_tree_text_width(name: &str) -> f32 {
+    name.chars()
+        .map(|c| {
+            if matches!(c, 'W' | 'M' | '@') || !c.is_ascii() {
+                12.
+            } else if c == 'm' {
+                10.5
+            } else if c == 'w' {
+                9.
+            } else if c.is_ascii_uppercase() {
+                8.5
+            } else if matches!(c, '.' | '-' | 'i' | 'l' | 'r') {
+                4.5
+            } else {
+                6.8
+            }
+        })
+        .sum::<f32>()
+        * (FILE_TREE_TEXT_SIZE / 12.)
 }
 
 pub(crate) fn tree_item(selected: bool) -> impl Fn(&Theme, button::Status) -> button::Style {

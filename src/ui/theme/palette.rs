@@ -35,6 +35,7 @@ impl Tone {
 }
 
 pub(super) const BACKGROUND: Tone = Tone::new(0x212121, 0xfafafa);
+pub(super) const CODE_BACKGROUND: Tone = Tone::new(0x1b1b1b, 0xffffff);
 pub(super) const SIDEBAR: Tone = Tone::new(0x181818, 0xf0f0f0);
 pub(super) const ELEVATED: Tone = Tone::new(0x2f2f2f, 0xe8e8e8);
 pub(super) const HOVER: Tone = Tone::new(0x2a2a2a, 0xe5e5e5);

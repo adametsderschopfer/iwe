@@ -89,7 +89,7 @@ impl<Message> Widget<Message, Theme, Renderer> for Frozen<'_, Message> {
         }
         renderer.with_layer(gutter, |renderer| {
             // Cover source text before applying the row's own background and gutter colors.
-            if let Some(background) = crate::ui::theme::surface(theme).background {
+            if let Some(background) = crate::ui::theme::code_surface(theme).background {
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: gutter,

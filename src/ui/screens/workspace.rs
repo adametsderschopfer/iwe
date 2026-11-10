@@ -545,10 +545,12 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
                 .into_iter()
                 .flatten()
                 .map(|entry| tree_width(app, &entry.path, 0))
-                .fold(260., f32::max);
+                .fold(panel_width - 2. * theme::FILE_PANEL_CONTENT_INSET, f32::max);
             file_tree(app, root, 0, Column::new()).width(width).into()
         }
-        FilePanel::Changes => super::working_changes::view(app),
+        FilePanel::Changes => {
+            super::working_changes::view(app, panel_width - 2. * theme::FILE_PANEL_CONTENT_INSET)
+        }
     };
     let title = app.i18n.text(match app.file_panel {
         FilePanel::Project => Key::ProjectFiles,
@@ -843,27 +845,7 @@ fn tree_width(app: &App, path: &Path, depth: usize) -> f32 {
         .file_name()
         .unwrap_or(path.as_os_str())
         .to_string_lossy();
-    let label_width: f32 = name
-        .chars()
-        .map(|c| {
-            if matches!(c, 'W' | 'M' | '@') || !c.is_ascii() {
-                12.
-            } else if c == 'm' {
-                10.5
-            } else if c == 'w' {
-                9.
-            } else if c.is_ascii_uppercase() {
-                8.5
-            } else if matches!(c, '.' | '-' | 'i' | 'l' | 'r') {
-                4.5
-            } else {
-                6.8
-            }
-        })
-        .sum();
-    let width = 72.
-        + depth as f32 * theme::FILE_TREE_INDENT
-        + label_width * (theme::FILE_TREE_TEXT_SIZE / 12.);
+    let width = 72. + depth as f32 * theme::FILE_TREE_INDENT + theme::file_tree_text_width(&name);
     if depth <= 24 && app.expanded.contains(path) {
         app.tree
             .get(path)
@@ -893,14 +875,11 @@ fn file_tree<'a>(
             } else {
                 Message::OpenFile(entry.path.clone())
             };
-            let relative = app
-                .workspace
-                .directory()
-                .and_then(|root| entry.path.strip_prefix(root).ok());
-            let active = app.files.selected_path.as_ref() == Some(&entry.path)
-                || (app.files.selected_path.is_none()
-                    && app.preview().revision.is_none()
-                    && relative.is_some_and(|path| path.to_string_lossy() == app.preview().title));
+            let active = if entry.directory {
+                app.files.selected_path.as_ref() == Some(&entry.path)
+            } else {
+                app.preview().revision.is_none() && app.preview().path.as_ref() == Some(&entry.path)
+            };
             let marker: Element<'_, Message> = if entry.directory {
                 file_icons::chevron(expanded)
             } else {
@@ -1538,7 +1517,10 @@ fn preview(app: &App) -> Element<'_, Message> {
         };
         // Keep the scroll widget in the same tree position when preparation finishes.
         let content = widget::stack![
-            content,
+            container(content)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(theme::code_surface),
             widget::progress_bar(0.0..=100., progress)
                 .girth(2)
                 .style(theme::source_progress)

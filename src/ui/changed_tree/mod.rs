@@ -18,6 +18,7 @@ use std::{
 pub(crate) struct Entry<Message> {
     pub path: String,
     pub status: FileStatus,
+    pub selected: bool,
     pub open: Message,
 }
 
@@ -46,6 +47,8 @@ pub(crate) fn view<'a, Message: Clone + 'a>(
     collapsed: &BTreeSet<String>,
     i18n: &I18n,
     on_toggle: impl Fn(String) -> Message,
+    minimum_width: f32,
+    depth: usize,
 ) -> Element<'a, Message> {
     let mut root = Node::default();
     for entry in entries {
@@ -56,16 +59,16 @@ pub(crate) fn view<'a, Message: Clone + 'a>(
         }
         node.files.push(entry);
     }
-    rows(
+    let (body, width) = rows(
         root,
         "",
-        0,
+        depth,
         collapsed,
         i18n,
         &on_toggle,
-        Column::new().spacing(2),
-    )
-    .into()
+        (Column::new().spacing(2), minimum_width),
+    );
+    body.width(width).into()
 }
 
 fn rows<'a, Message: Clone + 'a>(
@@ -75,8 +78,8 @@ fn rows<'a, Message: Clone + 'a>(
     collapsed: &BTreeSet<String>,
     i18n: &I18n,
     on_toggle: &impl Fn(String) -> Message,
-    mut result: Column<'a, Message>,
-) -> Column<'a, Message> {
+    (mut result, mut width): (Column<'a, Message>, f32),
+) -> (Column<'a, Message>, f32) {
     for (mut name, mut child) in node.folders {
         while child.files.is_empty() && child.folders.len() == 1 {
             let (next, descendant) = child.folders.pop_first().unwrap();
@@ -92,6 +95,13 @@ fn rows<'a, Message: Clone + 'a>(
         let expanded = !collapsed.contains(&path);
         let mut args = FluentArgs::new();
         args.set("count", child.count());
+        let count = i18n.format(Key::FileCount, &args);
+        width = width.max(
+            depth as f32 * theme::FILE_TREE_INDENT
+                + theme::file_tree_text_width(&name)
+                + theme::file_tree_text_width(&count)
+                + 64.,
+        );
         let label = row![
             space().width(depth as f32 * theme::FILE_TREE_INDENT),
             file_icons::chevron(expanded),
@@ -100,7 +110,7 @@ fn rows<'a, Message: Clone + 'a>(
                 .size(theme::FILE_TREE_TEXT_SIZE)
                 .style(theme::MUTED.text())
                 .wrapping(text::Wrapping::None),
-            text(i18n.format(Key::FileCount, &args))
+            text(count)
                 .size(12)
                 .style(theme::FAINT.text())
                 .wrapping(text::Wrapping::None),
@@ -113,10 +123,18 @@ fn rows<'a, Message: Clone + 'a>(
                 .on_press(on_toggle(path.clone()))
                 .padding([0, 4])
                 .style(theme::tree_item(false))
-                .width(Length::Shrink),
+                .width(Length::Fill),
         );
         if expanded {
-            result = rows(child, &path, depth + 1, collapsed, i18n, on_toggle, result);
+            (result, width) = rows(
+                child,
+                &path,
+                depth + 1,
+                collapsed,
+                i18n,
+                on_toggle,
+                (result, width),
+            );
         }
     }
     let mut files = node.files;
@@ -129,6 +147,9 @@ fn rows<'a, Message: Clone + 'a>(
             .unwrap_or(&entry.path)
             .to_owned();
         let key = status_key(entry.status);
+        width = width.max(
+            depth as f32 * theme::FILE_TREE_INDENT + theme::file_tree_text_width(&filename) + 48.,
+        );
         let label = row![
             space().width(depth as f32 * theme::FILE_TREE_INDENT + 10.),
             file_icons::file(Path::new(&entry.path)),
@@ -144,13 +165,13 @@ fn rows<'a, Message: Clone + 'a>(
             button(label)
                 .on_press(entry.open)
                 .padding([0, 4])
-                .style(theme::tree_item(false))
-                .width(Length::Shrink),
+                .style(theme::tree_item(entry.selected))
+                .width(Length::Fill),
             text(format!("{}\n{}", entry.path, i18n.text(key))).size(12),
             tooltip::Position::Bottom,
         ));
     }
-    result
+    (result, width)
 }
 
 pub(crate) fn status_key(status: FileStatus) -> Key {

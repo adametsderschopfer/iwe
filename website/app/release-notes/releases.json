@@ -729,6 +729,44 @@
     ]
   },
   {
+    "version": "0.1.17",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "active-file-full-row-highlight",
+        "category": "fixed",
+        "text": {
+          "en": "The active file stays highlighted across the full row in project files, uncommitted files, and commit files.",
+          "ru": "Открытый файл подсвечивается на всю ширину строки в файлах проекта, незакоммиченных файлах и файлах коммита.",
+          "es": "El archivo activo queda resaltado en toda la fila. Esto incluye archivos del proyecto, archivos sin confirmar y archivos de commits."
+        },
+        "sources": [
+          "src/ui/changed_tree/mod.rs",
+          "src/ui/screens/workspace.rs",
+          "src/ui/screens/working_changes.rs",
+          "src/ui/screens/git.rs"
+        ]
+      },
+      {
+        "id": "separate-code-background",
+        "category": "changed",
+        "text": {
+          "en": "The code area uses a separate neutral background to distinguish it from surrounding panels in both themes.",
+          "ru": "Область кода использует отдельный нейтральный фон, который отделяет её от соседних панелей в обеих темах.",
+          "es": "El área de código usa un fondo neutro distinto para separarla de los paneles cercanos en ambos temas."
+        },
+        "sources": [
+          "src/ui/theme/palette.rs",
+          "src/ui/screens/workspace.rs",
+          "src/ui/code/frozen_gutter/mod.rs"
+        ]
+      }
+    ]
+  },
+  {
     "version": "unreleased",
     "status": "prepared",
     "publishedAt": null,

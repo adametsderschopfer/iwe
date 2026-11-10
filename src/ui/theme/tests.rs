@@ -19,7 +19,7 @@ fn contrast(foreground: Color, background: Color) -> f32 {
 
 #[test]
 fn light_text_remains_readable_on_neutral_surfaces() {
-    for background in [BACKGROUND, SIDEBAR, ELEVATED] {
+    for background in [BACKGROUND, CODE_BACKGROUND, SIDEBAR, ELEVATED] {
         for foreground in [
             TEXT,
             MUTED,
@@ -55,9 +55,9 @@ fn syntax_colors_remain_readable_in_light_diff_rows() {
         let highlight = change_fill(unified_color(change), &Theme::Light, 0.30);
         let opacity = row.a + (1. - row.a) * highlight.a;
         let background = Color {
-            r: color.r * opacity + BACKGROUND.light.r * (1. - opacity),
-            g: color.g * opacity + BACKGROUND.light.g * (1. - opacity),
-            b: color.b * opacity + BACKGROUND.light.b * (1. - opacity),
+            r: color.r * opacity + CODE_BACKGROUND.light.r * (1. - opacity),
+            g: color.g * opacity + CODE_BACKGROUND.light.g * (1. - opacity),
+            b: color.b * opacity + CODE_BACKGROUND.light.b * (1. - opacity),
             a: 1.,
         };
         for foreground in [

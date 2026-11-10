@@ -180,6 +180,10 @@ preferences. No source code is uploaded.
 
 ## Source preview
 
+The code area uses a separate neutral background from surrounding panels. Dark appearance uses a
+darker code background. Light appearance uses a white code background. Plain previews and both
+comparison views share this background, including their line-number gutters.
+
 The viewer displays UTF-8 text. Files larger than 512 KiB open in parts instead of being rejected.
 Use **Previous part**, **Next part**, and **Refresh** above the text to navigate or reload a part.
 Each part contains at most 512 KiB and 4,096 newline characters. Long lines can continue into the
@@ -269,7 +273,10 @@ The project tree uses 24-pixel rows, 14-pixel text, 16-pixel icons, and 20-pixel
 following the supplied JetBrains reference. Each row centers its name and icon. Folders show
 separate expansion arrows and folder icons. Recognized Python packages show a package marker.
 Selecting a folder highlights its row without closing the source preview. Long filenames remain
-complete and scroll horizontally. File-type icons also appear beside changed files in Git.
+complete and scroll horizontally. File-type icons also appear beside changed files in Git. The
+active working file stays highlighted in project files and uncommitted files when selecting a
+folder. File highlights span the available row width and follow panel resizing. Commit-file lists
+highlight the active file only when its repository and revision match the selected commit.
 
 Git decorations color modified and renamed filenames cyan. Added and untracked filenames appear
 green. Deleted files and conflicts appear red. Status letters and folder dots are absent. Commit

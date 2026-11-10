@@ -931,7 +931,7 @@ fn history_footer(app: &App) -> Element<'_, Message> {
 
 fn changed_files(app: &App, width: f32) -> Element<'_, Message> {
     container(responsive(move |size| {
-        changed_files_content(app, size.height)
+        changed_files_content(app, size.width, size.height)
     }))
     .width(width)
     .height(Length::Fill)
@@ -940,7 +940,7 @@ fn changed_files(app: &App, width: f32) -> Element<'_, Message> {
     .into()
 }
 
-fn changed_files_content(app: &App, height: f32) -> Element<'_, Message> {
+fn changed_files_content(app: &App, width: f32, height: f32) -> Element<'_, Message> {
     let heading = row![
         text(app.i18n.text(Key::ChangedFiles))
             .size(11)
@@ -970,6 +970,10 @@ fn changed_files_content(app: &App, height: f32) -> Element<'_, Message> {
         .map(|(index, file)| changed_tree::Entry {
             path: file.path.clone(),
             status: crate::domain::changes::FileStatus::from_git(file.status),
+            selected: app.selected_commit.as_ref().is_some_and(|key| {
+                app.preview().revision.as_ref() == Some(&key.id)
+                    && app.preview().path.as_ref() == Some(&key.root.join(&file.path))
+            }),
             open: Message::OpenCommitFile(index),
         })
         .collect();
@@ -978,6 +982,8 @@ fn changed_files_content(app: &App, height: f32) -> Element<'_, Message> {
         &app.collapsed_commit_folders,
         &app.i18n,
         Message::ToggleCommitFolder,
+        width,
+        0,
     ));
     if app.changes_loading {
         files = files.push(
