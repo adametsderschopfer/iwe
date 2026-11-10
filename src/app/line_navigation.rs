@@ -49,7 +49,7 @@ impl App {
                     && self.space_draft.is_none()
                     && self.project_add.is_none()
                     && self.auth_dialog.is_none()
-                    && !self.git_actions.has_dialog()
+                    && !self.modules.git.git_actions.has_dialog()
                     && self.preview().document.is_some()
                     && !self.preview().loading =>
             {
@@ -57,8 +57,8 @@ impl App {
                 self.project_menu = None;
                 self.repository_menu = None;
                 self.space_menu = None;
-                self.git_actions.menu = None;
-                self.git_actions.bulk.menu = None;
+                self.modules.git.git_actions.menu = None;
+                self.modules.git.git_actions.bulk.menu = None;
                 self.file_request += 1;
                 self.line_navigation = Some(Dialog {
                     id: self.preview().id,
@@ -102,6 +102,28 @@ impl App {
                 };
                 if dialog.id != self.preview().id {
                     self.line_navigation = None;
+                    return Task::none();
+                }
+                let id = self.preview().id;
+                if let Some(buffer) = self
+                    .preview_for_request(id)
+                    .and_then(|tab| tab.editor.as_mut())
+                    .filter(|buffer| !buffer.reviewing)
+                {
+                    if line <= buffer.content.line_count() {
+                        buffer.content.move_to(iced::widget::text_editor::Cursor {
+                            position: iced::widget::text_editor::Position {
+                                line: line - 1,
+                                column: 0,
+                            },
+                            selection: None,
+                        });
+                        self.line_navigation = None;
+                        return operation::focus(format!("text-editor-{id}"));
+                    }
+                    if let Some(dialog) = &mut self.line_navigation {
+                        dialog.error = Some(Key::LineNumberNotFound);
+                    }
                     return Task::none();
                 }
                 if self.reveal_source_line(line) {

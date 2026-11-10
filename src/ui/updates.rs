@@ -10,7 +10,7 @@ use crate::{
 };
 use iced::{
     Element,
-    widget::{button, column, container, text},
+    widget::{button, container, text},
 };
 
 pub(crate) fn sidebar(app: &App) -> Option<Element<'_, Message>> {
@@ -49,19 +49,18 @@ pub(crate) fn settings(app: &App) -> Element<'_, Message> {
         State::Failed(error) => app.i18n.text(crate::app::updates::error_key(*error)),
         _ => app.i18n.text(Key::UpdatesDescription),
     };
-    column![
-        text(app.i18n.text(Key::Updates)).size(15),
-        text(description).size(13).style(theme::MUTED.text()),
+    crate::ui::screens::settings::setting(
+        app.i18n.text(Key::Updates),
+        description,
         container(
             button(text(app.i18n.text(label)).size(13))
                 .padding([8, 14])
                 .on_press_maybe(action.map(Message::Update))
-                .style(theme::primary)
+                .style(theme::primary),
         )
         .id("settings-update")
-    ]
-    .spacing(10)
-    .into()
+        .into(),
+    )
 }
 
 fn version(app: &App, version: &str) -> String {

@@ -13,7 +13,12 @@ collections through Serde defaults.
 `app/modules/deployment.rs` connects module events to persistence, notifications, settings, and
 source tabs. The right deployment panel uses the shared resize widget with reversed drag direction.
 Remote source tabs retain immutable text snapshots and reuse the existing comparison renderer. The
-module exposes typed events and results without importing application state.
+module exposes typed events and results without importing application state. `ui/activity.rs`
+positions background-operation details above the shared bottom-right status bar. Deployment owns
+operation state and supplies controls through its public view boundary. Comparison request effects
+open pending source tabs before network work completes. Local preview preparation runs
+independently. Request generations reject stale preparation results. Completion updates the existing
+comparison without reopening closed tabs or changing the selected tab.
 
 Deployment adapters use ssh2 for SFTP and SuppaFTP with Rustls for FTP/FTPS. Each queued operation
 owns a blocking worker, bounded copy buffers, cancellation token, and request identifier. Secret
@@ -22,11 +27,13 @@ credential namespace. Views never perform network or filesystem operations. See
 [deployment](deployment.md) for behavior, limits, and verification.
 
 The settings window uses persistent left navigation and a separate scrollable section on the right.
-Deployment groups connections, shared SSH keys, and space profiles under one navigation heading.
-Module-owned dialogs create connections and SSH key references. The host supplies the shared modal
-overlay. The key dialog preserves its parent connection draft and rejects obsolete file-picker
-responses. The settings window extends into the macOS titlebar, with an opaque header below native
-window controls.
+Deployment groups connections and space profiles under one navigation heading. Each editor uses a
+server list, aligned fields, independent scrolling, and a persistent save footer. Profile tabs
+separate connection settings, mappings, and exclusions. Shared SSH keys open from the connections
+editor. Module-owned dialogs name new items, edit SSH key references, and confirm discarded drafts.
+The host supplies the shared modal overlay. The key dialog preserves its parent connection draft and
+rejects obsolete file-picker responses. The settings window extends into the macOS titlebar, with an
+opaque header below native window controls.
 
 `app/repository_cache/` keeps the last successful initial Git snapshot for eight recent project
 directories. Snapshots include repository identities, history cursors, the selected branch, and
@@ -58,16 +65,16 @@ invalidate their entries.
 | `infrastructure/repository/discovery.rs`              | Discover containing and direct child Git repositories                                    |
 | `infrastructure/repository/project.rs`                | Merge bounded history streams from discovered repositories                               |
 | `domain/repository/project.rs`, `app/repositories.rs` | Preserve repository identities across history and source navigation                      |
-| `domain/git.rs`, `app/git_actions/`                   | Define Git operations and coordinate dialogs, pending actions, and results               |
-| `infrastructure/git/`                                 | Validate references and execute explicit Git operations                                  |
+| `domain/git.rs`, `app/modules/git/git_actions/`       | Define Git operations and coordinate dialogs, pending actions, and results               |
+| `modules/git/transport/`                              | Validate references and execute explicit Git operations                                  |
 | `ui/context_menu/`                                    | Detect right-clicks and anchor menus inside the window                                   |
 | `ui/resize/`                                          | Resize the file panel while preserving child widget state                                |
 | `ui/changed_tree/`                                    | Display compact changed-file trees with counts and status colors                         |
-| `infrastructure/pipelines.rs`                         | Read GitHub Actions and GitLab pipeline APIs                                             |
+| `modules/pipelines/transport/mod.rs`                  | Read GitHub Actions and GitLab pipeline APIs                                             |
 | `domain/jobs.rs`                                      | Model stages, jobs, and provider-supported actions                                       |
-| `app/jobs.rs`                                         | Coordinate job selection, cached details, refresh, and pending actions                   |
-| `app/jobs/overview.rs`                                | Cache visible pipeline summaries and coordinate stage or job popups                      |
-| `infrastructure/pipelines/jobs.rs`                    | Load paginated jobs and submit explicit provider actions                                 |
+| `app/modules/pipelines/jobs.rs`                       | Coordinate job selection, cached details, refresh, and pending actions                   |
+| `app/modules/pipelines/jobs/overview.rs`              | Cache visible pipeline summaries and coordinate stage or job popups                      |
+| `modules/pipelines/transport/jobs.rs`                 | Load paginated jobs and submit explicit provider actions                                 |
 | `infrastructure/auth/`                                | Implement GitHub device authorization and GitLab PKCE callbacks                          |
 | `infrastructure/auth.rs`                              | Validate accounts, refresh tokens, and serialize credential operations                   |
 | `infrastructure/credentials.rs`                       | Store provider credentials in the operating system vault and share session reads         |
@@ -82,10 +89,11 @@ layers when concrete features require them. Current application orchestration re
 
 Filesystem work and highlighting run on blocking workers. Subprocesses use Tokio tasks with bounded
 output and timeouts. Generation identifiers prevent stale results from replacing a newer selection.
-Views do not access the operating system. Source contents are never indexed or persisted. Saved
-metadata uses Serde and atomic temporary-file replacement. Native directory selection uses `rfd`.
-Syntect highlights source with bundled `two-face` grammars and the Gerry Darcula palette. `open`
-delegates approved links to the system browser.
+Views do not access the operating system. Source contents are not indexed or stored in workspace
+metadata. Explicit editor saves write source files. Saved metadata uses Serde and atomic
+temporary-file replacement. Native directory selection uses `rfd`. Syntect highlights source with
+bundled `two-face` grammars and the Gerry Darcula palette. `open` delegates approved links to the
+system browser.
 
 Oversized source reads switch to bounded pages through `infrastructure/workspace/pages.rs`. Page
 boundaries preserve UTF-8 and CRLF, with limits of 512 KiB and 4,096 newline characters. Local pages
@@ -172,6 +180,12 @@ snapshots survive restarts, while a small memory cache preserves recent projects
 Worker cancellation and separate index generations isolate project switches. Failed reads preserve
 cached listings. Delayed loading messages apply only to uncached requests. Cache writes never change
 project files or store their contents.
+
+The index worker maintains its entry count incrementally and prunes only the refreshed subtree.
+Cache serialization borrows directory entries and streams bounded JSON into an atomic temporary
+file. It avoids a duplicate tree and a complete serialized buffer. Full event queues remain
+cancellable. Closing the receiver cancels further traversal. The session worker uses its own thread
+so it cannot hold the asynchronous runtime's blocking pool open during shutdown.
 
 Source previews build rows for the current viewport and a surrounding buffer of stable blocks. Keyed
 rows preserve shaped text when the visible range moves. Unchanged blocks reuse their layout.
@@ -288,11 +302,11 @@ without changing their pointer behavior. Its workspace wrapper clears selection 
 while preserving selected-row context menus and modal controls. Repository refresh prunes obsolete
 references. Project changes and window focus loss clear selection.
 
-`app/git_actions/bulk.rs` snapshots confirmed batches and executes validated operations sequentially
-in their owning repositories. The existing pending flag serializes batches with individual Git
-writes. Failed results retain only failed targets for explicit retries. Generation and request
-guards isolate obsolete results. `ui/screens/git_bulk.rs` presents localized menus, branch lists,
-remote choices, and errors.
+`app/modules/git/git_actions/bulk.rs` snapshots confirmed batches and executes validated operations
+sequentially in their owning repositories. The existing pending flag serializes batches with
+individual Git writes. Failed results retain only failed targets for explicit retries. Generation
+and request guards isolate obsolete results. `modules/git/view/bulk.rs` presents localized menus,
+branch lists, remote choices, and errors.
 
 Git actions use typed operations and validated full references. Dialog drafts remain available after
 failures. One pending operation blocks duplicate submissions. Request identifiers and repository
@@ -352,9 +366,17 @@ protocol details.
 ## Bundled modules
 
 `modules/catalog/` defines stable module identifiers and the bundled catalog. Each entry declares
-its system origin. System modules have no disable or removal operation. Legacy disabled-module
-preferences remain stored for compatibility. They do not affect system modules. Module availability
-does not start its processes.
+its system origin. Git, Pipelines, Terminal, and Deployment are enabled by default. The activation
+switches persist disabled identifiers in preferences. Unknown identifiers remain intact. Disabling
+stops subscriptions, hides controls, and invalidates asynchronous results. Configuration remains
+intact. Disabling Terminal ends its sessions. Disabling Deployment cancels transfers and clears its
+queue. Submitted Git and provider writes can finish externally; enabling never resubmits them.
+Module availability alone does not start a terminal process.
+
+Git owns history, selection, and action state under `modules/git/`. Pipelines owns run and job state
+under `modules/pipelines/`. Their views accept explicit read-only projections and emit module
+events. Host coordination remains in `app/modules/`. Shared repository discovery supplies provider
+endpoints independently of Git history. Shared file readers support the editor.
 
 `app/modules/` owns panel visibility and host event routing. It maps module subscriptions into
 application messages. `ui/modules.rs` projects the catalog into settings and passes presentation
@@ -509,3 +531,13 @@ Unit tests verify catalog completeness, translated layouts, persistence, reposit
 and asynchronous selection. They also verify native material state and graphics fallback behavior.
 Headless tests cannot verify native material appearance. Check appearance with a local application
 run. See [workspace behavior](workspace.md) for feature limits and provider authentication.
+
+### Editable text buffers
+
+`domain/editor` tracks text, saved baselines, and bounded undo history without Iced. `app/editor`
+coordinates native text actions, save snapshots, and unsaved-change decisions. `ui/editor` renders
+Iced text editors with incremental syntax highlighting and source-view controls.
+`infrastructure/editor` replaces local files through temporary files after checking the saved
+baseline. Server saves use typed deployment operations and completion effects. The module does not
+import application state. Save completions carry operation tokens and never replace newer draft
+text.

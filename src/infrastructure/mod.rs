@@ -1,14 +1,14 @@
 //! Isolate operating-system access from the interface.
+pub(crate) mod editor;
 
 pub(crate) mod auth;
 mod credentials;
-pub(crate) mod git;
 pub(crate) mod graphics;
-mod http;
+pub(crate) mod http;
 pub(crate) mod locale;
 #[cfg(target_os = "macos")]
 pub(crate) mod native_menu;
-pub(crate) mod pipelines;
+pub(crate) use crate::modules::pipelines::transport as pipelines;
 pub(crate) mod process;
 pub(crate) mod project_clone;
 pub(crate) mod project_index;

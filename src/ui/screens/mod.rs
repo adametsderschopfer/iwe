@@ -1,13 +1,12 @@
 mod auth;
 mod diff;
 mod file_menu;
-mod git;
+pub(crate) mod git;
 mod git_actions;
-mod git_bulk;
 mod header_repositories;
 mod line_navigation;
 mod modal;
-mod pipelines;
+pub(crate) mod pipelines;
 mod project_add;
 pub(crate) mod settings;
 mod space_form;

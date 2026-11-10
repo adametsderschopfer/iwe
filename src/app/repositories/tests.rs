@@ -109,22 +109,22 @@ fn fixture() -> App {
 #[test]
 fn branch_and_commit_selection_keep_the_repository_identity() {
     let mut app = fixture();
-    assert!(app.branch.is_none());
+    assert!(app.modules.git.branch.is_none());
     let _ = app.update(Message::SelectBranch(branch("front")));
-    assert_eq!(app.branch, Some(branch("front")));
+    assert_eq!(app.modules.git.branch, Some(branch("front")));
     let _ = app.update_git(GitMessage::Menu(branch("backend"), iced::Point::ORIGIN));
     assert_eq!(
-        app.git_actions.menu.as_ref().unwrap().0.root,
+        app.modules.git.git_actions.menu.as_ref().unwrap().0.root,
         root("backend")
     );
     let _ = app.update_git(GitMessage::Choose(Action::Create, branch("backend")));
     assert_eq!(
-        app.git_actions.dialog.as_ref().unwrap().root,
+        app.modules.git.git_actions.dialog.as_ref().unwrap().root,
         root("backend")
     );
     let _ = app.update_git(GitMessage::Close);
     let _ = app.update(Message::SelectCommit(key("front")));
-    let old_request = app.commit_request;
+    let old_request = app.modules.git.commit_request;
     let _ = app.update(Message::ChangesLoaded(
         0,
         old_request,
@@ -139,7 +139,7 @@ fn branch_and_commit_selection_keep_the_repository_identity() {
         Some(&root("front").join("same.rs"))
     );
     let _ = app.update(Message::SelectCommit(key("backend")));
-    let request = app.commit_request;
+    let request = app.modules.git.commit_request;
     let _ = app.update(Message::ChangesLoaded(
         0,
         old_request,
@@ -148,7 +148,7 @@ fn branch_and_commit_selection_keep_the_repository_identity() {
             status: 'A',
         }]),
     ));
-    assert!(app.changed_files.is_empty());
+    assert!(app.modules.git.changed_files.is_empty());
     let _ = app.update(Message::ChangesLoaded(
         0,
         request,
@@ -164,13 +164,15 @@ fn branch_and_commit_selection_keep_the_repository_identity() {
     );
     assert_eq!(app.tabs.files.len(), 2);
     let _ = app.update(Message::AllRepositories);
-    assert!(app.branch.is_none());
-    assert!(app.selected_commit.is_none());
+    assert!(app.modules.git.branch.is_none());
+    assert!(app.modules.git.selected_commit.is_none());
 }
 
 #[test]
 fn grouped_branches_changes_and_commit_badges_show_both_repositories() {
     let mut app = fixture();
+    app.workspace.preferences.show_git = true;
+    app.sync_panels();
     let _ = app.open_file(root("front").join("src/same.rs"));
     let _ = app.finish_preview(
         app.preview().id,
@@ -233,12 +235,12 @@ fn grouped_branches_changes_and_commit_badges_show_both_repositories() {
             root("front").display()
         )))
         .unwrap();
-        assert!(ui.into_messages().any(
+        assert!(ui.into_messages().map(crate::app::modules::host_message).any(
             |message| matches!(message, Message::SelectBranch(key) if key == branch("front"))
         ));
         let mut ui = iced_test::Simulator::with_size(settings(), (1440., 1000.), app.view());
         ui.click("front change").unwrap();
-        assert!(ui.into_messages().any(
+        assert!(ui.into_messages().map(crate::app::modules::host_message).any(
             |message| matches!(message, Message::SelectCommit(selected) if selected == key("front"))
         ));
     }
@@ -248,10 +250,12 @@ fn grouped_branches_changes_and_commit_badges_show_both_repositories() {
 fn empty_history_keeps_repository_branches_visible() {
     let mut app = fixture();
     app.repository.as_mut().unwrap().commits.clear();
-    app.panes = pane_grid::State::new(crate::app::Panel::Git).0;
-    app.git_panes = super::super::git_panes();
+    app.panes = pane_grid::State::new(crate::app::Panel::Module(crate::modules::ModuleId::Git)).0;
+    app.modules.git.git_panes = super::super::git_panes();
     assert!(
-        app.git_panes
+        app.modules
+            .git
+            .git_panes
             .iter()
             .any(|(_, panel)| matches!(panel, GitPanel::Branches))
     );
@@ -281,23 +285,25 @@ fn refresh_expands_repository_groups_but_filter_changes_preserve_them() {
         app.repo_request,
         Ok(repos.clone()),
     ));
-    assert!(!app.expanded_branch_folders.contains(&group));
+    assert!(!app.modules.git.expanded_branch_folders.contains(&group));
     let _ = app.update(Message::Refresh);
     let _ = app.update(Message::RepositoryLoaded(
         app.generation,
         app.repo_request,
         Ok(repos),
     ));
-    assert!(app.expanded_branch_folders.contains(&group));
-    assert!(app.expanded_branch_folders.contains(&local));
+    assert!(app.modules.git.expanded_branch_folders.contains(&group));
+    assert!(app.modules.git.expanded_branch_folders.contains(&local));
 }
 
 #[test]
 fn discovering_another_repository_keeps_both_branch_groups_visible() {
     let mut app = fixture();
+    app.workspace.preferences.show_git = true;
+    app.sync_panels();
     let repos = app.repository.clone().unwrap();
     app.repository.as_mut().unwrap().repositories.truncate(1);
-    app.expanded_branch_folders = std::collections::BTreeSet::from(["false".into()]);
+    app.modules.git.expanded_branch_folders = std::collections::BTreeSet::from(["false".into()]);
     let _ = app.update(Message::RepositoryLoaded(0, 0, Ok(repos)));
     let mut ui =
         iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
@@ -316,10 +322,13 @@ fn discovering_another_repository_keeps_both_branch_groups_visible() {
 fn revisiting_a_project_restores_git_before_refresh_and_rejects_stale_responses() {
     let mut app = fixture();
     app.project_directory = app.workspace.directory().cloned();
-    app.expanded_branch_folders.insert("false/feature".into());
-    app.expanded_branch_folders.remove("false");
+    app.modules
+        .git
+        .expanded_branch_folders
+        .insert("false/feature".into());
+    app.modules.git.expanded_branch_folders.remove("false");
     let initial = app.repository.as_ref().unwrap().clone();
-    let initial_branch = app.branch.clone();
+    let initial_branch = app.modules.git.branch.clone();
     // Later history pages must not replace the cached initial page and its cursor.
     app.repository
         .as_mut()
@@ -348,9 +357,14 @@ fn revisiting_a_project_restores_git_before_refresh_and_rejects_stale_responses(
         app.repository.as_ref().unwrap().active_root,
         initial.active_root
     );
-    assert_eq!(app.branch, initial_branch);
-    assert!(app.expanded_branch_folders.contains("false/feature"));
-    assert!(!app.expanded_branch_folders.contains("false"));
+    assert_eq!(app.modules.git.branch, initial_branch);
+    assert!(
+        app.modules
+            .git
+            .expanded_branch_folders
+            .contains("false/feature")
+    );
+    assert!(!app.modules.git.expanded_branch_folders.contains("false"));
     assert!(app.repository_error.is_none());
     let mut refreshed = initial;
     refreshed.commits[0].commit.subject = "Fresh history".into();
@@ -425,7 +439,7 @@ fn header_shows_two_repositories_and_lists_the_rest_with_their_current_branches(
         assert!(ui.find(Id::new("window-branch-button-1")).is_ok());
         assert!(ui.find(Id::new("window-branch-button-2")).is_err());
         ui.click(Id::new("window-repositories-menu")).unwrap();
-        for message in ui.into_messages() {
+        for message in ui.into_messages().map(crate::app::modules::host_message) {
             let _ = app.update(message);
         }
         assert!(app.repository_menu.is_some());
@@ -446,12 +460,12 @@ fn header_shows_two_repositories_and_lists_the_rest_with_their_current_branches(
             );
         }
         ui.click(Id::new("header-repository-menu-2")).unwrap();
-        for message in ui.into_messages() {
+        for message in ui.into_messages().map(crate::app::modules::host_message) {
             let _ = app.update(message);
         }
         assert!(app.repository_menu.is_none());
         assert_eq!(
-            app.branch,
+            app.modules.git.branch,
             Some(BranchKey {
                 root: root("jobs"),
                 reference: "refs/heads/dev".into()
@@ -459,11 +473,13 @@ fn header_shows_two_repositories_and_lists_the_rest_with_their_current_branches(
         );
         assert!(app.workspace.preferences.show_git);
         assert!(
-            app.expanded_branch_folders
+            app.modules
+                .git
+                .expanded_branch_folders
                 .contains(&format!("repo:{}", root("jobs").display()))
         );
-        assert!(!app.git_actions.pending);
-        assert!(!app.git_actions.has_dialog());
+        assert!(!app.modules.git.git_actions.pending);
+        assert!(!app.modules.git.git_actions.has_dialog());
         assert_eq!(
             app.repository
                 .as_ref()

@@ -43,7 +43,7 @@ impl Language {
         }
     }
 
-    fn sources(self) -> [&'static str; 3] {
+    fn sources(self) -> [&'static str; 5] {
         let terminal = match self {
             Self::English => include_str!("../modules/terminal/locales/en.ftl"),
             Self::Russian => include_str!("../modules/terminal/locales/ru.ftl"),
@@ -54,7 +54,17 @@ impl Language {
             Self::Russian => include_str!("../modules/deployment/locales/ru.ftl"),
             Self::Spanish => include_str!("../modules/deployment/locales/es.ftl"),
         };
-        [self.source(), terminal, deployment]
+        let git = match self {
+            Self::English => include_str!("../modules/git/locales/en.ftl"),
+            Self::Russian => include_str!("../modules/git/locales/ru.ftl"),
+            Self::Spanish => include_str!("../modules/git/locales/es.ftl"),
+        };
+        let pipelines = match self {
+            Self::English => include_str!("../modules/pipelines/locales/en.ftl"),
+            Self::Russian => include_str!("../modules/pipelines/locales/ru.ftl"),
+            Self::Spanish => include_str!("../modules/pipelines/locales/es.ftl"),
+        };
+        [self.source(), terminal, deployment, git, pipelines]
     }
 }
 
@@ -75,6 +85,21 @@ macro_rules! message_keys {
 }
 
 message_keys! {
+    DeploymentProtocol => "deployment-protocol",
+    DeploymentAuthentication => "deployment-authentication",
+    DeploymentPassphrase => "deployment-passphrase",
+    DeploymentProject => "deployment-project",
+    DeploymentDuplicate => "deployment-duplicate",
+    DeploymentRename => "deployment-rename",
+    DeploymentEdit => "deployment-edit",
+    DeploymentRevert => "deployment-revert",
+    DeploymentContinue => "deployment-continue",
+    DeploymentChooseConnection => "deployment-choose-connection",
+    DeploymentChooseProfile => "deployment-choose-profile",
+    DeploymentExclusionsHelp => "deployment-exclusions-help",
+    DeploymentUnsaved => "deployment-unsaved",
+    DeploymentDiscardHelp => "deployment-discard-help",
+    DeploymentDiscard => "deployment-discard",
     Deployment => "deployment",
     DeploymentConnections => "deployment-connections",
     DeploymentConnectionsHelp => "deployment-connections-help",
@@ -96,6 +121,7 @@ message_keys! {
     DeploymentSave => "deployment-save",
     DeploymentDelete => "deployment-delete",
     DeploymentTest => "deployment-test",
+    DeploymentChecking => "deployment-checking",
     DeploymentKeys => "deployment-keys",
     DeploymentKeyPath => "deployment-key-path",
     DeploymentChooseFile => "deployment-choose-file",
@@ -122,6 +148,9 @@ message_keys! {
     DeploymentRefresh => "deployment-refresh",
     DeploymentSettings => "deployment-settings",
     DeploymentEmpty => "deployment-empty",
+    DeploymentComparisonReady => "deployment-comparison-ready",
+    DeploymentLoadingRemote => "deployment-loading-remote",
+    DeploymentQueued => "deployment-queued",
     DeploymentWorking => "deployment-working",
     DeploymentFiles => "deployment-files",
     DeploymentBytes => "deployment-bytes",
@@ -304,6 +333,22 @@ message_keys! {
     DiffUnified => "diff-unified",
     DiffBefore => "diff-before",
     DiffAfter => "diff-after",
+    EditorSave => "editor-save",
+    EditorSaveDescription => "editor-save-description",
+    EditorSaving => "editor-saving",
+    EditorSaved => "editor-saved",
+    EditorUnsaved => "editor-unsaved",
+    EditorUnsavedTitle => "editor-unsaved-title",
+    EditorSaveAll => "editor-save-all",
+    EditorDiscard => "editor-discard",
+    EditorEdit => "editor-edit",
+    EditorReview => "editor-review",
+    EditorConflict => "editor-conflict",
+    EditorTooLarge => "editor-too-large",
+    EditorSymlink => "editor-symlink",
+    EditorSaveFailed => "editor-save-failed",
+    EditorDeploymentDisabled => "editor-deployment-disabled",
+    EditorBusy => "editor-busy",
     KeyboardShortcuts => "keyboard-shortcuts",
     ShortcutTabs => "shortcut-tabs",
     ShortcutRecording => "shortcut-recording",
@@ -407,7 +452,6 @@ message_keys! {
     MenuQuit => "menu-quit",
     #[cfg(any(target_os = "macos", test))]
     MenuUnavailable => "menu-unavailable",
-    SettingsDescription => "settings-description",
     General => "general",
     Language => "language",
     LanguageDescription => "language-description",

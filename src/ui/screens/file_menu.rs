@@ -61,12 +61,12 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                     }),
                 ))
         };
-        let main = column![
-            main,
-            deployment_action(Key::DeploymentCompare, true),
-            deployment_action(Key::DeploymentUpload, false)
-        ]
-        .spacing(4);
+        let mut main = column![main].spacing(4);
+        if app.module_enabled(crate::modules::ModuleId::Deployment) {
+            main = main
+                .push(deployment_action(Key::DeploymentCompare, true))
+                .push(deployment_action(Key::DeploymentUpload, false));
+        }
         let mut layers = vec![panel(main.into(), origin, width)];
         if menu.copy_open {
             let x = if origin.x + width + child_width <= available.width {

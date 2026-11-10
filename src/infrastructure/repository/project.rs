@@ -121,3 +121,28 @@ pub(crate) async fn load_project_history(
 
 #[cfg(test)]
 mod tests;
+
+/// Read provider endpoints without loading Git history or branch lists.
+pub(crate) async fn load_project_remotes(directory: PathBuf) -> Result<RepositorySet, Failure> {
+    let found = discovery::discover(&directory).await?;
+    let mut failures = found.failures;
+    let mut repositories = Vec::new();
+    for root in found.roots {
+        match super::load_remote(root.clone()).await {
+            Ok(repository) => repositories.push(repository),
+            Err(error) => failures.push((root, error)),
+        }
+    }
+    let active_root = repositories
+        .first()
+        .ok_or(Failure::NotRepository)?
+        .root
+        .clone();
+    Ok(RepositorySet {
+        repositories,
+        active_root,
+        commits: Vec::new(),
+        next_history: None,
+        failures,
+    })
+}

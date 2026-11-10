@@ -20,6 +20,7 @@ use iced::{
     },
     window,
 };
+use std::cell::Cell;
 
 pub(crate) fn view<'a>(
     terminal: &'a TerminalState,
@@ -34,7 +35,7 @@ pub(crate) fn view<'a>(
         space().width(Length::Fill),
         icon_control(
             i18n,
-            Icon::Close,
+            Icon::Minus,
             Key::TerminalHide,
             "terminal-hide".into(),
             Event::Hide
@@ -124,6 +125,7 @@ pub(crate) fn view<'a>(
                 canvas::Canvas::new(Screen {
                     screen: tab.parser.screen(),
                     request: tab.request,
+                    revision: tab.revision,
                     size: f32::from(code_size),
                     interactive,
                     running: tab.running(),
@@ -160,6 +162,7 @@ fn icon_control<'a>(
 struct Screen<'a> {
     screen: &'a vt100::Screen,
     request: u64,
+    revision: u64,
     size: f32,
     interactive: bool,
     running: bool,
@@ -174,6 +177,20 @@ pub(crate) struct State {
     selection: Option<(u16, u16)>,
     dragging: bool,
     scrollback: usize,
+    cache_key: Cell<Option<RenderKey>>,
+    cache: canvas::Cache,
+    #[cfg(test)]
+    paints: Cell<usize>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct RenderKey {
+    request: u64,
+    revision: u64,
+    size: u32,
+    dark: bool,
+    cursor: bool,
+    selection: Option<((u16, u16), (u16, u16))>,
 }
 
 impl Screen<'_> {
@@ -368,7 +385,44 @@ impl canvas::Program<Event> for Screen<'_> {
         bounds: Rectangle,
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
-        let mut frame = Frame::new(renderer, bounds.size());
+        let key = RenderKey {
+            request: self.request,
+            revision: self.revision,
+            size: self.size.to_bits(),
+            dark: theme.extended_palette().is_dark,
+            cursor: state.focused && self.interactive && self.running,
+            selection: state
+                .anchor
+                .zip(state.selection)
+                .map(|(a, b)| (a.min(b), a.max(b))),
+        };
+        if state.cache_key.get() != Some(key) {
+            state.cache.clear();
+            state.cache_key.set(Some(key));
+        }
+        vec![state.cache.draw(renderer, bounds.size(), |frame| {
+            #[cfg(test)]
+            state.paints.set(state.paints.get() + 1);
+            self.paint(state, theme, bounds, frame);
+        })]
+    }
+
+    fn mouse_interaction(
+        &self,
+        _: &State,
+        bounds: Rectangle,
+        cursor: mouse::Cursor,
+    ) -> mouse::Interaction {
+        if self.interactive && cursor.is_over(bounds) {
+            mouse::Interaction::Text
+        } else {
+            mouse::Interaction::default()
+        }
+    }
+}
+
+impl Screen<'_> {
+    fn paint(&self, state: &State, theme: &Theme, bounds: Rectangle, frame: &mut Frame) {
         let cell_size = self.cell_size();
         let default_bg = style::background(theme);
         frame.fill_rectangle(Point::ORIGIN, bounds.size(), default_bg);
@@ -412,7 +466,7 @@ impl canvas::Program<Event> for Screen<'_> {
                     } else {
                         font::Style::Normal
                     },
-                    ..Font::MONOSPACE
+                    ..theme::code_font()
                 };
                 frame.fill_text(canvas::Text {
                     content: cell.contents().to_owned(),
@@ -448,20 +502,6 @@ impl canvas::Program<Event> for Screen<'_> {
                 Size::new(2., cell_size.height),
                 theme::TEXT.resolve(theme),
             );
-        }
-        vec![frame.into_geometry()]
-    }
-
-    fn mouse_interaction(
-        &self,
-        _: &State,
-        bounds: Rectangle,
-        cursor: mouse::Cursor,
-    ) -> mouse::Interaction {
-        if self.interactive && cursor.is_over(bounds) {
-            mouse::Interaction::Text
-        } else {
-            mouse::Interaction::default()
         }
     }
 }

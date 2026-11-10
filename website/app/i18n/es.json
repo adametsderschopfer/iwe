@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "IWE Code — Una vista más clara de tu código",
-    "description": "Reúne proyectos locales, archivos, historial de Git y ejecuciones en un espacio de trabajo nativo. Para macOS, Windows y Linux."
+    "title": "IWE Code — Edita, compara y despliega",
+    "description": "Un espacio nativo para editar archivos locales y remotos, comparar cambios y transferir por SFTP, FTP o FTPS. Con Git, pipelines y terminal."
   },
   "nav": {
     "features": "Funciones",
@@ -13,73 +13,90 @@
   },
   "hero": {
     "release": "Conoce IWE Code",
-    "title": "Tus proyectos.\nTodo a la vista.",
-    "description": "Un lugar tranquilo para tu código. Reúne proyectos locales, historial de Git y ejecuciones sin perder la concentración.",
+    "title": "De tu código\na tu servidor.",
+    "description": "Edita archivos, compara cambios y envíalos a tu servidor. Reúne proyectos, Git, pipelines y una terminal en una aplicación nativa.",
     "download": "Obtener IWE Code",
     "source": "Explorar en GitHub",
     "platforms": "Para macOS, Windows y Linux."
   },
   "preview": {
     "label": "Explorar el espacio de trabajo",
-    "workspace": "Proyectos",
+    "workspace": "Editor",
     "history": "Historial de Git",
     "comparison": "Cambios",
     "pipelines": "Ejecuciones",
-    "caption": "Un espacio de trabajo real. Un poco más de claridad.",
-    "altWorkspace": "Espacio de IWE Code con árbol del proyecto, archivo abierto y cambios resaltados.",
+    "caption": "Versión en desarrollo con datos de ejemplo. Las versiones publicadas pueden ser diferentes.",
+    "altWorkspace": "Editor de IWE Code con resaltado de sintaxis, pestañas de archivos, botón Guardar y árbol del proyecto.",
     "altHistory": "Historial de Git en IWE Code con ramas y commits.",
-    "altComparison": "IWE Code compara las versiones anterior y actual de un archivo en dos columnas.",
-    "altPipelines": "Lista de ejecuciones en IWE Code con el estado de cada tarea."
+    "altComparison": "IWE Code muestra las versiones anterior y actual de un archivo en paralelo y resalta las líneas modificadas.",
+    "altPipelines": "Lista de ejecuciones en IWE Code con el estado de cada tarea.",
+    "deployment": "Despliegue",
+    "altDeployment": "Configuración de despliegue de IWE Code con perfil Staging, conexión guardada y carpeta raíz del servidor."
   },
   "features": {
-    "title": "Todo lo que rodea al código.\nPor fin, junto.",
-    "description": "Mantén la información que necesitas cerca de tu trabajo actual.",
+    "title": "Tus herramientas.\nEn un mismo espacio.",
+    "description": "Desde una edición local hasta una transferencia al servidor, mantén cada paso cerca del código.",
     "items": [
       {
-        "title": "Organiza tus proyectos",
-        "description": "Agrupa proyectos locales en espacios con nombre. Fija los que más usas y conserva los demás a mano.",
-        "icon": "spaces"
+        "title": "Edita archivos locales y remotos",
+        "description": "Escribe con resaltado de sintaxis, deshaz cambios y guarda cuando quieras. Las pestañas indican los cambios sin guardar.",
+        "icon": "code"
       },
       {
-        "title": "Sigue toda la historia",
-        "description": "Explora ramas y commits de varios repositorios. Pasa de un cambio al archivo que lo contiene.",
+        "title": "Configura cada despliegue",
+        "description": "Conecta por SFTP, FTP o FTPS. Asigna carpetas, excluye rutas y elige perfiles de despliegue para cada proyecto.",
+        "icon": "server"
+      },
+      {
+        "title": "Revisa los cambios en Git",
+        "description": "Explora ramas y commits. Compara versiones en paralelo y gestiona cambios en los repositorios de tu proyecto.",
         "icon": "branch"
       },
       {
-        "title": "Consulta el estado",
-        "description": "Conecta GitHub Actions o GitLab. Consulta ejecuciones y tareas junto al código del proyecto.",
+        "title": "Consulta tus pipelines",
+        "description": "Conecta GitHub Actions o GitLab. Revisa ejecuciones, etapas y tareas junto al proyecto correspondiente.",
         "icon": "pipeline"
+      },
+      {
+        "title": "Abre una terminal en el proyecto",
+        "description": "Ejecuta comandos sin salir de la aplicación. Contrae el panel de la terminal cuando termines.",
+        "icon": "terminal"
+      },
+      {
+        "title": "Organiza proyectos en espacios",
+        "description": "Agrupa proyectos por equipo o tarea. Guarda los perfiles dentro de cada espacio y comparte conexiones entre proyectos.",
+        "icon": "spaces"
       }
     ]
   },
   "workflow": {
-    "title": "Busca menos.\nComprende más.",
-    "description": "Abre un archivo. Consulta sus cambios. Sigue su historial. Conserva toda la información en un espacio de trabajo.",
+    "title": "Ve los cambios.\nConserva el contexto.",
+    "description": "Alterna entre edición y comparación. Revisa una versión de Git o compara un archivo local con la copia del servidor.",
     "items": [
       {
-        "title": "Lee con contexto",
-        "description": "El resaltado de sintaxis y las pestañas te ayudan a explorar un proyecto."
+        "title": "Edita y guarda",
+        "description": "Usa pestañas, resaltado de sintaxis y deshacer. Guarda archivos locales o envía explícitamente los cambios de archivos remotos."
       },
       {
-        "title": "Elige tu vista",
-        "description": "Compara cambios en dos columnas o léelos en una. Pliega las líneas sin cambios para concentrarte."
+        "title": "Compara ambas versiones",
+        "description": "Ve los cambios en paralelo o en una columna. Contrae las líneas sin cambios para centrarte en las diferencias."
       },
       {
-        "title": "Conecta los repositorios",
-        "description": "Consulta el historial del proyecto y de los repositorios en sus carpetas secundarias directas."
+        "title": "Trabaja durante las transferencias",
+        "description": "Las transferencias se ejecutan en segundo plano. Consulta su progreso sin volver a abrir el panel de despliegue."
       }
     ],
-    "caption": "Dos versiones. Una comparación clara."
+    "caption": "Comparación en paralelo en la versión actual en desarrollo."
   },
   "local": {
-    "title": "Tus archivos siguen\nen su lugar.",
-    "description": "Empieza con las carpetas de tu ordenador. IWE Code lee los archivos cuando los abres y mantiene su contenido local.",
+    "title": "Tu espacio.\nTus herramientas.",
+    "description": "Añade carpetas que ya tienes en tu ordenador. Activa los módulos que necesitas y contrae paneles para ampliar el editor.",
     "points": [
-      "Consulta el código fuente sin editarlo",
-      "Conserva tu estructura de carpetas",
+      "Git, pipelines, despliegue y terminal están activados inicialmente",
+      "Desactiva módulos individuales en los ajustes",
       "Elige un espacio claro u oscuro"
     ],
-    "note": "Una aplicación de escritorio para tus proyectos locales.",
+    "note": "Tus proyectos actuales, con herramientas que puedes mostrar u ocultar.",
     "folderLabel": "Tu ordenador",
     "spaceLabel": "Tu espacio de trabajo",
     "projectLabel": "Proyectos",
@@ -105,7 +122,7 @@
     "items": [
       {
         "question": "¿IWE Code es un editor de código?",
-        "answer": "IWE Code permite explorar proyectos, leer código fuente, consultar el historial de Git y seguir ejecuciones. Las vistas son de solo lectura."
+        "answer": "Sí. La versión en desarrollo permite editar y guardar archivos de texto locales y remotos. Las revisiones de Git y comparaciones son de solo lectura."
       },
       {
         "question": "¿Necesito mover mis proyectos?",
@@ -118,11 +135,19 @@
       {
         "question": "¿Qué idiomas están disponibles?",
         "answer": "La aplicación y este sitio web admiten inglés, ruso y español."
+      },
+      {
+        "question": "¿El despliegue sube archivos automáticamente?",
+        "answer": "No. Tú decides cuándo subir, descargar o guardar un archivo remoto. Reemplazar archivos locales durante una descarga requiere confirmación."
+      },
+      {
+        "question": "¿Puedo desactivar módulos?",
+        "answer": "Sí. Git, pipelines, despliegue y terminal están activados inicialmente. Puedes desactivar cada módulo en los ajustes."
       }
     ]
   },
   "footer": {
-    "description": "Una vista más clara de tu código.",
+    "description": "Edita, compara y despliega en un mismo espacio.",
     "developer": "Desarrollado por",
     "source": "Código fuente",
     "releases": "Versiones"
@@ -162,5 +187,25 @@
     "description": "IWE Code se distribuye bajo la Apache License, Version 2.0. A continuación se muestra el texto original de la licencia.",
     "fullText": "Texto completo de la licencia",
     "source": "Ver la licencia en GitHub"
+  },
+  "deployment": {
+    "eyebrow": "Despliegue",
+    "title": "Tu servidor.\nEn tu espacio de trabajo.",
+    "description": "Configura una conexión una vez. Define el destino, las asignaciones de carpetas y las exclusiones de cada proyecto.",
+    "items": [
+      {
+        "title": "Conecta",
+        "description": "Usa una clave SSH, un agente SSH o una contraseña. Guarda las contraseñas en el almacén del sistema operativo."
+      },
+      {
+        "title": "Compara",
+        "description": "Carga la copia del servidor en una pestaña de comparación. Revisa ambas versiones sin reemplazar el archivo local."
+      },
+      {
+        "title": "Transfiere",
+        "description": "Sube o descarga archivos y carpetas manualmente. Consulta el progreso en la barra de estado mientras sigues trabajando."
+      }
+    ],
+    "caption": "Un perfil de despliegue vincula un proyecto con una conexión guardada."
   }
 }

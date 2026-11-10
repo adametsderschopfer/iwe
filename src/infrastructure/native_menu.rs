@@ -12,8 +12,8 @@ pub(crate) struct Model {
     pub settings: String,
     pub about: String,
     pub deployment: String,
+    pub deployment_enabled: bool,
     pub connections: String,
-    pub keys: String,
     pub profiles: String,
     pub spaces_title: String,
     pub projects_title: String,
@@ -34,7 +34,6 @@ pub(crate) enum Action {
     Settings,
     About,
     DeploymentConnections,
-    DeploymentKeys,
     DeploymentProfiles,
     NewSpace,
     Project(usize, PathBuf),
@@ -127,13 +126,18 @@ fn install(model: Model) -> muda::Result<Installed> {
     menu.append(&spaces)?;
     menu.append(&projects)?;
     menu.append(&settings)?;
-    let deployment = Submenu::new(&model.deployment, model.enabled);
+    let deployment = Submenu::new(&model.deployment, model.enabled && model.deployment_enabled);
     for (label, action) in [
         (&model.connections, Action::DeploymentConnections),
-        (&model.keys, Action::DeploymentKeys),
         (&model.profiles, Action::DeploymentProfiles),
     ] {
-        deployment.append(&item(label, model.enabled, action, None, &mut actions))?;
+        deployment.append(&item(
+            label,
+            model.enabled && model.deployment_enabled,
+            action,
+            None,
+            &mut actions,
+        ))?;
     }
     menu.append(&deployment)?;
     menu.init_for_nsapp();

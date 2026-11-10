@@ -1,17 +1,19 @@
 //! Coordinate asynchronous reads, workspace state, and the native window.
+pub(crate) mod editor;
+use crate::modules::ModuleId;
+pub(crate) use crate::modules::{git::GitPanel, pipelines::PipelineState};
 
 pub(crate) mod auth;
-pub(crate) mod branch_selection;
+pub(crate) use modules::git::branch_selection;
 pub(crate) mod changes;
 pub(crate) mod files;
-pub(crate) mod git_actions;
-pub(crate) mod jobs;
+pub(crate) use modules::git::git_actions;
+pub(crate) use modules::pipelines::jobs;
 pub(crate) mod line_navigation;
 pub(crate) mod modules;
 #[cfg(target_os = "macos")]
 mod native_menu;
 pub(crate) mod notifications;
-mod pipeline_cache;
 pub(crate) mod project_add;
 pub(crate) mod project_changes;
 mod repositories;
@@ -25,7 +27,7 @@ pub(crate) mod windows;
 use crate::domain::{
     Failure,
     repository::{
-        ChangedFile, Pipeline, Provider,
+        ChangedFile, Provider,
         project::{BranchKey, CommitKey, ProjectHistoryPage as HistoryPage, RepositorySet},
     },
     workspace::{Appearance, FileEntry, FilePanel, Workspace},
@@ -151,7 +153,6 @@ pub(crate) enum SettingsTab {
     Panels,
     Modules,
     Connections,
-    DeploymentKeys,
     Deployment,
     Shortcuts,
     About,
@@ -159,34 +160,8 @@ pub(crate) enum SettingsTab {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Panel {
     Workspace,
-    Git,
-    Pipelines,
     Module(crate::modules::ModuleId),
 }
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum GitPanel {
-    Branches,
-    Commits,
-    Files,
-}
-
-fn git_panes() -> pane_grid::State<GitPanel> {
-    let (mut panes, branches) = pane_grid::State::new(GitPanel::Branches);
-    let (_, left) = panes
-        .split(pane_grid::Axis::Vertical, branches, GitPanel::Commits)
-        .unwrap();
-    panes.resize(left, 0.22);
-    panes
-}
-#[derive(Debug, Clone, Default)]
-pub(crate) enum PipelineState {
-    #[default]
-    Idle,
-    Loading,
-    Ready(Vec<Pipeline>),
-    Failed(Failure),
-}
-
 pub(crate) struct App {
     pub i18n: Rc<I18n>,
     pub workspace: Workspace,
@@ -195,19 +170,14 @@ pub(crate) struct App {
     pub shortcuts: shortcuts::State,
     pub modules: modules::State,
     pub panes: pane_grid::State<Panel>,
-    pub git_panes: pane_grid::State<GitPanel>,
     pub repository: Option<RepositorySet>,
     pub repository_error: Option<Failure>,
     pub loading: bool,
-    pub history_loading: bool,
-    pub history_error: Option<Failure>,
-    pub history_scroll_y: f32,
     pub tree: BTreeMap<PathBuf, Vec<FileEntry>>,
     pub expanded: BTreeSet<PathBuf>,
     pub files: files::State,
     pub file_panel: FilePanel,
     pub file_panel_visible: bool,
-    pub git_actions: git_actions::State,
     pub project_menu: Option<(usize, PathBuf, iced::Point)>,
     pub space_menu: Option<(usize, iced::Point)>,
     pub repository_menu: Option<iced::Point>,
@@ -216,25 +186,11 @@ pub(crate) struct App {
     repository_cache: repository_cache::Cache,
     pub project_changes: project_changes::State,
     pub tabs: tabs::State,
-    pub branch: Option<BranchKey>,
-    pub branch_selection: branch_selection::State,
-    pub branch_attention: Option<u64>,
-    branch_attention_request: u64,
-    pub query: String,
-    pub selected_commit: Option<CommitKey>,
-    pub changed_files: Vec<ChangedFile>,
-    pub collapsed_commit_folders: BTreeSet<String>,
-    pub expanded_branch_folders: BTreeSet<String>,
+    pub editor: editor::State,
     pub collapsed_spaces: BTreeSet<usize>,
-    pub changes_loading: bool,
-    pub changes_error: Option<Failure>,
-    pub pipelines: PipelineState,
-    pub jobs: jobs::State,
     pub auth_dialog: Option<auth::Dialog>,
     pub space_draft: Option<spaces::Draft>,
     pub project_add: Option<project_add::Draft>,
-    pub copied_commit: Option<String>,
-    copy_request: u64,
     pub line_navigation: Option<line_navigation::Dialog>,
     pub account_username: Option<String>,
     pub disconnecting: bool,
@@ -253,12 +209,6 @@ pub(crate) struct App {
     project_directory: Option<PathBuf>,
     repo_request: u64,
     file_request: u64,
-    commit_request: u64,
-    pipeline_request: u64,
-    pipeline_refreshing: bool,
-    pipeline_cache: pipeline_cache::Cache,
-    pipeline_poll_blocked: bool,
-    pipeline_reload_after_repository: bool,
     auth_service: crate::infrastructure::auth::Service,
     auth_cancel: Option<CancellationToken>,
     auth_request: u64,
@@ -270,6 +220,7 @@ pub(crate) struct App {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Message {
+    Editor(editor::Event),
     WindowOpened(window::Id),
     Window(windows::Event),
     WindowShortcut(window::Id, Box<Message>),
@@ -407,19 +358,14 @@ impl App {
             shortcuts: shortcuts::State::default(),
             modules: modules::State::default(),
             panes: pane_grid::State::new(Panel::Workspace).0,
-            git_panes: git_panes(),
             repository: None,
             repository_error: None,
             loading: false,
-            history_loading: false,
-            history_error: None,
-            history_scroll_y: 0.,
             tree: BTreeMap::new(),
             expanded: BTreeSet::new(),
             files: files::State::default(),
             file_panel: FilePanel::Project,
             file_panel_visible: true,
-            git_actions: git_actions::State::default(),
             project_menu: None,
             space_menu: None,
             repository_menu: None,
@@ -428,25 +374,11 @@ impl App {
             repository_cache: repository_cache::Cache::default(),
             project_changes: project_changes::State::default(),
             tabs: tabs::State::default(),
-            branch: None,
-            branch_selection: branch_selection::State::default(),
-            branch_attention: None,
-            branch_attention_request: 0,
-            query: String::new(),
-            selected_commit: None,
-            changed_files: Vec::new(),
-            collapsed_commit_folders: BTreeSet::new(),
-            expanded_branch_folders: BTreeSet::from(["false".to_owned()]),
+            editor: editor::State::default(),
             collapsed_spaces: BTreeSet::new(),
-            changes_loading: false,
-            changes_error: None,
-            pipelines: PipelineState::Idle,
-            jobs: jobs::State::default(),
             auth_dialog: None,
             space_draft: None,
             project_add: None,
-            copied_commit: None,
-            copy_request: 0,
             line_navigation: None,
             account_username: None,
             disconnecting: false,
@@ -469,12 +401,6 @@ impl App {
             project_directory: None,
             repo_request: 0,
             file_request: 0,
-            commit_request: 0,
-            pipeline_request: 0,
-            pipeline_refreshing: false,
-            pipeline_cache: pipeline_cache::Cache::default(),
-            pipeline_poll_blocked: false,
-            pipeline_reload_after_repository: false,
             auth_service: crate::infrastructure::auth::Service::new(),
             auth_cancel: None,
             auth_request: 0,
@@ -490,6 +416,48 @@ impl App {
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
+        if self.protect_editor(&message) {
+            return Task::none();
+        }
+        if self.editor.pending.is_some() && matches!(message, Message::DismissDialog) {
+            return self.update_editor(editor::Event::Cancel);
+        }
+        use crate::modules::ModuleId;
+        let required = match &message {
+            Message::Git(_)
+            | Message::BranchSelection(_)
+            | Message::RevealGitBranches
+            | Message::RevealRepositoryBranches(_)
+            | Message::OpenRepositoryMenu(_)
+            | Message::SelectBranch(_)
+            | Message::AllRepositories
+            | Message::Search(_)
+            | Message::SelectCommit(_)
+            | Message::OpenCommitFile(_)
+            | Message::LoadMoreHistory
+            | Message::HistoryScrolled { .. }
+            | Message::HistoryLoaded(..)
+            | Message::ChangesLoaded(..)
+            | Message::Worktree(_)
+            | Message::ProjectChanges(_) => Some(ModuleId::Git),
+            Message::Jobs(_)
+            | Message::RefreshPipelines
+            | Message::PollPipelines
+            | Message::PipelinesLoaded(..)
+            | Message::ChooseProvider(_)
+            | Message::SignIn => Some(ModuleId::Pipelines),
+            Message::SelectSettingsTab(SettingsTab::Connections | SettingsTab::Deployment) => {
+                Some(ModuleId::Deployment)
+            }
+            Message::TogglePanel(Panel::Module(id)) => Some(*id),
+            Message::SelectFilePanel(FilePanel::Changes)
+            | Message::ToggleFilePanel(FilePanel::Changes) => Some(ModuleId::Git),
+            _ => None,
+        };
+        if required.is_some_and(|id| !self.module_enabled(id)) {
+            return Task::none();
+        }
+
         if matches!(
             self.updates,
             updates::State::Saving(_) | updates::State::Installing(_)
@@ -499,11 +467,12 @@ impl App {
         ) {
             return Task::none();
         }
-        if (self.auth_dialog.is_some()
+        if (self.editor.pending.is_some()
+            || self.auth_dialog.is_some()
             || self.line_navigation.is_some()
             || self.project_add.is_some()
             || self.space_draft.is_some()
-            || self.git_actions.has_dialog())
+            || self.modules.git.git_actions.has_dialog())
             && matches!(
                 message,
                 Message::Navigate(_)
@@ -551,17 +520,18 @@ impl App {
             return Task::none();
         }
         match message {
+            Message::Editor(event) => return self.update_editor(event),
             Message::OpenTabMenu(point)
                 if self.space_draft.is_none()
                     && self.project_add.is_none()
                     && self.auth_dialog.is_none()
-                    && !self.git_actions.has_dialog() =>
+                    && !self.modules.git.git_actions.has_dialog() =>
             {
                 self.space_menu = None;
                 self.project_menu = None;
                 self.files.menu = None;
-                self.git_actions.menu = None;
-                self.git_actions.bulk.menu = None;
+                self.modules.git.git_actions.menu = None;
+                self.modules.git.git_actions.bulk.menu = None;
                 self.tabs.menu = Some(point);
                 self.repository_menu = None;
             }
@@ -571,7 +541,7 @@ impl App {
                     && self.project_add.is_none()
                     && self.auth_dialog.is_none()
                     && self.line_navigation.is_none()
-                    && !self.git_actions.has_dialog()
+                    && !self.modules.git.git_actions.has_dialog()
                     && self
                         .repository
                         .as_ref()
@@ -581,8 +551,8 @@ impl App {
                 self.space_menu = None;
                 self.project_menu = None;
                 self.files.menu = None;
-                self.git_actions.menu = None;
-                self.git_actions.bulk.menu = None;
+                self.modules.git.git_actions.menu = None;
+                self.modules.git.git_actions.bulk.menu = None;
                 self.repository_menu = Some(point);
             }
             Message::CloseRepositoryMenu => self.repository_menu = None,
@@ -598,10 +568,10 @@ impl App {
                 if self.space_draft.is_none()
                     && self.project_add.is_none()
                     && self.auth_dialog.is_none()
-                    && !self.git_actions.has_dialog() =>
+                    && !self.modules.git.git_actions.has_dialog() =>
             {
                 self.space_menu = None;
-                self.git_actions.menu = None;
+                self.modules.git.git_actions.menu = None;
                 self.files.menu = None;
                 self.project_menu = Some((space, path, point));
             }
@@ -612,12 +582,12 @@ impl App {
                     && self.space_draft.is_none()
                     && self.project_add.is_none()
                     && self.auth_dialog.is_none()
-                    && !self.git_actions.has_dialog()
+                    && !self.modules.git.git_actions.has_dialog()
                     && index < self.workspace.spaces.len() =>
             {
                 self.project_menu = None;
-                self.git_actions.menu = None;
-                self.git_actions.bulk.menu = None;
+                self.modules.git.git_actions.menu = None;
+                self.modules.git.git_actions.bulk.menu = None;
                 self.files.menu = None;
                 self.space_menu = Some((index, point));
             }
@@ -736,7 +706,7 @@ impl App {
             Message::Navigate(Navigation::Settings) => return self.open_settings(),
             Message::Navigate(navigation) => {
                 self.navigation = navigation;
-                self.jobs.overview.popup = None;
+                self.modules.pipelines.jobs.overview.popup = None;
                 return self.refresh_pipeline_overviews(false);
             }
             Message::SelectSettingsTab(tab) => {
@@ -745,9 +715,22 @@ impl App {
                 }
                 self.shortcuts = shortcuts::State::default();
                 self.settings_tab = tab;
-                return self.update_module(modules::Event::Deployment(
+                let stop = self.update_module(modules::Event::Deployment(
                     crate::modules::deployment::Event::StopBrowsing,
                 ));
+                let open = match tab {
+                    SettingsTab::Connections => {
+                        Some(crate::modules::deployment::Event::OpenConnections)
+                    }
+                    SettingsTab::Deployment => {
+                        Some(crate::modules::deployment::Event::OpenProfiles)
+                    }
+                    _ => None,
+                };
+                let open = open.map_or_else(Task::none, |event| {
+                    self.update_module(modules::Event::Deployment(event))
+                });
+                return Task::batch([stop, open]);
             }
             Message::Shortcut(event) => return self.update_shortcuts(event),
             Message::Module(event) => return self.update_module(event),
@@ -775,9 +758,9 @@ impl App {
                     return Task::none();
                 }
                 self.project_menu = None;
-                if self.git_actions.menu.is_some()
-                    || self.git_actions.bulk.menu.is_some()
-                    || self.git_actions.has_dialog()
+                if self.modules.git.git_actions.menu.is_some()
+                    || self.modules.git.git_actions.bulk.menu.is_some()
+                    || self.modules.git.git_actions.has_dialog()
                 {
                     return self.update_git(git_actions::Message::Close);
                 }
@@ -787,10 +770,12 @@ impl App {
                 if self.space_draft.is_some() {
                     return self.update_space(spaces::Message::Cancel);
                 }
-                if !self.branch_selection.selected.is_empty() {
+                if !self.modules.git.branch_selection.selected.is_empty() {
                     return self.update_branch_selection(branch_selection::Event::Clear);
                 }
-                if self.auth_dialog.is_none() && self.jobs.overview.popup.take().is_some() {
+                if self.auth_dialog.is_none()
+                    && self.modules.pipelines.jobs.overview.popup.take().is_some()
+                {
                     return Task::none();
                 }
                 return self.update_auth(auth::Message::Cancel);
@@ -849,7 +834,8 @@ impl App {
                 if generation == self.generation && request == self.repo_request =>
             {
                 self.loading = false;
-                let reload_pipelines = std::mem::take(&mut self.pipeline_reload_after_repository);
+                let reload_pipelines =
+                    std::mem::take(&mut self.modules.pipelines.pipeline_reload_after_repository);
                 match result {
                     Ok(mut repo) => {
                         if repo.repositories.len() <= 2 {
@@ -867,9 +853,13 @@ impl App {
                                     && previous.get(&member.root).is_some()
                             });
                             if multiple && !known {
-                                self.expanded_branch_folders
+                                self.modules
+                                    .git
+                                    .expanded_branch_folders
                                     .insert(format!("repo:{}", member.root.display()));
-                                self.expanded_branch_folders
+                                self.modules
+                                    .git
+                                    .expanded_branch_folders
                                     .insert(format!("{}:false", member.root.display()));
                             }
                         }
@@ -879,12 +869,12 @@ impl App {
                             != repo.active().and_then(|repo| repo.remote.as_ref());
                         if changed_remote {
                             self.reset_jobs();
-                            self.pipelines = PipelineState::Idle;
+                            self.modules.pipelines.pipelines = PipelineState::Idle;
                             self.account_username = None;
-                            self.pipeline_request += 1;
-                            self.pipeline_refreshing = false;
+                            self.modules.pipelines.pipeline_request += 1;
+                            self.modules.pipelines.pipeline_refreshing = false;
                         }
-                        if self.branch.as_ref().is_some_and(|key| {
+                        if self.modules.git.branch.as_ref().is_some_and(|key| {
                             repo.get(&key.root).is_none_or(|member| {
                                 !member
                                     .branches
@@ -892,10 +882,10 @@ impl App {
                                     .any(|branch| branch.reference == key.reference)
                             })
                         }) {
-                            self.branch = None;
+                            self.modules.git.branch = None;
                         }
-                        if self.branch.is_none() && repo.repositories.len() == 1 {
-                            self.branch =
+                        if self.modules.git.branch.is_none() && repo.repositories.len() == 1 {
+                            self.modules.git.branch =
                                 repo.active().and_then(|member| {
                                     member.branches.iter().find(|branch| branch.current).map(
                                         |branch| BranchKey {
@@ -905,20 +895,21 @@ impl App {
                                     )
                                 });
                         }
-                        self.branch_selection.prune(&repo);
+                        self.modules.git.branch_selection.prune(&repo);
                         self.repository = Some(repo);
                         self.repository_error = None;
                         self.cache_repository();
                         self.sync_panels();
                         let pipeline_task = if (self.workspace.preferences.show_pipelines
                             || self.workspace.preferences.show_git)
-                            && (reload_pipelines || matches!(self.pipelines, PipelineState::Idle))
+                            && (reload_pipelines
+                                || matches!(self.modules.pipelines.pipelines, PipelineState::Idle))
                         {
                             self.load_pipelines()
                         } else {
                             Task::none()
                         };
-                        let history_task = if self.query.is_empty() {
+                        let history_task = if self.modules.git.query.is_empty() {
                             Task::none()
                         } else {
                             self.load_more_history()
@@ -935,10 +926,10 @@ impl App {
                             self.repository_error = Some(error);
                             self.reset_jobs();
                             self.repository = None;
-                            self.pipelines = PipelineState::Idle;
+                            self.modules.pipelines.pipelines = PipelineState::Idle;
                             self.account_username = None;
-                            self.pipeline_request += 1;
-                            self.pipeline_refreshing = false;
+                            self.modules.pipelines.pipeline_request += 1;
+                            self.modules.pipelines.pipeline_refreshing = false;
                         } else if self.repository.is_some() {
                             self.notifications.error(error_key(error), None);
                         }
@@ -949,30 +940,30 @@ impl App {
             Message::HistoryLoaded(generation, request, offset, result)
                 if generation == self.generation
                     && request == self.repo_request
-                    && self.history_loading
+                    && self.modules.git.history_loading
                     && self
                         .repository
                         .as_ref()
                         .is_some_and(|repo| repo.commits.len() == offset) =>
             {
-                self.history_loading = false;
+                self.modules.git.history_loading = false;
                 match result {
                     Ok(page) => {
                         if let Some(repo) = self.repository.as_mut() {
                             repo.commits.extend(page.commits);
                             repo.next_history = page.next;
                         }
-                        self.history_error = None;
-                        if !self.query.is_empty() {
+                        self.modules.git.history_error = None;
+                        if !self.modules.git.query.is_empty() {
                             return self.load_more_history();
                         }
                     }
-                    Err(error) => self.history_error = Some(error),
+                    Err(error) => self.modules.git.history_error = Some(error),
                 }
             }
             Message::HistoryScrolled { offset, remaining } => {
-                self.history_scroll_y = offset;
-                if remaining <= 480. && self.history_error.is_none() {
+                self.modules.git.history_scroll_y = offset;
+                if remaining <= 480. && self.modules.git.history_error.is_none() {
                     return self.load_more_history();
                 }
             }
@@ -1000,7 +991,7 @@ impl App {
                 return self.finish_preview(request, result);
             }
             Message::SelectBranch(reference) => {
-                self.branch_selection.selected.clear();
+                self.modules.git.branch_selection.selected.clear();
                 if self
                     .repository
                     .as_ref()
@@ -1014,20 +1005,20 @@ impl App {
                 {
                     return Task::none();
                 }
-                self.branch = Some(reference);
+                self.modules.git.branch = Some(reference);
                 self.close_commit_files();
                 return self.load_repository();
             }
             Message::AllRepositories => {
-                self.branch_selection.selected.clear();
-                self.branch = None;
+                self.modules.git.branch_selection.selected.clear();
+                self.modules.git.branch = None;
                 self.close_commit_files();
                 return self.load_repository();
             }
             Message::Search(query) => {
-                self.query = query;
+                self.modules.git.query = query;
                 let scroll = self.reset_history_scroll();
-                let history = if self.query.is_empty() {
+                let history = if self.modules.git.query.is_empty() {
                     Task::none()
                 } else {
                     self.load_more_history()
@@ -1035,25 +1026,25 @@ impl App {
                 return Task::batch([scroll, history]);
             }
             Message::ToggleCommitFolder(path) => {
-                if !self.collapsed_commit_folders.remove(&path) {
-                    self.collapsed_commit_folders.insert(path);
+                if !self.modules.git.collapsed_commit_folders.remove(&path) {
+                    self.modules.git.collapsed_commit_folders.insert(path);
                 }
             }
             Message::ToggleBranchFolder(path) => {
-                self.branch_selection.selected.clear();
-                if !self.expanded_branch_folders.remove(&path) {
-                    self.expanded_branch_folders.insert(path);
+                self.modules.git.branch_selection.selected.clear();
+                if !self.modules.git.expanded_branch_folders.remove(&path) {
+                    self.modules.git.expanded_branch_folders.insert(path);
                 }
             }
             Message::SelectCommit(id) => return self.select_commit(id),
             Message::CloseCommitFiles => self.close_commit_files(),
             Message::ChangesLoaded(generation, request, result)
-                if generation == self.generation && request == self.commit_request =>
+                if generation == self.generation && request == self.modules.git.commit_request =>
             {
-                self.changes_loading = false;
+                self.modules.git.changes_loading = false;
                 match result {
-                    Ok(files) => self.changed_files = files,
-                    Err(error) => self.changes_error = Some(error),
+                    Ok(files) => self.modules.git.changed_files = files,
+                    Err(error) => self.modules.git.changes_error = Some(error),
                 }
             }
             Message::RevealGitBranches => {
@@ -1061,11 +1052,14 @@ impl App {
                     return Task::none();
                 }
                 if !self.workspace.preferences.show_git {
-                    return self.update(Message::TogglePanel(Panel::Git));
+                    return self.update(Message::TogglePanel(Panel::Module(
+                        crate::modules::ModuleId::Git,
+                    )));
                 }
-                self.branch_attention_request = self.branch_attention_request.wrapping_add(1);
-                let request = self.branch_attention_request;
-                self.branch_attention = Some(request);
+                self.modules.git.branch_attention_request =
+                    self.modules.git.branch_attention_request.wrapping_add(1);
+                let request = self.modules.git.branch_attention_request;
+                self.modules.git.branch_attention = Some(request);
                 return Task::perform(
                     async {
                         tokio::time::sleep(std::time::Duration::from_millis(700)).await;
@@ -1074,21 +1068,21 @@ impl App {
                 );
             }
             Message::ClearBranchAttention(request) => {
-                if self.branch_attention == Some(request) {
-                    self.branch_attention = None;
+                if self.modules.git.branch_attention == Some(request) {
+                    self.modules.git.branch_attention = None;
                 }
             }
             Message::TogglePanel(panel) => {
-                self.branch_attention = None;
-                self.jobs.overview.popup = None;
+                self.modules.git.branch_attention = None;
+                self.modules.pipelines.jobs.overview.popup = None;
                 match panel {
-                    Panel::Git => {
+                    Panel::Module(crate::modules::ModuleId::Git) => {
                         self.workspace.preferences.show_git ^= true;
                         if self.workspace.preferences.show_git {
                             self.workspace.preferences.show_pipelines = false;
                         }
                     }
-                    Panel::Pipelines => {
+                    Panel::Module(crate::modules::ModuleId::Pipelines) => {
                         self.workspace.preferences.show_pipelines ^= true;
                         if self.workspace.preferences.show_pipelines {
                             self.workspace.preferences.show_git = false;
@@ -1100,7 +1094,7 @@ impl App {
                 self.sync_panels();
                 let pipelines = if (self.workspace.preferences.show_pipelines
                     || self.workspace.preferences.show_git)
-                    && matches!(self.pipelines, PipelineState::Idle)
+                    && matches!(self.modules.pipelines.pipelines, PipelineState::Idle)
                 {
                     self.load_pipelines()
                 } else {
@@ -1114,21 +1108,24 @@ impl App {
                 return Task::batch([pipelines, jobs, self.save()]);
             }
             Message::Resize(event) => {
-                self.jobs.overview.popup = None;
+                self.modules.pipelines.jobs.overview.popup = None;
                 self.panes
                     .resize(event.split, event.ratio.clamp(0.15, 0.85));
             }
             Message::ResizeGit(event) => self
+                .modules
+                .git
                 .git_panes
                 .resize(event.split, event.ratio.clamp(0.12, 0.88)),
             Message::RefreshPipelines => return self.request_pipelines(true),
             Message::PollPipelines => return self.load_pipelines(),
             Message::Jobs(event) => return self.update_jobs(event),
             Message::PipelinesLoaded(generation, request, result)
-                if generation == self.generation && request == self.pipeline_request =>
+                if generation == self.generation
+                    && request == self.modules.pipelines.pipeline_request =>
             {
                 self.account_username = result.username;
-                self.pipeline_refreshing = false;
+                self.modules.pipelines.pipeline_refreshing = false;
                 match result.runs {
                     Ok(runs) => {
                         if let Some(repo) = self.active_repository()
@@ -1136,27 +1133,31 @@ impl App {
                         {
                             let root = repo.root.clone();
                             let remote = remote.clone();
-                            self.pipeline_cache.insert(root, remote, runs.clone());
+                            self.modules.pipelines.pipeline_cache.insert(
+                                root,
+                                remote,
+                                runs.clone(),
+                            );
                         }
-                        self.pipeline_poll_blocked = false;
-                        self.pipelines = PipelineState::Ready(runs);
+                        self.modules.pipelines.pipeline_poll_blocked = false;
+                        self.modules.pipelines.pipelines = PipelineState::Ready(runs);
                     }
                     Err(error) => {
-                        self.pipeline_poll_blocked = true;
+                        self.modules.pipelines.pipeline_poll_blocked = true;
                         if matches!(
                             error,
                             Failure::Unavailable | Failure::Read | Failure::RateLimited
-                        ) && matches!(self.pipelines, PipelineState::Ready(_))
+                        ) && matches!(self.modules.pipelines.pipelines, PipelineState::Ready(_))
                         {
                             self.notifications.error(error_key(error), None);
                         } else {
-                            self.pipeline_cache.clear();
-                            self.pipelines = PipelineState::Failed(error);
+                            self.modules.pipelines.pipeline_cache.clear();
+                            self.modules.pipelines.pipelines = PipelineState::Failed(error);
                         }
                     }
                 }
-                if let Some(selected) = &mut self.jobs.selected
-                    && let PipelineState::Ready(runs) = &self.pipelines
+                if let Some(selected) = &mut self.modules.pipelines.jobs.selected
+                    && let PipelineState::Ready(runs) = &self.modules.pipelines.pipelines
                     && let Some(run) = runs.iter().find(|run| run.id == selected.id)
                 {
                     *selected = run.clone();
@@ -1174,7 +1175,7 @@ impl App {
                 self.reset_jobs();
                 self.cancel_auth();
                 self.account_username = None;
-                self.pipelines = PipelineState::Idle;
+                self.modules.pipelines.pipelines = PipelineState::Idle;
                 if let Some(remote) = self
                     .repository
                     .as_mut()
@@ -1182,7 +1183,7 @@ impl App {
                     .and_then(|repo| repo.remote.as_mut())
                 {
                     remote.provider = Some(provider);
-                    self.pipeline_refreshing = false;
+                    self.modules.pipelines.pipeline_refreshing = false;
                     self.workspace
                         .providers
                         .insert(remote.host.clone(), provider);
@@ -1218,12 +1219,13 @@ impl App {
                 }
             }
             Message::CopyCommitId(id) => {
-                self.copy_request += 1;
-                return iced::clipboard::write(id.clone())
-                    .chain(Task::done(Message::CommitIdCopied(self.copy_request, id)));
+                self.modules.git.copy_request += 1;
+                return iced::clipboard::write(id.clone()).chain(Task::done(
+                    Message::CommitIdCopied(self.modules.git.copy_request, id),
+                ));
             }
-            Message::CommitIdCopied(request, id) if request == self.copy_request => {
-                self.copied_commit = Some(id);
+            Message::CommitIdCopied(request, id) if request == self.modules.git.copy_request => {
+                self.modules.git.copied_commit = Some(id);
                 return Task::perform(
                     async {
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -1231,8 +1233,8 @@ impl App {
                     move |()| Message::ClearCopiedCommit(request),
                 );
             }
-            Message::ClearCopiedCommit(request) if request == self.copy_request => {
-                self.copied_commit = None;
+            Message::ClearCopiedCommit(request) if request == self.modules.git.copy_request => {
+                self.modules.git.copied_commit = None;
             }
             Message::SelectTab(id) => return self.select_tab(id),
             Message::CloseTab(id) => return self.close_tab(id),
@@ -1286,16 +1288,16 @@ impl App {
         if let Some(root) = self.project_directory.as_ref() {
             self.repository_cache.remember_folders(
                 root,
-                &self.branch,
-                &self.expanded_branch_folders,
+                &self.modules.git.branch,
+                &self.modules.git.expanded_branch_folders,
             );
         }
         self.tabs.menu = None;
-        self.branch_selection.selected.clear();
-        self.git_actions.bulk.menu = None;
-        self.branch_attention = None;
+        self.modules.git.branch_selection.selected.clear();
+        self.modules.git.git_actions.bulk.menu = None;
+        self.modules.git.branch_attention = None;
         self.line_navigation = None;
-        self.git_actions.menu = None;
+        self.modules.git.git_actions.menu = None;
         self.project_menu = None;
         self.space_menu = None;
         let directory = self.workspace.directory().cloned();
@@ -1315,35 +1317,39 @@ impl App {
             self.reset_jobs();
             self.repository = None;
             self.account_username = None;
-            self.pipelines = PipelineState::Idle;
+            self.modules.pipelines.pipelines = PipelineState::Idle;
         }
         self.repository_error = None;
-        self.history_loading = false;
-        self.history_error = None;
-        self.history_scroll_y = 0.;
+        self.modules.git.history_loading = false;
+        self.modules.git.history_error = None;
+        self.modules.git.history_scroll_y = 0.;
         self.changes = changes::State::default();
-        self.branch = None;
-        self.query.clear();
+        self.modules.git.branch = None;
+        self.modules.git.query.clear();
         self.close_commit_files();
-        self.expanded_branch_folders = BTreeSet::from(["false".to_owned()]);
+        self.modules.git.expanded_branch_folders = BTreeSet::from(["false".to_owned()]);
         let restored_git = !same_project && self.restore_cached_repository();
         if !restored_git
             && let Some(repos) = &self.repository
             && repos.repositories.len() > 1
         {
             for repo in &repos.repositories {
-                self.expanded_branch_folders
+                self.modules
+                    .git
+                    .expanded_branch_folders
                     .insert(format!("repo:{}", repo.root.display()));
-                self.expanded_branch_folders
+                self.modules
+                    .git
+                    .expanded_branch_folders
                     .insert(format!("{}:false", repo.root.display()));
             }
         }
-        self.collapsed_commit_folders.clear();
-        self.changed_files.clear();
-        self.changes_loading = false;
-        self.changes_error = None;
-        self.pipeline_refreshing = false;
-        self.pipeline_reload_after_repository = true;
+        self.modules.git.collapsed_commit_folders.clear();
+        self.modules.git.changed_files.clear();
+        self.modules.git.changes_loading = false;
+        self.modules.git.changes_error = None;
+        self.modules.pipelines.pipeline_refreshing = false;
+        self.modules.pipelines.pipeline_reload_after_repository = true;
         self.sync_panels();
         let previews = self.sync_preview_project();
         let files = self.load_file_tree();
@@ -1362,6 +1368,8 @@ impl App {
 
     fn show_commit_files(&mut self) {
         if self
+            .modules
+            .git
             .git_panes
             .iter()
             .any(|(_, panel)| matches!(panel, GitPanel::Files))
@@ -1369,97 +1377,38 @@ impl App {
             return;
         }
         let commit_pane = self
+            .modules
+            .git
             .git_panes
             .iter()
             .find(|(_, panel)| matches!(panel, GitPanel::Commits))
             .map(|(pane, _)| *pane);
         if let Some(pane) = commit_pane
             && let Some((_, split)) =
-                self.git_panes
+                self.modules
+                    .git
+                    .git_panes
                     .split(pane_grid::Axis::Vertical, pane, GitPanel::Files)
         {
-            self.git_panes.resize(split, 0.72);
+            self.modules.git.git_panes.resize(split, 0.72);
         }
     }
 
     fn close_commit_files(&mut self) {
-        self.selected_commit = None;
-        self.changed_files.clear();
-        self.changes_loading = false;
-        self.changes_error = None;
-        self.commit_request += 1;
+        self.modules.git.selected_commit = None;
+        self.modules.git.changed_files.clear();
+        self.modules.git.changes_loading = false;
+        self.modules.git.changes_error = None;
+        self.modules.git.commit_request += 1;
         let pane = self
+            .modules
+            .git
             .git_panes
             .iter()
             .find(|(_, panel)| matches!(panel, GitPanel::Files))
             .map(|(pane, _)| *pane);
         if let Some(pane) = pane {
-            let _ = self.git_panes.close(pane);
-        }
-    }
-
-    fn load_pipelines(&mut self) -> Task<Message> {
-        self.request_pipelines(false)
-    }
-
-    fn request_pipelines(&mut self, retry_credentials: bool) -> Task<Message> {
-        if self.disconnecting || self.pipeline_refreshing {
-            return Task::none();
-        }
-        let Some(remote) = self
-            .active_repository()
-            .and_then(|repo| repo.remote.clone())
-            .filter(|remote| remote.provider.is_some())
-        else {
-            return Task::none();
-        };
-        self.pipeline_request += 1;
-        self.pipeline_refreshing = true;
-        if !matches!(self.pipelines, PipelineState::Ready(_))
-            && let Some(root) = self.active_repository().map(|repo| repo.root.clone())
-            && let Some(runs) = self.pipeline_cache.get(&root, &remote)
-        {
-            self.pipelines = PipelineState::Ready(runs);
-        }
-        if !matches!(self.pipelines, PipelineState::Ready(_)) {
-            self.pipelines = PipelineState::Loading;
-        }
-        let (generation, request) = (self.generation, self.pipeline_request);
-        let service = self.auth_service.clone();
-        Task::perform(
-            async move {
-                if retry_credentials && let Err(error) = service.retry_credentials(&remote).await {
-                    return pipelines::Loaded {
-                        runs: Err(error),
-                        username: None,
-                    };
-                }
-                service.load(remote).await
-            },
-            move |result| Message::PipelinesLoaded(generation, request, result),
-        )
-    }
-
-    fn pipeline_subscription(&self) -> Subscription<Message> {
-        if self.navigation != Navigation::Settings
-            && !self.pipeline_poll_blocked
-            && self.has_remote()
-            && (self.workspace.preferences.show_git || self.workspace.preferences.show_pipelines)
-            && matches!(self.pipelines, PipelineState::Ready(_))
-        {
-            iced::time::every(std::time::Duration::from_secs(30)).map(|_| Message::PollPipelines)
-        } else {
-            Subscription::none()
-        }
-    }
-
-    pub(crate) fn active_pipelines(&self, commit: &str) -> Vec<&Pipeline> {
-        match &self.pipelines {
-            PipelineState::Ready(runs) => runs
-                .iter()
-                .filter(|run| run.commit.as_deref() == Some(commit) && run.is_active())
-                .collect(),
-            _ => Vec::new(),
+            let _ = self.modules.git.git_panes.close(pane);
         }
     }
 
@@ -1469,14 +1418,19 @@ impl App {
     }
 
     fn sync_panels(&mut self) {
-        let show_git = self.workspace.preferences.show_git && self.workspace.directory().is_some();
-        let show_pipelines = self.workspace.preferences.show_pipelines && self.has_remote();
-        let show_terminal = self.modules.terminal.open && self.workspace.directory().is_some();
-        if self.panes.iter().any(|(_, panel)| *panel == Panel::Git) == show_git
+        let show_git = self.module_open(ModuleId::Git) && self.workspace.directory().is_some();
+        let show_pipelines = self.module_open(ModuleId::Pipelines) && self.has_remote();
+        let show_terminal =
+            self.module_open(ModuleId::Terminal) && self.workspace.directory().is_some();
+        if self
+            .panes
+            .iter()
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Git))
+            == show_git
             && self
                 .panes
                 .iter()
-                .any(|(_, panel)| *panel == Panel::Pipelines)
+                .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Pipelines))
                 == show_pipelines
             && self
                 .panes
@@ -1497,12 +1451,19 @@ impl App {
             panes.resize(split, 0.68);
         }
         if show_git
-            && let Some((_, split)) = panes.split(pane_grid::Axis::Horizontal, top, Panel::Git)
+            && let Some((_, split)) = panes.split(
+                pane_grid::Axis::Horizontal,
+                top,
+                Panel::Module(crate::modules::ModuleId::Git),
+            )
         {
             panes.resize(split, 0.62);
         } else if show_pipelines
-            && let Some((_, split)) =
-                panes.split(pane_grid::Axis::Horizontal, top, Panel::Pipelines)
+            && let Some((_, split)) = panes.split(
+                pane_grid::Axis::Horizontal,
+                top,
+                Panel::Module(crate::modules::ModuleId::Pipelines),
+            )
         {
             panes.resize(split, 0.72);
         }
@@ -1524,27 +1485,13 @@ async fn prepare_document(
         .map_err(|_| Failure::Read)
 }
 
-pub(crate) fn error_key(error: Failure) -> Key {
-    match error {
-        Failure::MissingTool => Key::GitMissing,
-        Failure::NotRepository => Key::NotRepository,
-        Failure::Read => Key::ReadFailed,
-        Failure::TooLarge => Key::TooLarge,
-        Failure::Binary => Key::Binary,
-        Failure::Access => Key::AccessRequired,
-        Failure::Unavailable => Key::Unavailable,
-        Failure::Storage => Key::StorageSaveFailed,
-        Failure::Credentials => Key::CredentialsUnavailable,
-        Failure::AuthNotConfigured => Key::AuthNotConfigured,
-        Failure::AuthCancelled => Key::Cancelled,
-        Failure::AuthExpired => Key::AuthExpired,
-        Failure::AuthDenied => Key::AuthDenied,
-        Failure::AuthPortBusy => Key::AuthPortBusy,
-        Failure::InvalidToken => Key::InvalidToken,
-        Failure::PermissionDenied => Key::PermissionDenied,
-        Failure::RateLimited => Key::RateLimited,
-    }
-}
+pub(crate) use crate::ui::presentation::error_key;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+use crate::modules::git::git_panes;
+
+#[cfg(test)]
+use crate::domain::repository::Pipeline;

@@ -32,8 +32,8 @@ impl App {
         if self.picking
             || self.space_draft.is_some()
             || self.auth_dialog.is_some()
-            || self.git_actions.has_dialog()
-            || self.git_actions.pending
+            || self.modules.git.git_actions.has_dialog()
+            || self.modules.git.git_actions.pending
         {
             return Task::none();
         }
@@ -84,7 +84,7 @@ impl App {
     }
 
     pub(super) fn update_space(&mut self, message: Message) -> Task<AppMessage> {
-        if self.git_actions.has_dialog() || self.project_add.is_some() {
+        if self.modules.git.git_actions.has_dialog() || self.project_add.is_some() {
             return Task::none();
         }
         match message {
@@ -115,7 +115,7 @@ impl App {
                 if self.loaded
                     && !self.picking
                     && self.auth_dialog.is_none()
-                    && !self.git_actions.pending
+                    && !self.modules.git.git_actions.pending
                     && self
                         .space_draft
                         .as_ref()

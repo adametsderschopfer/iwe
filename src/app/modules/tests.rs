@@ -16,6 +16,41 @@ fn app() -> App {
 }
 
 #[test]
+fn module_panels_start_collapsed_and_git_header_preserves_module_state_when_collapsed() {
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = app();
+        app.i18n = Rc::new(I18n::new(language));
+        app.sync_panels();
+        for module in crate::modules::MODULES {
+            assert!(app.module_enabled(module.id));
+            assert!(!app.module_open(module.id));
+        }
+        assert_eq!(app.panes.len(), 1);
+        let _ = app.update_module(Event::Toggle(ModuleId::Git));
+        app.modules.git.query = "retained search".into();
+        let source = app.preview().id;
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
+        ui.click(iced::widget::Id::new("git-hide")).unwrap();
+        let messages = ui.into_messages().collect::<Vec<_>>();
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Module(Event::Git(crate::modules::git::Event::Hide))
+        )));
+        for message in messages {
+            let _ = app.update(message);
+        }
+        assert!(!app.module_open(ModuleId::Git));
+        assert!(app.module_enabled(ModuleId::Git));
+        assert_eq!(app.panes.len(), 1);
+        assert_eq!(app.preview().id, source);
+        let _ = app.update_module(Event::Toggle(ModuleId::Git));
+        assert!(app.module_open(ModuleId::Git));
+        assert_eq!(app.modules.git.query, "retained search");
+    }
+}
+
+#[test]
 fn deployment_panel_is_independent_and_preserves_source_width_when_hidden() {
     for language in [Language::English, Language::Russian, Language::Spanish] {
         let mut app = app();
@@ -55,24 +90,28 @@ fn deployment_panel_is_independent_and_preserves_source_width_when_hidden() {
 }
 
 #[test]
-fn legacy_disabled_system_module_remains_available_without_losing_tabs() {
+fn disabled_terminal_rejects_events_and_reenable_starts_a_new_session() {
     let mut app = app();
-    app.workspace
-        .preferences
-        .disabled_modules
-        .insert("terminal".into());
     let _ = app.update_module(Event::Toggle(ModuleId::Terminal));
+    let request = app.modules.terminal.active.unwrap();
+    let _ = app.update_module(Event::SetEnabled(ModuleId::Terminal, false));
+    assert!(app.modules.terminal.tabs.is_empty());
+    assert_eq!(
+        iced::advanced::subscription::into_recipes(app.module_subscription()).len(),
+        0
+    );
+    let _ = app.update_module(Event::Terminal(TerminalEvent::Start));
+    let _ = app.update_module(Event::Toggle(ModuleId::Terminal));
+    assert!(app.modules.terminal.tabs.is_empty());
+    let _ = app.update_module(Event::SetEnabled(ModuleId::Terminal, true));
+    let _ = app.update_module(Event::Toggle(ModuleId::Terminal));
+    let fresh = app.modules.terminal.active.unwrap();
+    assert!(fresh > request);
+    let _ = app.update_module(Event::Terminal(TerminalEvent::Started(request, Err(()))));
     assert_eq!(
         app.modules.terminal.active_tab().unwrap().status,
         Status::Starting
     );
-    assert_eq!(app.modules.terminal.tabs.len(), 1);
-    let request = app.modules.terminal.active.unwrap();
-    let _ = app.update_module(Event::Toggle(ModuleId::Terminal));
-    let _ = app.update_module(Event::Toggle(ModuleId::Terminal));
-    assert_eq!(app.modules.terminal.active, Some(request));
-    assert_eq!(app.modules.terminal.tabs.len(), 1);
-    assert!(app.modules.terminal.open);
 }
 
 #[test]
@@ -170,7 +209,7 @@ fn terminal_controls_hide_without_dropping_tabs_and_close_the_last_tab_with_its_
     assert!(
         !app.panes
             .iter()
-            .any(|(_, panel)| matches!(panel, crate::app::Panel::Module(_)))
+            .any(|(_, panel)| matches!(panel, crate::app::Panel::Module(ModuleId::Terminal)))
     );
     click(&mut app, "nav-terminal");
     assert_eq!(app.modules.terminal.tabs.len(), 1);
@@ -215,7 +254,7 @@ fn same_project_refresh_keeps_terminal_and_its_output() {
 }
 
 #[test]
-fn legacy_module_preferences_survive_roundtrip_without_disabling_system_modules() {
+fn module_preferences_survive_roundtrip_and_old_settings_enable_every_module() {
     let mut app = app();
     app.workspace
         .preferences
@@ -232,15 +271,19 @@ fn legacy_module_preferences_survive_roundtrip_without_disabling_system_modules(
     );
     app.workspace = restored;
     let _ = app.update_module(Event::Toggle(ModuleId::Terminal));
-    assert_eq!(app.modules.terminal.tabs.len(), 1);
+    assert!(app.modules.terminal.tabs.is_empty());
     let legacy: crate::domain::workspace::Workspace =
         serde_json::from_str(r#"{"spaces":[],"preferences":{"code_size":16}}"#).unwrap();
     assert!(legacy.preferences.disabled_modules.is_empty());
     assert_eq!(legacy.preferences.code_size, 16);
+    app.workspace = legacy;
+    for module in crate::modules::MODULES {
+        assert!(app.module_enabled(module.id));
+    }
 }
 
 #[test]
-fn system_module_settings_have_no_disable_controls_in_all_languages_and_themes() {
+fn module_settings_offer_activation_controls_in_all_languages_and_themes() {
     for language in [Language::English, Language::Russian, Language::Spanish] {
         for appearance in [
             crate::domain::workspace::Appearance::Dark,
@@ -258,12 +301,7 @@ fn system_module_settings_have_no_disable_controls_in_all_languages_and_themes()
                 (780., 610.),
                 crate::ui::screens::settings::view(&app),
             );
-            for key in [
-                Key::ModulesDescription,
-                Key::SystemModule,
-                Key::Terminal,
-                Key::ModuleEnabled,
-            ] {
+            for key in [Key::ModulesDescription, Key::SystemModule, Key::Terminal] {
                 assert!(
                     ui.find(app.i18n.text(key))
                         .unwrap()
@@ -271,6 +309,20 @@ fn system_module_settings_have_no_disable_controls_in_all_languages_and_themes()
                         .is_some()
                 );
             }
+            let terminal = ui
+                .find(iced::widget::Id::new("module-terminal"))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            let deployment = ui
+                .find(iced::widget::Id::new("module-deployment"))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            assert!(terminal.height <= 60.);
+            assert!(deployment.height <= 60.);
+            assert!((deployment.x - terminal.x).abs() < 1.);
+            assert!((deployment.y - terminal.y - terminal.height).abs() < 1.);
             if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
                 ui.snapshot(&app.theme())
                     .unwrap()
@@ -279,10 +331,14 @@ fn system_module_settings_have_no_disable_controls_in_all_languages_and_themes()
             }
             assert!(
                 ui.find(iced::widget::Id::new("module-terminal-enabled"))
-                    .is_err()
+                    .is_ok()
             );
-            ui.click(app.i18n.text(Key::Terminal)).unwrap();
-            assert!(ui.into_messages().next().is_none());
+            ui.click(iced::widget::Id::new("module-terminal-enabled"))
+                .unwrap();
+            assert!(ui.into_messages().any(|message| matches!(
+                message,
+                Message::Module(Event::SetEnabled(ModuleId::Terminal, false))
+            )));
         }
     }
 }
@@ -372,4 +428,157 @@ fn terminal_panel_fits_the_minimum_workspace_in_all_languages_and_themes() {
             }
         }
     }
+}
+
+#[test]
+fn every_module_can_be_disabled_without_changing_saved_configuration_or_open_files() {
+    let mut app = app();
+    let source = app.preview().id;
+    let deployment = serde_json::to_value(&app.workspace.deployment).unwrap();
+    let spaces = serde_json::to_value(&app.workspace.spaces).unwrap();
+    app.workspace.preferences.show_git = true;
+    app.workspace.preferences.show_pipelines = true;
+    app.workspace
+        .preferences
+        .disabled_modules
+        .insert("future-module".into());
+    for module in crate::modules::MODULES {
+        assert!(app.module_enabled(module.id));
+        let _ = app.update_module(Event::SetEnabled(module.id, false));
+        let _ = app.update_module(Event::Toggle(module.id));
+        assert!(!app.module_open(module.id));
+    }
+    assert_eq!(app.preview().id, source);
+    assert_eq!(
+        serde_json::to_value(&app.workspace.deployment).unwrap(),
+        deployment
+    );
+    assert_eq!(serde_json::to_value(&app.workspace.spaces).unwrap(), spaces);
+    assert!(app.workspace.preferences.show_git);
+    assert!(app.workspace.preferences.show_pipelines);
+    assert_eq!(app.panes.len(), 1);
+    for subscription in [
+        app.module_subscription(),
+        app.pipeline_subscription(),
+        app.jobs_subscription(),
+        app.change_subscription(),
+        app.project_change_subscription(),
+    ] {
+        assert!(iced::advanced::subscription::into_recipes(subscription).is_empty());
+    }
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), (1280., 800.), app.view());
+    for id in [
+        "nav-git",
+        "nav-pipelines",
+        "nav-terminal",
+        "deployment-toggle",
+        "file-panel-changes",
+    ] {
+        assert!(ui.find(iced::widget::Id::from(id)).is_err(), "{id}");
+    }
+    drop(ui);
+    let restored = serde_json::from_str(&serde_json::to_string(&app.workspace).unwrap()).unwrap();
+    app.workspace = restored;
+    for module in crate::modules::MODULES {
+        assert!(!app.module_enabled(module.id));
+        let _ = app.update_module(Event::SetEnabled(module.id, true));
+        assert!(app.module_enabled(module.id));
+    }
+    assert!(
+        app.workspace
+            .preferences
+            .disabled_modules
+            .contains("future-module")
+    );
+}
+
+#[test]
+fn disabled_modules_reject_commands_and_late_results_after_reenable() {
+    use crate::{domain::Failure, modules::pipelines::PipelineState};
+    let mut app = app();
+    let generation = app.generation;
+    let pipeline_request = app.modules.pipelines.pipeline_request;
+    let _ = app.update_module(Event::SetEnabled(ModuleId::Pipelines, false));
+    let _ = app.update(Message::RefreshPipelines);
+    assert!(!app.modules.pipelines.pipeline_refreshing);
+    let _ = app.update_module(Event::SetEnabled(ModuleId::Pipelines, true));
+    let _ = app.update(Message::PipelinesLoaded(
+        generation,
+        pipeline_request,
+        crate::modules::pipelines::transport::Loaded {
+            runs: Err(Failure::Access),
+            username: Some("obsolete".into()),
+        },
+    ));
+    assert!(matches!(
+        app.modules.pipelines.pipelines,
+        PipelineState::Idle
+    ));
+    assert!(app.account_username.is_none());
+    let _ = app.update_module(Event::SetEnabled(ModuleId::Git, false));
+    let _ = app.update(git_message(crate::modules::git::Event::Search(
+        "blocked".into(),
+    )));
+    let _ = app.update(Message::Git(crate::modules::git::actions::Message::Fetch));
+    assert!(app.modules.git.query.is_empty());
+    assert!(!app.modules.git.git_actions.pending);
+    let _ = app.update_module(Event::SetEnabled(ModuleId::Deployment, false));
+    let _ = app.update(deployment_message(
+        crate::modules::deployment::Event::Toggle,
+    ));
+    let _ = app.update(deployment_message(
+        crate::modules::deployment::Event::CurrentFile(false),
+    ));
+    assert!(!app.modules.deployment.open);
+    assert!(!app.modules.deployment.busy);
+}
+
+#[test]
+fn restored_disabled_modules_can_be_enabled_from_the_settings_window() {
+    let mut saved = app().workspace;
+    saved.preferences.disabled_modules = crate::modules::MODULES
+        .iter()
+        .map(|module| module.id.key().to_owned())
+        .collect();
+    let restored = serde_json::from_str(&serde_json::to_string(&saved).unwrap()).unwrap();
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    let _ = app.update(Message::Loaded(Ok((restored, None))));
+    let _ = app.update(Message::Navigate(crate::app::Navigation::Settings));
+    let window = app.windows.settings.unwrap();
+    let click = |app: &mut App, id: String| {
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings::default(),
+            (1120., 760.),
+            app.view_window(window),
+        );
+        ui.click(iced::widget::Id::from(id)).unwrap();
+        let messages = ui.into_messages().collect::<Vec<_>>();
+        assert!(!messages.is_empty());
+        for message in messages {
+            let _ = app.update(message);
+        }
+    };
+    click(&mut app, "settings-tab-modules".into());
+    assert_eq!(app.settings_tab, SettingsTab::Modules);
+    for module in crate::modules::MODULES {
+        assert!(!app.module_enabled(module.id));
+        click(&mut app, format!("module-{}-enabled", module.id.key()));
+        assert!(app.module_enabled(module.id));
+    }
+    assert!(app.workspace.preferences.disabled_modules.is_empty());
+}
+
+#[test]
+fn module_panel_controls_emit_typed_events() {
+    let mut app = app();
+    app.workspace.preferences.show_git = true;
+    app.sync_panels();
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), (1280., 800.), app.view());
+    ui.click(iced::widget::Id::new("git-refresh")).unwrap();
+    assert!(ui.into_messages().any(|message| matches!(
+        message,
+        Message::Module(Event::Git(crate::modules::git::Event::Refresh))
+    )));
 }

@@ -12,6 +12,8 @@ const paths: Record<string, string> = {
   check: 'm5 12 4 4L19 6',
   folder: 'M3 6h6l2 3h10v11H3z',
   code: 'm8 7-5 5 5 5m8-10 5 5-5 5m-3-14-2 18',
+  server: 'M3 3h18v7H3zM3 14h18v7H3zM7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6',
+  terminal: 'M3 4h18v16H3zM7 9l3 3-3 3m6 0h4',
   computer: 'M3 3h18v13H3zM8 21h8m-4-5v5',
   plus: 'M12 5v14M5 12h14',
 }

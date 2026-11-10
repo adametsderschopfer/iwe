@@ -70,7 +70,7 @@ fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
                 Key::UpdateAvailable => {
                     args.set("version", "0.1.11");
                 }
-                Key::FileCount | Key::BranchesSelected => {
+                Key::FileCount | Key::BranchesSelected | Key::DeploymentQueued => {
                     args.set("count", 3);
                 }
                 Key::GitBulkResult => {
@@ -168,7 +168,7 @@ fn module_messages_stay_in_module_catalogs_and_resolve_in_every_language() {
         .map(str::to_owned)
         .collect();
     for language in LANGUAGES {
-        let [shared, terminal, _deployment] = language.sources();
+        let [shared, terminal, _deployment, _git, _pipelines] = language.sources();
         let message_keys = |source: &str| {
             let resource = FluentResource::try_new(source.to_owned()).unwrap();
             resource

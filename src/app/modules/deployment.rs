@@ -18,6 +18,9 @@ impl App {
     }
 
     pub(super) fn update_deployment(&mut self, mut event: Event) -> Task<Message> {
+        if !self.module_enabled(crate::modules::ModuleId::Deployment) {
+            return Task::none();
+        }
         if let Event::SpaceSettings(index) = event {
             let Some(space) = self.workspace.spaces.get(index) else {
                 return Task::none();
@@ -46,7 +49,7 @@ impl App {
                 || self.space_draft.is_some()
                 || self.project_add.is_some()
                 || self.line_navigation.is_some()
-                || self.git_actions.has_dialog()
+                || self.modules.git.git_actions.has_dialog()
             {
                 return Task::none();
             }
@@ -115,15 +118,35 @@ impl App {
         let task = task.map(deployment_message);
         match effect {
             Effect::None => task,
+            Effect::CompareRequested {
+                profile,
+                label,
+                path,
+                remote,
+            } => Task::batch([
+                task,
+                self.begin_remote_comparison(profile, label, path, remote),
+            ]),
+            Effect::EditorSaved(token, result) => {
+                let saved = self.update_editor(crate::app::editor::Event::Saved(
+                    token,
+                    result.map_err(|error| crate::modules::deployment::error_key(&error)),
+                ));
+                Task::batch([task, saved])
+            }
             Effect::Transferred(name) => {
                 self.notifications
                     .success(crate::i18n::Key::DeploymentComplete, Some(name));
                 task
             }
             Effect::Save => Task::batch([task, self.save()]),
+            Effect::Connections => {
+                let select = self.update(Message::SelectSettingsTab(SettingsTab::Connections));
+                Task::batch([task, select, self.open_settings()])
+            }
             Effect::Settings => {
-                self.settings_tab = SettingsTab::Deployment;
-                Task::batch([task, self.open_settings()])
+                let select = self.update(Message::SelectSettingsTab(SettingsTab::Deployment));
+                Task::batch([task, select, self.open_settings()])
             }
             Effect::Preview(Output::Preview {
                 profile_id,

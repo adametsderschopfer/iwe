@@ -25,6 +25,9 @@ pub(crate) enum Icon {
     Terminal,
     Server,
     Plus,
+    Minus,
+    Duplicate,
+    Rename,
     Right,
     Down,
     Drag,
@@ -114,6 +117,22 @@ impl Drawing {
             frame.stroke(&path, stroke);
         };
         match self.0 {
+            Icon::Minus => line(&[(3., 10.), (17., 10.)]),
+            Icon::Duplicate => {
+                line(&[(7., 7.), (17., 7.), (17., 18.), (7., 18.), (7., 7.)]);
+                line(&[(13., 4.), (13., 2.), (3., 2.), (3., 13.), (4., 13.)]);
+            }
+            Icon::Rename => {
+                line(&[
+                    (3., 13.),
+                    (13., 3.),
+                    (17., 7.),
+                    (7., 17.),
+                    (2., 18.),
+                    (3., 13.),
+                ]);
+                line(&[(11., 5.), (15., 9.)]);
+            }
             Icon::Server => {
                 line(&[(3., 3.), (17., 3.), (17., 17.), (3., 17.), (3., 3.)]);
                 line(&[(3., 10.), (17., 10.)]);

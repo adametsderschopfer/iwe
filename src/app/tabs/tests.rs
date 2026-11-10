@@ -70,6 +70,9 @@ fn loaded(app: &mut App, id: u64, text: &str) {
         id,
         Ok(Document::new(text.to_owned(), "rs")),
     ));
+    if let Some(buffer) = &mut app.preview_mut().editor {
+        buffer.reviewing = true;
+    }
 }
 
 fn diff_settings() -> iced::Settings {
@@ -96,6 +99,7 @@ fn comparison_app() -> App {
             "py",
         )),
     );
+    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
     app
 }
 
@@ -712,6 +716,7 @@ fn expanded_ranges_remain_specific_to_each_tab_under_the_shared_mode() {
             "rs",
         );
         let _ = app.finish_preview(first, Ok(document));
+        app.preview_mut().editor.as_mut().unwrap().reviewing = true;
         app.preview_mut().scroll_y = 100.;
         let mut ui =
             iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
@@ -763,12 +768,12 @@ fn selecting_the_open_project_does_not_refresh_or_reset_its_state() {
     let mut app = app();
     let id = open(&mut app, "src/main.rs");
     loaded(&mut app, id, "current source");
-    app.branch = Some(crate::domain::repository::project::BranchKey {
+    app.modules.git.branch = Some(crate::domain::repository::project::BranchKey {
         root: PathBuf::from("project"),
         reference: "refs/heads/feature".to_owned(),
     });
-    app.query = "search".to_owned();
-    app.history_scroll_y = 450.;
+    app.modules.git.query = "search".to_owned();
+    app.modules.git.history_scroll_y = 450.;
     let before = (app.generation, app.repo_request, app.file_request);
     let _ = app.update(Message::SelectProject(0, 0));
     assert_eq!((app.generation, app.repo_request, app.file_request), before);
@@ -778,11 +783,15 @@ fn selecting_the_open_project_does_not_refresh_or_reset_its_state() {
         "current source"
     );
     assert_eq!(
-        app.branch.as_ref().map(|key| key.reference.as_str()),
+        app.modules
+            .git
+            .branch
+            .as_ref()
+            .map(|key| key.reference.as_str()),
         Some("refs/heads/feature")
     );
-    assert_eq!(app.query, "search");
-    assert_eq!(app.history_scroll_y, 450.);
+    assert_eq!(app.modules.git.query, "search");
+    assert_eq!(app.modules.git.history_scroll_y, 450.);
     assert!(!app.saving);
 }
 
@@ -1571,5 +1580,258 @@ fn overflow_arrow_lists_open_tabs_and_selects_a_hidden_file_in_every_language() 
         let _ = app.update(Message::DismissDialog);
         assert!(app.tabs.menu.is_none());
         assert_eq!(app.preview().id, target);
+    }
+}
+
+#[test]
+fn remote_comparison_keeps_local_preview_until_result_and_never_steals_focus() {
+    let mut app = app();
+    let path = PathBuf::from("project/compare.txt");
+    let _ = app.begin_remote_comparison(
+        "server".into(),
+        "Test server".into(),
+        path.clone(),
+        "/srv/compare.txt".into(),
+    );
+    let initial = app.preview().id;
+    assert_eq!(app.active_local_file(), Some(path.clone()));
+    assert!(app.preview().pending_comparison.is_some());
+    let _ = app.finish_preview(initial, Ok(Document::new("local copy\n".into(), "txt")));
+    assert!(app.preview().pending_comparison.is_some());
+    let selected = open(&mut app, "other.txt");
+    let _ = app.open_remote_preview(
+        path,
+        "/srv/compare.txt".into(),
+        ("server".into(), "Test server".into()),
+        Arc::new("local copy\n".into()),
+        Some(Arc::new("server copy\n".into())),
+    );
+    assert_eq!(app.preview().id, selected);
+    let comparison = app
+        .tabs
+        .files
+        .iter()
+        .find(|p| p.pending_comparison.is_some())
+        .unwrap();
+    assert!(comparison.comparison_received());
+    assert_eq!(comparison.document.as_ref().unwrap().text, "local copy\n");
+    let id = comparison.id;
+    // A delayed local preparation response must not replace the server result.
+    let _ = app.finish_preview(initial, Ok(Document::new("obsolete\n".into(), "txt")));
+    let _ = app.finish_preview(
+        id,
+        Ok(Document::from_source(
+            crate::domain::changes::Source {
+                text: "local copy\n".into(),
+                previous: Some("server copy\n".into()),
+                ..Default::default()
+            },
+            "txt",
+        )),
+    );
+    let completed = app.tabs.files.iter().find(|p| p.id == id).unwrap();
+    assert!(completed.pending_comparison.is_none());
+    assert!(completed.document.as_ref().unwrap().comparison.is_some());
+    assert_eq!(app.preview().id, selected);
+}
+
+#[test]
+fn closed_comparison_does_not_reopen_when_server_finishes() {
+    let mut app = app();
+    let path = PathBuf::from("project/compare.txt");
+    let _ = app.begin_remote_comparison(
+        "server".into(),
+        "Test server".into(),
+        path.clone(),
+        "/srv/compare.txt".into(),
+    );
+    let id = app.preview().id;
+    let _ = app.update(Message::CloseTab(id));
+    let count = app.tabs.files.len();
+    let _ = app.open_remote_preview(
+        path,
+        "/srv/compare.txt".into(),
+        ("server".into(), "Test server".into()),
+        Arc::new("local\n".into()),
+        Some(Arc::new("remote\n".into())),
+    );
+    assert_eq!(app.tabs.files.len(), count);
+    assert!(
+        app.tabs
+            .files
+            .iter()
+            .all(|p| p.pending_comparison.is_none())
+    );
+}
+
+#[test]
+fn pending_comparison_renders_two_labeled_panes_in_every_language() {
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = app();
+        app.i18n = Rc::new(I18n::new(language));
+        let _ = app.begin_remote_comparison(
+            "server".into(),
+            "Test server".into(),
+            "project/compare.txt".into(),
+            "/srv/compare.txt".into(),
+        );
+        let id = app.preview().id;
+        let _ = app.finish_preview(id, Ok(Document::new("local copy\n".into(), "txt")));
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1440., 920.), app.view());
+        let remote = ui
+            .find(app.i18n.text(crate::i18n::Key::DeploymentRemote))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let local = ui
+            .find(app.i18n.text(crate::i18n::Key::DeploymentLocal))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!(remote.x < local.x);
+        let content = ui
+            .find(iced::widget::Id::new("source-code"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!(content.x >= local.x - 12.);
+    }
+}
+
+#[tokio::test]
+async fn pending_remote_comparison_reads_local_text_without_waiting_for_network() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::{Action, task};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("compare.txt");
+    std::fs::write(&path, "local copy\n").unwrap();
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    app.workspace
+        .create_space("Test".into(), vec![directory.path().to_owned()]);
+    let mut next = app.begin_remote_comparison(
+        "server".into(),
+        "Test server".into(),
+        path.clone(),
+        "/srv/compare.txt".into(),
+    );
+    for _ in 0..3 {
+        let mut stream = task::into_stream(next).unwrap();
+        let message = loop {
+            if let Action::Output(message) = stream.next().await.unwrap() {
+                break message;
+            }
+        };
+        next = app.update(message);
+        assert_eq!(
+            app.preview().document.as_ref().unwrap().text,
+            "local copy\n"
+        );
+        assert!(app.preview().pending_comparison.is_some());
+    }
+    assert!(!app.preview().loading);
+    assert!(
+        app.preview()
+            .document
+            .as_ref()
+            .unwrap()
+            .comparison
+            .is_none()
+    );
+    assert_eq!(std::fs::read_to_string(path).unwrap(), "local copy\n");
+}
+
+#[tokio::test]
+async fn remote_comparison_prepares_full_result_in_background() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::{Action, task};
+    let mut app = app();
+    let path = PathBuf::from("project/compare.txt");
+    let _ = app.begin_remote_comparison(
+        "server".into(),
+        "Test server".into(),
+        path.clone(),
+        "/srv/compare.txt".into(),
+    );
+    let id = app.preview().id;
+    let _ = app.finish_preview(id, Ok(Document::new("local\n".into(), "txt")));
+    let selected = open(&mut app, "other.txt");
+    let mut next = app.open_remote_preview(
+        path,
+        "/srv/compare.txt".into(),
+        ("server".into(), "Test server".into()),
+        Arc::new("local\n".into()),
+        Some(Arc::new("server\n".into())),
+    );
+    for _ in 0..3 {
+        let mut stream = task::into_stream(next).unwrap();
+        let message = loop {
+            if let Action::Output(message) = stream.next().await.unwrap() {
+                break message;
+            }
+        };
+        next = app.update(message);
+        assert_eq!(app.preview().id, selected);
+    }
+    let comparison = app.tabs.files.iter().find(|p| p.remote).unwrap();
+    assert!(comparison.pending_comparison.is_none());
+    assert_eq!(comparison.document.as_ref().unwrap().text, "local\n");
+    assert!(comparison.document.as_ref().unwrap().comparison.is_some());
+    let id = comparison.id;
+    let _ = app.select_tab(id);
+    let mut ui = iced_test::Simulator::with_size(diff_settings(), (1440., 920.), app.view());
+    assert!(
+        ui.find(app.i18n.text(crate::i18n::Key::DeploymentRemote))
+            .unwrap()
+            .visible_bounds()
+            .is_some()
+    );
+    assert!(
+        ui.find(app.i18n.text(crate::i18n::Key::DeploymentLocal))
+            .unwrap()
+            .visible_bounds()
+            .is_some()
+    );
+}
+
+#[tokio::test]
+async fn explicit_remote_comparison_keeps_identical_and_empty_files_side_by_side() {
+    for text in ["same content\n", ""] {
+        let source = Source::Remote {
+            path: "same.txt".into(),
+            remote: "/srv/same.txt".into(),
+            label: "Test server".into(),
+            identity: "server".into(),
+            local_root: None,
+            text: Arc::new(text.into()),
+            previous: Some(Arc::new(text.into())),
+        };
+        let document = source
+            .clone()
+            .compare(Arc::new(Document::new(text.into(), "txt")))
+            .await
+            .unwrap();
+        let comparison = document
+            .comparison
+            .as_ref()
+            .expect("Explicit comparisons retain both sides");
+        assert!(comparison.hunks.is_empty());
+        assert_eq!(document.text, text);
+        let mut app = app();
+        let _ = app.open_source(source);
+        let id = app.preview().id;
+        let _ = app.finish_preview(id, Ok(document));
+        assert!(app.preview().editor.is_none());
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1440., 920.), app.view());
+        for key in [
+            crate::i18n::Key::DeploymentRemote,
+            crate::i18n::Key::DeploymentLocal,
+        ] {
+            assert!(
+                ui.find(app.i18n.text(key))
+                    .unwrap()
+                    .visible_bounds()
+                    .is_some()
+            );
+        }
     }
 }

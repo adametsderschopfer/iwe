@@ -24,11 +24,18 @@ impl App {
                 reference: branch.reference.clone(),
             });
         self.repository_menu = None;
-        self.expanded_branch_folders
+        self.modules
+            .git
+            .expanded_branch_folders
             .insert(format!("repo:{}", root.display()));
-        self.expanded_branch_folders
+        self.modules
+            .git
+            .expanded_branch_folders
             .insert(format!("{}:false", root.display()));
-        self.expanded_branch_folders.insert("false".into());
+        self.modules
+            .git
+            .expanded_branch_folders
+            .insert("false".into());
         let history = if let Some(branch) = branch {
             self.update(Message::SelectBranch(branch))
         } else {
@@ -45,8 +52,8 @@ impl App {
                 root.clone(),
                 super::repository_cache::Snapshot {
                     repository: repository.clone(),
-                    branch: self.branch.clone(),
-                    folders: self.expanded_branch_folders.clone(),
+                    branch: self.modules.git.branch.clone(),
+                    folders: self.modules.git.expanded_branch_folders.clone(),
                 },
             );
         }
@@ -60,8 +67,8 @@ impl App {
             return false;
         };
         self.repository = Some(snapshot.repository);
-        self.branch = snapshot.branch;
-        self.expanded_branch_folders = snapshot.folders;
+        self.modules.git.branch = snapshot.branch;
+        self.modules.git.expanded_branch_folders = snapshot.folders;
         true
     }
 
@@ -69,25 +76,42 @@ impl App {
         let Some(path) = self.workspace.directory().cloned() else {
             return Task::none();
         };
+        let git_enabled = self.module_enabled(crate::modules::ModuleId::Git);
+        if !git_enabled && !self.module_enabled(crate::modules::ModuleId::Pipelines) {
+            self.repository = None;
+            self.repository_error = None;
+            self.loading = false;
+            return Task::none();
+        }
         self.loading = true;
-        self.history_loading = false;
-        self.history_error = None;
+        self.modules.git.history_loading = false;
+        self.modules.git.history_error = None;
         self.repo_request += 1;
         let (generation, request) = (self.generation, self.repo_request);
+        let branch = self.modules.git.branch.clone();
         let load = Task::perform(
-            repository::load_project(path, self.branch.clone()),
+            async move {
+                if git_enabled {
+                    repository::load_project(path, branch).await
+                } else {
+                    repository::load_project_remotes(path).await
+                }
+            },
             move |result| Message::RepositoryLoaded(generation, request, result),
         );
         Task::batch([load, self.reset_history_scroll()])
     }
 
     pub(super) fn reset_history_scroll(&mut self) -> Task<Message> {
-        self.history_scroll_y = 0.;
+        self.modules.git.history_scroll_y = 0.;
         operation::scroll_to("commit-history", operation::AbsoluteOffset { x: 0., y: 0. })
     }
 
     pub(super) fn load_more_history(&mut self) -> Task<Message> {
-        if self.loading || self.history_loading {
+        if !self.module_enabled(crate::modules::ModuleId::Git)
+            || self.loading
+            || self.modules.git.history_loading
+        {
             return Task::none();
         }
         let Some(repo) = self.repository.as_ref() else {
@@ -98,8 +122,8 @@ impl App {
         };
         let offset = repo.commits.len();
         let (generation, request) = (self.generation, self.repo_request);
-        self.history_loading = true;
-        self.history_error = None;
+        self.modules.git.history_loading = true;
+        self.modules.git.history_error = None;
         Task::perform(repository::load_project_history(cursor), move |result| {
             Message::HistoryLoaded(generation, request, offset, result)
         })
@@ -113,14 +137,14 @@ impl App {
             return Task::none();
         };
         let root = id.root.clone();
-        self.selected_commit = Some(id);
+        self.modules.git.selected_commit = Some(id);
         self.show_commit_files();
-        self.collapsed_commit_folders.clear();
-        self.changed_files.clear();
-        self.changes_error = None;
-        self.changes_loading = true;
-        self.commit_request += 1;
-        let (generation, request) = (self.generation, self.commit_request);
+        self.modules.git.collapsed_commit_folders.clear();
+        self.modules.git.changed_files.clear();
+        self.modules.git.changes_error = None;
+        self.modules.git.changes_loading = true;
+        self.modules.git.commit_request += 1;
+        let (generation, request) = (self.generation, self.modules.git.commit_request);
         Task::perform(repository::changed_files(root, commit), move |result| {
             Message::ChangesLoaded(generation, request, result)
         })

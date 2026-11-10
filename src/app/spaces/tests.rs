@@ -697,10 +697,10 @@ fn space_deletion_rejects_pending_actions_and_preserves_another_active_project()
     app.workspace
         .create_space("Keep".into(), vec![PathBuf::from("keep")]);
     app.collapsed_spaces.insert(1);
-    app.git_actions.pending = true;
+    app.modules.git.git_actions.pending = true;
     let _ = app.update_space(Message::Delete(0));
     assert_eq!(app.workspace.spaces.len(), 2);
-    app.git_actions.pending = false;
+    app.modules.git.git_actions.pending = false;
     let _ = app.update_space(Message::Delete(0));
     assert_eq!(app.workspace.selected_space, Some(0));
     assert_eq!(app.workspace.directory(), Some(&PathBuf::from("keep")));

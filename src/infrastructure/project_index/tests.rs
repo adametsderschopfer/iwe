@@ -34,6 +34,98 @@ fn disk_cache_roundtrip_rejects_corruption_and_paths_outside_the_project() {
 }
 
 #[test]
+fn cache_serialization_keeps_the_existing_format_and_preserves_previous_data_on_overflow() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("project");
+    let path = temp.path().join("cache.json");
+    let tree = Tree::from([(root.clone(), vec![folder(&root, "src")])]);
+    save_at(&path, &root, &tree).unwrap();
+    let expected = serde_json::to_vec(&Stored {
+        version: 1,
+        root: root.clone(),
+        directories: tree.clone(),
+    })
+    .unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), expected);
+    let oversized = Tree::from([(
+        root.clone(),
+        vec![FileEntry {
+            name: "x".repeat(MAX_CACHE_BYTES as usize),
+            path: root.join("large"),
+            directory: false,
+        }],
+    )]);
+    assert_eq!(save_at(&path, &root, &oversized), Err(Failure::TooLarge));
+    assert_eq!(std::fs::read(&path).unwrap(), expected);
+    assert_eq!(load_at(&path, &root), Some(tree));
+}
+
+#[test]
+fn index_counts_follow_replacements_and_only_remove_obsolete_subtrees() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().to_path_buf();
+    let removed = root.join("src");
+    let retained = root.join("src-other");
+    std::fs::create_dir_all(removed.join("nested")).unwrap();
+    std::fs::create_dir(&retained).unwrap();
+    std::fs::write(retained.join("keep.rs"), "retained").unwrap();
+    let tree = Tree::from([
+        (
+            root.clone(),
+            vec![folder(&root, "src"), folder(&root, "src-other")],
+        ),
+        (removed.clone(), vec![folder(&removed, "nested")]),
+        (
+            removed.join("nested"),
+            vec![folder(&removed.join("nested"), "old")],
+        ),
+        (retained.clone(), vec![]),
+    ]);
+    let (_handle, _events, mut worker) = session(root.clone(), tree);
+    worker.storage = None;
+    let mut queue = VecDeque::new();
+    let mut queued = BTreeSet::new();
+    std::fs::remove_dir_all(&removed).unwrap();
+    assert!(worker.read(&root, &mut queue, &mut queued, true));
+    assert!(!worker.tree.contains_key(&removed));
+    assert!(!worker.tree.contains_key(&removed.join("nested")));
+    assert!(worker.tree.contains_key(&retained));
+    assert_eq!(worker.entry_count, 1);
+    assert!(worker.read(&retained, &mut queue, &mut queued, true));
+    assert_eq!(worker.entry_count, 2);
+    assert!(!worker.read(&retained, &mut queue, &mut queued, true));
+    assert_eq!(worker.entry_count, 2);
+}
+
+#[tokio::test]
+async fn cancelled_index_stops_when_its_output_queue_is_full() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().to_path_buf();
+    let (handle, _events, mut worker) = session(root.clone(), Tree::new());
+    worker.storage = None;
+    for _ in 0..worker.events.max_capacity() {
+        assert!(worker.send(Event::Directory(root.clone(), Ok(vec![]))));
+    }
+    let task = tokio::spawn(run(worker));
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    assert!(!task.is_finished());
+    drop(handle);
+    tokio::time::timeout(Duration::from_secs(2), task)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn abandoned_index_receiver_cancels_further_traversal() {
+    let temp = tempfile::tempdir().unwrap();
+    let (handle, events, worker) = session(temp.path().into(), Tree::new());
+    drop(events);
+    assert!(!worker.send(Event::Directory(temp.path().into(), Ok(vec![]))));
+    assert!(handle.cancelled.is_cancelled());
+}
+
+#[test]
 fn background_traversal_skips_generated_folders_and_stays_bounded() {
     let root = Path::new("project");
     assert!(prefetch(root, &root.join("src/screens")));

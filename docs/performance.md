@@ -118,3 +118,26 @@ IWE_PROFILE_BACKEND=wgpu cargo test --locked icon_redraws -- --nocapture --test-
 executable, or `cargo run --locked --release` to build and start it. Performance comparisons must
 use the same build profile and renderer. Moving active text or renderer caches to disk would add
 reads during interaction, so these caches remain in memory.
+
+## Terminal and directory-index follow-up
+
+This pass reviews source code without creating application or test executables. Its findings are
+structural; it reports no new timing or process-memory measurements.
+
+- The terminal previously rebuilt every visible cell during unrelated redraws. It now retains
+  drawing geometry until its screen revision or presentation changes. The terminal also shares the
+  source viewer's platform font.
+- The index previously counted every cached entry before each directory read. It now maintains that
+  count during insertions, replacements, and subtree removals. Pruning visits only the refreshed
+  subtree.
+- Cache writes previously cloned directory entries and allocated the complete JSON document.
+  Serialization now borrows entries and streams through a bounded buffer into an atomic temporary
+  file. The existing 32 MiB limit and cache format remain unchanged.
+- A full output queue previously blocked index cancellation. Queue waits now check cancellation, and
+  a closed receiver cancels further traversal. A dedicated session thread replaces the long-lived
+  task in the asynchronous runtime's blocking pool.
+
+Regression tests cover terminal drawing reuse, visual invalidation, scrollback revisions, subtree
+counts, cache compatibility, oversized writes, and cancellation with a full queue. These tests
+require execution in a later verification run. This pass checks their types without linking test
+executables. Native checks and Windows/Linux execution remain unavailable in this pass.

@@ -78,7 +78,11 @@ impl App {
     }
 
     pub(super) fn change_subscription(&self) -> Subscription<Message> {
-        if self.loaded && self.workspace.directory().is_some() && !self.changes.disabled {
+        if self.module_enabled(crate::modules::ModuleId::Git)
+            && self.loaded
+            && self.workspace.directory().is_some()
+            && !self.changes.disabled
+        {
             iced::time::every(Duration::from_secs(3)).map(|_| Message::Worktree(Event::Refresh))
         } else {
             Subscription::none()
@@ -86,6 +90,9 @@ impl App {
     }
 
     pub(super) fn refresh_changes(&mut self) -> Task<Message> {
+        if !self.module_enabled(crate::modules::ModuleId::Git) {
+            return Task::none();
+        }
         if self.changes.pending {
             return Task::none();
         }
@@ -179,7 +186,15 @@ impl App {
     }
 
     pub(super) fn refresh_preview(&mut self) -> Task<Message> {
-        if self.preview().loading
+        if !self.module_enabled(crate::modules::ModuleId::Git) {
+            return Task::none();
+        }
+        if self
+            .preview()
+            .editor
+            .as_ref()
+            .is_some_and(super::editor::Buffer::protected)
+            || self.preview().loading
             || self
                 .preview()
                 .document
@@ -224,3 +239,13 @@ impl App {
 
 #[cfg(test)]
 mod tests;
+
+impl State {
+    pub(crate) fn suspend(&mut self) {
+        let request = self.request + 1;
+        *self = Self {
+            request,
+            ..Self::default()
+        };
+    }
+}

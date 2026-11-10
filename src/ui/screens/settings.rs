@@ -25,11 +25,6 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
             "connections",
         ),
         (
-            SettingsTab::DeploymentKeys,
-            Key::DeploymentKeys,
-            "deployment-keys",
-        ),
-        (
             SettingsTab::Deployment,
             Key::DeploymentProfiles,
             "deployment",
@@ -38,6 +33,11 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         (SettingsTab::About, Key::About, "about"),
     ];
     for &(tab, key, id) in &sections {
+        if matches!(tab, SettingsTab::Connections | SettingsTab::Deployment)
+            && !app.module_enabled(crate::modules::ModuleId::Deployment)
+        {
+            continue;
+        }
         if tab == SettingsTab::Connections {
             tabs = tabs.push(
                 container(text(t(Key::Deployment)).size(13).font(theme::semibold()))
@@ -45,10 +45,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     .padding([12, 12]),
             );
         }
-        let nested = matches!(
-            tab,
-            SettingsTab::Connections | SettingsTab::DeploymentKeys | SettingsTab::Deployment
-        );
+        let nested = matches!(tab, SettingsTab::Connections | SettingsTab::Deployment);
         tabs = tabs.push(
             container(
                 button(text(t(key)).size(13))
@@ -85,7 +82,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 setting(
                     t(Key::Language),
                     t(Key::LanguageDescription),
-                    languages.into()
+                    languages.wrap().into()
                 ),
                 setting(
                     t(Key::Appearance),
@@ -107,7 +104,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     .into()
                 ),
             ]
-            .spacing(16)
+            .spacing(0)
             .into()
         }
         SettingsTab::Code => column![
@@ -135,7 +132,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     .into()
             ),
         ]
-        .spacing(16)
+        .spacing(0)
         .into(),
         SettingsTab::Panels => column![
             setting(
@@ -143,7 +140,9 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 t(Key::GitDescription),
                 toggler(preferences.show_git)
                     .style(theme::toggle)
-                    .on_toggle(|_| Message::TogglePanel(Panel::Git))
+                    .on_toggle_maybe(app.module_enabled(crate::modules::ModuleId::Git).then_some(
+                        |_| Message::TogglePanel(Panel::Module(crate::modules::ModuleId::Git))
+                    ))
                     .into()
             ),
             setting(
@@ -151,20 +150,19 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 t(Key::PipelinesDescription),
                 toggler(preferences.show_pipelines)
                     .style(theme::toggle)
-                    .on_toggle(|_| Message::TogglePanel(Panel::Pipelines))
+                    .on_toggle_maybe(
+                        app.module_enabled(crate::modules::ModuleId::Pipelines)
+                            .then_some(|_| Message::TogglePanel(Panel::Module(
+                                crate::modules::ModuleId::Pipelines
+                            )))
+                    )
                     .into()
             ),
         ]
-        .spacing(16)
+        .spacing(0)
         .into(),
         SettingsTab::Modules => crate::ui::modules::settings(app),
         SettingsTab::Connections => crate::modules::deployment::connections_view(
-            &app.modules.deployment,
-            &app.workspace.deployment,
-            &app.i18n,
-        )
-        .map(crate::app::modules::deployment_message),
-        SettingsTab::DeploymentKeys => crate::modules::deployment::keys_view(
             &app.modules.deployment,
             &app.workspace.deployment,
             &app.i18n,
@@ -187,6 +185,11 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                         t(Key::GoToLine),
                         t(Key::GoToLineDescription),
                         shortcut_control(app, Command::GoToLine),
+                    ),
+                    setting(
+                        t(Key::EditorSave),
+                        t(Key::EditorSaveDescription),
+                        shortcut_control(app, Command::SaveFile),
                     ),
                     setting(
                         t(Key::CopyCodeSelection),
@@ -262,36 +265,43 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .width(theme::SETTINGS_SIDEBAR_WIDTH)
     .height(Length::Fill)
     .style(theme::sidebar);
-    let content = column![
-        container(
-            column![
-                container(text(t(heading)).size(24).font(theme::semibold()))
-                    .id("settings-section-heading"),
-                text(t(Key::SettingsDescription))
-                    .size(14)
-                    .style(theme::MUTED.text()),
-                divider(),
-            ]
-            .spacing(12)
-        )
-        .padding([24, 24]),
+    let deployment = matches!(
+        app.settings_tab,
+        SettingsTab::Connections | SettingsTab::Deployment
+    );
+    let body: Element<'_, Message> = if deployment {
+        container(section)
+            .id("settings-content")
+            .height(Length::Fill)
+            .width(Length::Fill)
+            .into()
+    } else {
         scrollable(
             container(
                 column![
                     section,
                     text(t(Key::SettingsSaved))
                         .size(12)
-                        .style(theme::FAINT.text())
+                        .style(theme::MUTED.text())
                 ]
-                .spacing(24)
-                .max_width(760)
+                .spacing(20)
+                .width(Length::Fill)
+                .max_width(theme::SETTINGS_CONTENT_WIDTH),
             )
-            .padding([0, 24])
-            .center_x(Length::Fill)
+            .padding(theme::SETTINGS_CONTENT_INSET)
+            .width(Length::Fill),
         )
         .id("settings-content")
         .style(theme::scroll)
-        .height(Length::Fill),
+        .height(Length::Fill)
+        .into()
+    };
+    let content = column![
+        container(text(t(heading)).size(20).font(theme::semibold()))
+            .id("settings-section-heading")
+            .padding([16., theme::SETTINGS_CONTENT_INSET]),
+        divider(),
+        body,
     ]
     .height(Length::Fill)
     .width(Length::Fill);
@@ -307,7 +317,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         super::modal::overlay(
             base,
             dialog.map(crate::app::modules::deployment_message),
-            560.,
+            640.,
         )
     } else {
         base
@@ -321,8 +331,8 @@ fn shortcut_group<'a>(
 ) -> Element<'a, Message> {
     container(
         column![
-            text(title).size(17).font(theme::semibold()),
-            column(shortcuts).spacing(8),
+            text(title).size(14).font(theme::semibold()),
+            column(shortcuts).spacing(0),
         ]
         .spacing(8),
     )
@@ -370,25 +380,32 @@ fn shortcut_control(app: &App, command: Command) -> Element<'_, Message> {
         .into()
 }
 
-fn setting<'a>(
+pub(crate) fn setting<'a>(
     title: String,
     description: String,
     control: Element<'a, Message>,
 ) -> Element<'a, Message> {
-    column![
-        column![
-            text(title).size(15),
+    let mut label = column![text(title).size(14)].spacing(4);
+    if !description.is_empty() {
+        label = label.push(
             text(description)
                 .size(13)
-                .line_height(1.4)
-                .style(theme::MUTED.text())
+                .line_height(1.3)
+                .style(theme::MUTED.text()),
+        );
+    }
+    column![
+        row![
+            label.width(Length::Fill),
+            container(control)
+                .width(theme::SETTINGS_CONTROL_WIDTH)
+                .align_x(iced::alignment::Horizontal::Right),
         ]
-        .spacing(6)
-        .width(Length::Fill),
-        control
+        .spacing(24)
+        .align_y(Alignment::Center)
+        .padding([14, 0]),
+        divider(),
     ]
-    .spacing(12)
     .width(Length::Fill)
-    .padding([12, 0])
     .into()
 }

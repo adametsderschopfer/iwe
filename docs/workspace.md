@@ -432,8 +432,8 @@ hashes and preserves separate repository lanes across pages. Commit file changes
 first parent. Root commits compare against an empty tree. Commit previews highlight changes against
 that same parent. Deleted files show their previous contents in red. The file tab identifies the
 selected commit. Other files open their selected commit revision. History and source previews remain
-read-only. Only explicit Git actions change branches, files, or remotes. IWE Code does not create
-commits.
+read-only for Git revisions and comparisons. Local and server text files support explicit editing
+and saving. IWE Code does not create commits.
 
 Commit titles follow the active graph lanes in each row. Wider sections elsewhere do not add empty
 space before titles. Author and date columns remain aligned. Dates include hours and minutes in the
@@ -538,7 +538,9 @@ The gear at the bottom left opens settings in a separate window. Reopening setti
 existing window. Closing settings keeps the workspace open. Settings changes apply to both windows
 immediately. Command+, on macOS or Ctrl+, on Windows and Linux also opens settings. A persistent
 left navigation column lists General, Code, Panels, Keyboard shortcuts, and About. The selected
-section appears on the right with its own heading and scrollable controls. On macOS, an opaque
+section appears on the right with its own heading and scrollable controls. Section headings and
+controls share one left edge. Compact rows place descriptions left and controls right. Subtle
+separators divide rows. Module settings use the same compact list layout. On macOS, an opaque
 application header covers the titlebar area while preserving native window controls. The header
 supports dragging and double-clicking to maximize or restore the settings window. General selects
 English, Russian, Spanish, or the system language. Language changes apply immediately. General also
@@ -549,13 +551,13 @@ size and line numbers. Opening Git closes pipelines. Opening pipelines closes Gi
 remain hidden. Drag the horizontal divider to resize the visible panel.
 
 On macOS, **Spaces**, **Projects**, **Settings**, and **Deployment** appear beside the **IWE Code**
-application menu. **Deployment** opens the connection, shared SSH key, or space profile section in
-settings. These sections also appear under the **Deployment** group inside settings. **Spaces**
-contains only **New space**. **Settings** opens the settings window through its menu item.
-**Projects** groups projects by their space. An empty **Projects** menu shows a disabled **No
-projects yet** item. Choosing a project brings the workspace window forward. The menu follows
-language and workspace changes. Modal dialogs disable workspace navigation in the menu. Windows and
-Linux retain their existing sidebar controls.
+application menu. **Deployment** opens the connection or space profile section in settings. These
+sections also appear under the **Deployment** group inside settings. Shared SSH keys open from the
+connection section. **Spaces** contains only **New space**. **Settings** opens the settings window
+through its menu item. **Projects** groups projects by their space. An empty **Projects** menu shows
+a disabled **No projects yet** item. Choosing a project brings the workspace window forward. The
+menu follows language and workspace changes. Modal dialogs disable workspace navigation in the menu.
+Windows and Linux retain their existing sidebar controls.
 
 Preferences and projects are saved automatically in the system configuration directory. Writes
 replace the previous configuration atomically. A damaged configuration is preserved without
@@ -582,10 +584,10 @@ lists the defaults.
 
 ## Modules
 
-Open **Settings → Modules** to manage bundled modules. The terminal is the first system module.
-System modules are always enabled and cannot be removed. Open **Terminal** in the sidebar to run
-commands in the selected project's folder. See [modules and terminal sessions](modules.md) for
-controls, session behavior, and limits.
+Open **Settings → Modules** to enable or disable Git, Pipelines, Terminal, and Deployment. All
+modules are enabled by default. Disabling preserves their saved settings. Modules cannot be removed.
+Open **Terminal** in the sidebar to run commands in the selected project's folder. See
+[modules and terminal sessions](modules.md) for controls, session behavior, and limits.
 
 ## Application updates
 
@@ -610,3 +612,22 @@ dependency. The `lru` issue requires a key with a panicking destructor during `p
 unwinding recovery. The inspected `cryoglyph` cache uses copyable glyph keys and `pop_lru()`. This
 limits the identified exposure but does not remove the upstream advisory. The compatible Iced
 release still requires the older dependency. No advisory exclusions are configured.
+
+## Text editing
+
+Local text files and server files open in an editable buffer when their size does not exceed 2 MB.
+Git revisions, comparison snapshots, and paged files retain the source viewer. Use Save or Command+S
+on macOS, or Ctrl+S on Windows and Linux. The shortcut can be changed in settings and follows
+physical keys across keyboard layouts. Undo uses Command+Z or Ctrl+Z. Add Shift for redo. The editor
+supports selection, cut, copy, paste, multiline syntax highlighting, and line navigation. Tab
+inserts four spaces. The tab marks unsaved changes. View saved version opens the existing source and
+comparison viewer. Switch back with Edit. This viewer shows the last disk snapshot, not unsaved
+text.
+
+Closing edited tabs, switching projects, disabling modules, installing updates, and closing the
+application require a save or discard decision. Cancel keeps the buffers open. Edits made during a
+save remain unsaved after that save completes. Save failures retain the buffer. Local saves prepare
+a temporary file beside the destination and preserve file permissions. The editor checks the disk
+content before replacement and refuses conflicting external edits. Symbolic link files must be
+opened through their original path before saving. Buffers and bounded undo history remain in memory;
+crash recovery is not provided.

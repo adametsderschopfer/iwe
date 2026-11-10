@@ -255,3 +255,27 @@ async fn discovery_does_not_follow_child_directory_symlinks() {
     assert_eq!(loaded.repositories.len(), 1);
     assert_eq!(loaded.repositories[0].root, root.join("backend"));
 }
+
+#[tokio::test]
+async fn pipeline_discovery_does_not_load_git_history_or_branches() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = fs::canonicalize(directory.path()).unwrap();
+    repository(&root, 3, 1_700_000_000, 1);
+    command(
+        &root,
+        &[
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/example/test.git",
+        ],
+    );
+    let loaded = load_project_remotes(root).await.unwrap();
+    assert!(loaded.commits.is_empty());
+    assert!(loaded.next_history.is_none());
+    let repo = loaded.active().unwrap();
+    assert!(repo.branches.is_empty());
+    assert!(repo.commits.is_empty());
+    assert_eq!(repo.remote.as_ref().unwrap().project, "example/test");
+    assert_eq!(repo.remotes, ["origin"]);
+}

@@ -8,5 +8,6 @@ mod view;
 pub(crate) use state::{Effect, Event, State};
 pub(crate) use transfer::{Operation, Output};
 pub(crate) use view::{
-    connections_view, keys_view, overlay, panel, profiles_view, settings_dialog,
+    activity, activity_details, connections_view, error_key, overlay, panel, profiles_view,
+    settings_dialog,
 };

@@ -30,7 +30,7 @@ pub(crate) enum Authentication {
     Key(String),
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Connection {
     pub id: String,
     pub name: String,
@@ -43,26 +43,26 @@ pub(crate) struct Connection {
     pub trusted_host_key: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PrivateKey {
     pub id: String,
     pub name: String,
     pub path: PathBuf,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Connections {
     pub connections: Vec<Connection>,
     pub keys: Vec<PrivateKey>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Mapping {
     pub local: PathBuf,
     pub remote: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Profile {
     pub id: String,
     pub name: String,

@@ -2,6 +2,8 @@
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ModuleId {
+    Git,
+    Pipelines,
     Terminal,
     Deployment,
 }
@@ -19,6 +21,14 @@ pub(crate) struct Module {
 
 pub(crate) const MODULES: &[Module] = &[
     Module {
+        id: ModuleId::Git,
+        origin: Origin::System,
+    },
+    Module {
+        id: ModuleId::Pipelines,
+        origin: Origin::System,
+    },
+    Module {
         id: ModuleId::Terminal,
         origin: Origin::System,
     },
@@ -31,6 +41,8 @@ pub(crate) const MODULES: &[Module] = &[
 impl ModuleId {
     pub(crate) const fn key(self) -> &'static str {
         match self {
+            Self::Git => "git",
+            Self::Pipelines => "pipelines",
             Self::Terminal => "terminal",
             Self::Deployment => "deployment",
         }

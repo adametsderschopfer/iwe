@@ -103,6 +103,9 @@ pub(crate) const COMMIT_REPOSITORY_MAX_WIDTH: f32 = 160.;
 pub(crate) const SIDEBAR_WIDTH: f32 = 264.0;
 pub(crate) const SIDEBAR_SCROLL_GAP: f32 = 6.0;
 pub(crate) const SETTINGS_SIDEBAR_WIDTH: f32 = 220.0;
+pub(crate) const SETTINGS_CONTENT_INSET: f32 = 24.0;
+pub(crate) const SETTINGS_CONTENT_WIDTH: f32 = 860.0;
+pub(crate) const SETTINGS_CONTROL_WIDTH: f32 = 320.0;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) const SETTINGS_HEADER_HEIGHT: f32 = 48.0;
 pub(crate) const NOTIFICATION_WIDTH: f32 = 380.0;

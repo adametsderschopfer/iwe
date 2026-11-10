@@ -86,7 +86,6 @@ fn deployment_menu_opens_matching_settings_and_preserves_project() {
     let project = app.workspace.directory().cloned();
     for (action, tab) in [
         (Action::DeploymentConnections, SettingsTab::Connections),
-        (Action::DeploymentKeys, SettingsTab::DeploymentKeys),
         (Action::DeploymentProfiles, SettingsTab::Deployment),
     ] {
         let _ = app.update_native_menu(Event::Polled(Ok(vec![action])));

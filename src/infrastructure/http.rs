@@ -10,13 +10,13 @@ use std::time::Duration;
 use zeroize::Zeroizing;
 
 #[derive(Clone)]
-pub(super) struct Http {
+pub(crate) struct Http {
     client: Client,
     #[cfg(test)]
     origin: Option<url::Url>,
 }
 
-pub(super) struct Response {
+pub(crate) struct Response {
     pub status: StatusCode,
     pub limited: bool,
     pub bytes: Zeroizing<Vec<u8>>,
@@ -141,12 +141,12 @@ impl Http {
     }
 
     #[cfg(test)]
-    pub(super) fn local() -> Self {
+    pub(crate) fn local() -> Self {
         Self::build(false).unwrap()
     }
 
     #[cfg(test)]
-    pub(super) fn fixture(origin: &str) -> Self {
+    pub(crate) fn fixture(origin: &str) -> Self {
         Self {
             origin: Some(url::Url::parse(origin).unwrap()),
             ..Self::local()

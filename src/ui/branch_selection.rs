@@ -1,10 +1,6 @@
 //! Keep command-click selection separate from ordinary controls and outside clicks.
 
-use crate::app::{
-    Message,
-    branch_selection::{Event as SelectionEvent, Target},
-    git_actions,
-};
+use crate::modules::git::selection::{Event as SelectionEvent, Target};
 use iced::{
     Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
     advanced::{
@@ -14,38 +10,44 @@ use iced::{
 };
 use std::cell::Cell;
 
-pub(crate) fn target<'a>(
+pub(crate) fn target<'a, Message: 'a>(
     content: impl Into<Element<'a, Message>>,
     command: bool,
     target: Target,
+    message: fn(SelectionEvent) -> Message,
 ) -> Element<'a, Message> {
     Element::new(Input {
         content: content.into(),
-        mode: Mode::Target(command, target),
+        mode: Mode::Target(command, target, message),
     })
 }
 
-pub(crate) fn watch<'a>(content: Element<'a, Message>, active: bool) -> Element<'a, Message> {
+pub(crate) fn watch<'a, Message: 'a>(
+    content: Element<'a, Message>,
+    active: bool,
+    preserve: fn(&Message) -> bool,
+    clear: fn() -> Message,
+) -> Element<'a, Message> {
     Element::new(Input {
         content,
-        mode: Mode::Watch(active),
+        mode: Mode::Watch(active, preserve, clear),
     })
 }
 
-enum Mode {
-    Target(bool, Target),
-    Watch(bool),
+enum Mode<Message> {
+    Target(bool, Target, fn(SelectionEvent) -> Message),
+    Watch(bool, fn(&Message) -> bool, fn() -> Message),
 }
-struct Input<'a> {
+struct Input<'a, Message> {
     content: Element<'a, Message>,
-    mode: Mode,
+    mode: Mode<Message>,
 }
 #[derive(Default)]
 struct State {
     pressed: bool,
 }
 
-impl Widget<Message, Theme, Renderer> for Input<'_> {
+impl<Message> Widget<Message, Theme, Renderer> for Input<'_, Message> {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -106,7 +108,7 @@ impl Widget<Message, Theme, Renderer> for Input<'_> {
             .position()
             .is_some_and(|point| layout.bounds().contains(point) && viewport.contains(point));
         let state = tree.state.downcast_mut::<State>();
-        if let Mode::Target(command, target) = &self.mode {
+        if let Mode::Target(command, target, message) = &self.mode {
             if *command
                 && over
                 && matches!(
@@ -115,9 +117,7 @@ impl Widget<Message, Theme, Renderer> for Input<'_> {
                 )
             {
                 state.pressed = true;
-                shell.publish(Message::BranchSelection(SelectionEvent::Toggle(
-                    target.clone(),
-                )));
+                shell.publish(message(SelectionEvent::Toggle(target.clone())));
                 shell.capture_event();
                 return;
             }
@@ -135,7 +135,10 @@ impl Widget<Message, Theme, Renderer> for Input<'_> {
                 state.pressed = false;
             }
         }
-        if matches!(self.mode, Mode::Watch(true)) && pressed && over {
+        if let Mode::Watch(true, keep, clear) = self.mode
+            && pressed
+            && over
+        {
             let mut messages = Vec::new();
             let mut child = Shell::new(&mut messages);
             self.content.as_widget_mut().update(
@@ -150,18 +153,13 @@ impl Widget<Message, Theme, Renderer> for Input<'_> {
             );
             let preserve = Cell::new(false);
             shell.merge(child, |message| {
-                if matches!(
-                    &message,
-                    Message::BranchSelection(
-                        SelectionEvent::Toggle(_) | SelectionEvent::Menu(_, _)
-                    ) | Message::Git(git_actions::Message::Menu(_, _))
-                ) {
+                if keep(&message) {
                     preserve.set(true);
                 }
                 message
             });
             if !preserve.get() {
-                shell.publish(Message::BranchSelection(SelectionEvent::Clear));
+                shell.publish(clear());
             }
         } else {
             self.content.as_widget_mut().update(

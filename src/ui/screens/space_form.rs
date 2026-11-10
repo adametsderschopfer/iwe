@@ -157,7 +157,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                 .padding([10, 18])
                 .style(theme::secondary)
                 .on_press_maybe(
-                    (!app.picking && !app.git_actions.pending)
+                    (!app.picking && !app.modules.git.git_actions.pending)
                         .then_some(Message::Space(spaces::Message::Delete(index))),
                 ),
             )

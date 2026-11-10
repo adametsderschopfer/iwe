@@ -14,6 +14,12 @@ const DEPTH_LIMIT: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Operation {
+    SaveText {
+        token: u64,
+        path: String,
+        expected: Arc<String>,
+        text: Arc<String>,
+    },
     Test,
     List(String),
     Preview(String),
@@ -24,6 +30,7 @@ pub(crate) enum Operation {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Output {
+    SavedText(u64),
     Connected,
     Listed(String, Vec<Entry>),
     Preview {
@@ -69,6 +76,27 @@ pub(crate) fn run(
 ) -> Result<Output, Error> {
     progress.check()?;
     match operation {
+        Operation::SaveText {
+            token,
+            path,
+            expected,
+            text,
+        } => {
+            profile.to_local(path)?;
+            if text.len() as u64 > PREVIEW_LIMIT {
+                return Err(Error::TooLarge);
+            }
+            if read_remote(transport, path, progress)?.as_str() != expected.as_str() {
+                return Err(Error::Changed);
+            }
+            progress.check()?;
+            check_remote(transport, path, false)?;
+            transport.write(path, &mut text.as_bytes(), progress)?;
+            progress
+                .files
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Ok(Output::SavedText(*token))
+        }
         Operation::Test => Ok(Output::Connected),
         Operation::List(path) => {
             check_remote(transport, path, false)?;

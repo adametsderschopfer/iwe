@@ -35,8 +35,8 @@ impl App {
             settings: self.i18n.text(Key::Settings),
             about: self.i18n.text(Key::About),
             deployment: self.i18n.text(Key::Deployment),
+            deployment_enabled: self.module_enabled(crate::modules::ModuleId::Deployment),
             connections: self.i18n.text(Key::DeploymentConnections),
-            keys: self.i18n.text(Key::DeploymentKeys),
             profiles: self.i18n.text(Key::DeploymentProfiles),
             spaces_title: self.i18n.text(Key::Spaces),
             projects_title: self.i18n.text(Key::Projects),
@@ -49,10 +49,11 @@ impl App {
             quit: self.i18n.text(Key::MenuQuit),
             recording_shortcut: self.shortcuts.recording.is_some(),
             enabled: self.loaded
+                && self.editor.pending.is_none()
                 && self.space_draft.is_none()
                 && self.project_add.is_none()
                 && self.auth_dialog.is_none()
-                && !self.git_actions.has_dialog()
+                && !self.modules.git.git_actions.has_dialog()
                 && self.line_navigation.is_none()
                 && !self.modules.deployment.has_dialog(),
             spaces: self
@@ -95,14 +96,12 @@ impl App {
                 for action in actions {
                     let task = match action {
                         Action::Settings => self.update(Message::Navigate(Navigation::Settings)),
-                        Action::DeploymentConnections
-                        | Action::DeploymentKeys
-                        | Action::DeploymentProfiles
-                            if self.menu_model().enabled =>
+                        Action::DeploymentConnections | Action::DeploymentProfiles
+                            if self.menu_model().enabled
+                                && self.module_enabled(crate::modules::ModuleId::Deployment) =>
                         {
                             let tab = match action {
                                 Action::DeploymentConnections => SettingsTab::Connections,
-                                Action::DeploymentKeys => SettingsTab::DeploymentKeys,
                                 _ => SettingsTab::Deployment,
                             };
                             let select = self.update(Message::SelectSettingsTab(tab));

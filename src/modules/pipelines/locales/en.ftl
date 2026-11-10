@@ -1,0 +1,9 @@
+job-run-requested = Job start requested
+job-retry-requested = Job rerun requested
+job-stop-requested = Job stop requested
+pipeline-stop-requested = Pipeline stop requested
+pipeline-stage-title = Stage: { $name }
+pipeline-job-title = Job: { $name }
+job-action-pending = Sending the action…
+job-action-access = Sign in with permission to run and stop jobs in this project.
+pipelines-description = Show pipelines when a project has a remote.

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "IWE Code — A clearer view of your code",
-    "description": "Bring your local projects, source files, Git history, and pipelines into one native workspace. Available for macOS, Windows, and Linux."
+    "title": "IWE Code — Edit, compare, deploy",
+    "description": "A native workspace for editing local and server files, comparing changes, and deploying over SFTP, FTP or FTPS. With Git, pipelines and a terminal."
   },
   "nav": {
     "features": "Features",
@@ -13,73 +13,90 @@
   },
   "hero": {
     "release": "Meet IWE Code",
-    "title": "Your projects.\nOne clear view.",
-    "description": "A quiet place for your code. Bring local projects, Git history, and pipelines together, without losing your focus.",
+    "title": "From your code\nto your server.",
+    "description": "Edit files, compare changes, and send them to your server. Keep projects, Git, pipelines, and a terminal in one native workspace.",
     "download": "Get IWE Code",
     "source": "Explore on GitHub",
     "platforms": "Made for macOS, Windows, and Linux."
   },
   "preview": {
     "label": "Explore the workspace",
-    "workspace": "Workspace",
+    "workspace": "Editor",
     "history": "Git history",
     "comparison": "Changes",
     "pipelines": "Pipelines",
-    "caption": "A real workspace. A little more clarity.",
-    "altWorkspace": "IWE Code workspace with a project tree, open source file, and highlighted changes.",
+    "caption": "Current development build with sample data. Downloaded releases may differ.",
+    "altWorkspace": "IWE Code text editor with syntax highlighting, file tabs, a Save button, and a project tree.",
     "altHistory": "IWE Code Git history with branches and commits.",
-    "altComparison": "IWE Code compares previous and current source files in two columns.",
-    "altPipelines": "IWE Code pipeline list with the status of individual jobs."
+    "altComparison": "IWE Code shows previous and current source files side by side with changed lines highlighted.",
+    "altPipelines": "IWE Code pipeline list with the status of individual jobs.",
+    "deployment": "Deployment",
+    "altDeployment": "IWE Code deployment settings with a Staging profile, a saved connection, and a server root folder."
   },
   "features": {
-    "title": "Everything around your code.\nFinally, together.",
-    "description": "Keep the context that matters close to the work in front of you.",
+    "title": "The tools you need.\nIn the same workspace.",
+    "description": "From a local edit to a server upload, keep each part of your workflow close.",
     "items": [
       {
-        "title": "Make space for your projects",
-        "description": "Group local projects into named spaces. Pin the ones you use most, and keep the rest within reach.",
-        "icon": "spaces"
+        "title": "Edit local and server files",
+        "description": "Write with syntax highlighting, undo changes, and save when ready. Unsaved changes stay visible in your tabs.",
+        "icon": "code"
       },
       {
-        "title": "Follow the whole story",
-        "description": "Explore branches and commits across repositories. Move from a change to the file behind it.",
+        "title": "Deploy with a clear destination",
+        "description": "Connect through SFTP, FTP, or FTPS. Map folders, exclude paths, and choose a deployment profile for each project.",
+        "icon": "server"
+      },
+      {
+        "title": "Follow changes in Git",
+        "description": "Browse branches and commits. Compare file versions side by side and manage changes across your project repositories.",
         "icon": "branch"
       },
       {
-        "title": "See where things stand",
-        "description": "Connect GitHub Actions or GitLab pipelines. Check runs and jobs alongside the code they belong to.",
+        "title": "Keep track of pipelines",
+        "description": "Connect GitHub Actions or GitLab. Inspect runs, stages, and jobs alongside the project they belong to.",
         "icon": "pipeline"
+      },
+      {
+        "title": "Use a terminal in context",
+        "description": "Open a terminal in your project. Run commands without leaving the workspace, then collapse the panel when finished.",
+        "icon": "terminal"
+      },
+      {
+        "title": "Organize work into spaces",
+        "description": "Group projects by team or task. Keep deployment profiles within each space and reuse connections across the editor.",
+        "icon": "spaces"
       }
     ]
   },
   "workflow": {
-    "title": "Less searching.\nMore understanding.",
-    "description": "Open a file. See what changed. Follow its history. Stay in one workspace while the context stays with you.",
+    "title": "See the change.\nKeep the context.",
+    "description": "Move between editing and comparison. Review a Git revision or compare your local file with the server copy.",
     "items": [
       {
-        "title": "Read with context",
-        "description": "Syntax highlighting and file tabs help you move through a project."
+        "title": "Edit, then save",
+        "description": "Work with file tabs, syntax highlighting, and undo. Save local files or send edited server files back explicitly."
       },
       {
-        "title": "Choose your view",
-        "description": "Compare changes side by side, or read them in one column. Fold unchanged lines when you need focus."
+        "title": "Compare both versions",
+        "description": "View changes side by side or in one column. Fold unchanged lines to focus on the differences."
       },
       {
-        "title": "Keep repositories connected",
-        "description": "See history from a project and its direct child repositories in one place."
+        "title": "Keep working during transfers",
+        "description": "Uploads and downloads run in the background. Check their progress without reopening the deployment panel."
       }
     ],
-    "caption": "Two versions. One clear comparison."
+    "caption": "Side-by-side comparison in the current development build."
   },
   "local": {
-    "title": "Your files live\nwhere you left them.",
-    "description": "Start with folders already on your computer. IWE Code reads source files when you open them and keeps their contents local.",
+    "title": "Your workspace.\nYour choice of tools.",
+    "description": "Add folders already on your computer. Enable the modules you need and collapse panels to give your code more room.",
     "points": [
-      "Preview source files without editing them",
-      "Keep your existing folder structure",
+      "Git, pipelines, deployment, and terminal modules are enabled by default",
+      "Disable individual modules in settings",
       "Choose a light or dark workspace"
     ],
-    "note": "A native desktop workspace, built around your local projects.",
+    "note": "Your existing projects, with tools you can show or hide.",
     "folderLabel": "Your computer",
     "spaceLabel": "Your workspace",
     "projectLabel": "Projects",
@@ -105,7 +122,7 @@
     "items": [
       {
         "question": "Is IWE Code a code editor?",
-        "answer": "IWE Code focuses on browsing projects, reading source files, inspecting Git history, and following pipelines. Source previews are read-only."
+        "answer": "Yes. The current development build supports editing and saving local and server text files. Git revisions and comparison views remain read-only."
       },
       {
         "question": "Do I need to move my projects?",
@@ -118,11 +135,19 @@
       {
         "question": "Which languages can I use?",
         "answer": "The application and this website support English, Russian, and Spanish."
+      },
+      {
+        "question": "Does deployment upload files automatically?",
+        "answer": "No. You choose when to upload, download, or save a server file. Downloading over existing local files requires confirmation."
+      },
+      {
+        "question": "Can I turn off modules?",
+        "answer": "Yes. Git, pipelines, deployment, and terminal modules start enabled. You can disable each module in settings."
       }
     ]
   },
   "footer": {
-    "description": "A clearer view of your code.",
+    "description": "Edit, compare, deploy. In one workspace.",
     "developer": "Developed by",
     "source": "Source code",
     "releases": "Releases"
@@ -162,5 +187,25 @@
     "description": "IWE Code is licensed under the Apache License, Version 2.0. Read the original license text below.",
     "fullText": "Full license text",
     "source": "View the license on GitHub"
+  },
+  "deployment": {
+    "eyebrow": "Deployment",
+    "title": "Your server.\nPart of your workspace.",
+    "description": "Set up a connection once. Give each project its own destination, folder mappings, and excluded paths.",
+    "items": [
+      {
+        "title": "Connect",
+        "description": "Use an SSH key, SSH agent, or password. Save passwords in the operating system credential store."
+      },
+      {
+        "title": "Compare",
+        "description": "Load the server copy into a separate comparison tab. Review both versions without replacing your local file."
+      },
+      {
+        "title": "Transfer",
+        "description": "Upload or download files and folders manually. Follow progress in the status area while you continue working."
+      }
+    ],
+    "caption": "A deployment profile links a project to a saved connection."
   }
 }

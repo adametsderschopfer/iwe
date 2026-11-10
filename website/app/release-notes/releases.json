@@ -787,14 +787,14 @@
         "id": "deployment-settings",
         "category": "added",
         "text": {
-          "en": "Manage shared connections and SSH keys in separate dialogs. Space profiles define project mappings and excluded paths.",
-          "ru": "Настраивайте общие подключения и SSH-ключи в отдельных диалогах. Профили пространства определяют маппинги проекта и исключённые пути.",
-          "es": "Gestiona conexiones y claves SSH compartidas en diálogos independientes. Los perfiles del espacio definen asignaciones y rutas excluidas."
+          "en": "Manage connections and space profiles in Deployment settings. Open SSH keys from Connections and add keys in a separate dialog.",
+          "ru": "Настраивайте подключения и профили пространства в разделе «Деплоймент». Открывайте SSH-ключи из подключений и добавляйте ключи в отдельном диалоге.",
+          "es": "Gestiona conexiones y perfiles del espacio en los ajustes de despliegue. Abre las claves SSH desde Conexiones y añádelas mediante un diálogo."
         },
         "sources": [
-          "src/modules/deployment/state/mod.rs",
-          "src/ui/screens/settings.rs",
-          "src/domain/deployment/mod.rs"
+          "src/modules/deployment/view/settings.rs",
+          "src/modules/deployment/state/settings.rs",
+          "src/ui/screens/settings.rs"
         ]
       },
       {
@@ -892,6 +892,109 @@
           "src/modules/catalog/mod.rs",
           "src/app/modules/mod.rs",
           "docs/adr/0001-bundled-modules.md"
+        ]
+      },
+      {
+        "id": "editable-local-and-server-files",
+        "category": "added",
+        "text": {
+          "en": "Edit local and server text files with syntax highlighting, undo, and explicit saves. Unsaved drafts remain available after save failures.",
+          "ru": "Редактируйте локальные и серверные текстовые файлы с подсветкой синтаксиса, отменой изменений и сохранением. Ошибки сохранения не удаляют несохранённые правки.",
+          "es": "Edita archivos de texto locales y remotos con resaltado de sintaxis, deshacer y guardado explícito. Los errores conservan los cambios pendientes."
+        },
+        "sources": [
+          "src/app/editor/mod.rs",
+          "src/domain/editor/mod.rs",
+          "src/infrastructure/editor/mod.rs",
+          "src/modules/deployment/transfer/mod.rs",
+          "src/ui/editor/mod.rs"
+        ]
+      },
+      {
+        "id": "optional-git-and-pipeline-modules",
+        "category": "changed",
+        "text": {
+          "en": "Git and pipelines now use the module system. Every module starts enabled and can be disabled individually in settings.",
+          "ru": "Git и пайплайны используют систему модулей. Все модули включены по умолчанию, каждый можно отключить в настройках.",
+          "es": "Git y pipelines usan el sistema de módulos. Todos los módulos empiezan activados y pueden desactivarse individualmente en los ajustes."
+        },
+        "sources": [
+          "src/modules/git/mod.rs",
+          "src/modules/pipelines/mod.rs",
+          "src/app/modules/mod.rs",
+          "src/ui/modules.rs"
+        ]
+      },
+      {
+        "id": "collapsed-module-panels",
+        "category": "changed",
+        "text": {
+          "en": "Module panels start collapsed in new workspaces. Hide and reopen panels without disabling their modules.",
+          "ru": "Панели модулей изначально свёрнуты в новых рабочих пространствах. Скрывайте и открывайте панели без отключения модулей.",
+          "es": "Los paneles empiezan contraídos en espacios nuevos. Oculta y vuelve a abrir los paneles sin desactivar sus módulos."
+        },
+        "sources": [
+          "src/domain/workspace.rs",
+          "src/app/modules/tests.rs",
+          "src/ui/screens/workspace.rs"
+        ]
+      },
+      {
+        "id": "deployment-background-progress",
+        "category": "changed",
+        "text": {
+          "en": "Deployment progress appears in the bottom-right status area. Comparisons open before the server copy finishes loading.",
+          "ru": "Ход деплоймента отображается в правой нижней части окна. Вкладка сравнения открывается до завершения загрузки серверной копии.",
+          "es": "El progreso del despliegue aparece en la esquina inferior derecha. Las comparaciones se abren antes de terminar la descarga remota."
+        },
+        "sources": [
+          "src/ui/activity.rs",
+          "src/modules/deployment/state/mod.rs",
+          "src/app/modules/deployment.rs",
+          "src/app/tabs.rs"
+        ]
+      },
+      {
+        "id": "deployment-tabs-and-connection-feedback",
+        "category": "fixed",
+        "text": {
+          "en": "Deployment tabs fit translated labels. Connection checks show loading, success, or failure above the button, with distinct status colors.",
+          "ru": "Вкладки деплоймента учитывают ширину переведённых названий. Проверка подключения показывает загрузку, успех или ошибку над кнопкой с соответствующим цветом.",
+          "es": "Las pestañas de despliegue se ajustan a sus traducciones. La comprobación muestra carga, éxito o error sobre el botón con colores distintos."
+        },
+        "sources": [
+          "src/modules/deployment/view/settings.rs",
+          "src/modules/deployment/view/tests.rs"
+        ]
+      },
+      {
+        "id": "project-index-and-terminal-rendering",
+        "category": "maintenance",
+        "text": {
+          "en": "Directory indexing reduces cache allocations and stops promptly during shutdown. Terminal rendering reuses unchanged screen content.",
+          "ru": "Индексация директорий сокращает выделение памяти для кэша и быстро останавливается при закрытии. Терминал повторно использует неизменённое содержимое экрана.",
+          "es": "La indexación reduce las asignaciones de memoria de caché y se detiene al cerrar. La terminal reutiliza contenido sin cambios."
+        },
+        "sources": [
+          "src/infrastructure/project_index.rs",
+          "src/modules/terminal/view/mod.rs",
+          "docs/performance.md"
+        ]
+      },
+      {
+        "id": "website-features-and-current-screenshots",
+        "category": "changed",
+        "text": {
+          "en": "The website presents six feature groups, a deployment walkthrough, and five updated screenshots. Content covers editing and optional modules in three languages.",
+          "ru": "Лендинг показывает шесть групп возможностей, раздел деплоймента и пять обновлённых скриншотов. Тексты описывают редактирование и отключаемые модули на трёх языках.",
+          "es": "El sitio presenta seis grupos de funciones, una guía de despliegue y cinco capturas actualizadas. Describe edición y módulos opcionales en tres idiomas."
+        },
+        "sources": [
+          "website/app/components/FeatureSection.vue",
+          "website/app/components/DeploymentSection.vue",
+          "website/app/components/ProductShowcase.vue",
+          "website/app/i18n/en.json",
+          "src/app/tests.rs"
         ]
       }
     ]

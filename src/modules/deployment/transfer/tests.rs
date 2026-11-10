@@ -204,3 +204,40 @@ fn local_symbolic_links_are_rejected() {
         Err(Error::Access)
     );
 }
+
+#[test]
+fn edited_remote_snapshot_checks_baseline_mapping_and_exclusions() {
+    let root = tempfile::tempdir().unwrap();
+    let mut profile = profile(root.path());
+    let mut remote = Memory::default();
+    remote
+        .files
+        .insert("/srv/file.txt".into(), b"original".to_vec());
+    let operation = Operation::SaveText {
+        token: 7,
+        path: "/srv/file.txt".into(),
+        expected: Arc::new("original".into()),
+        text: Arc::new("edited".into()),
+    };
+    assert!(matches!(
+        run(&mut remote, &profile, &operation, &Progress::default()),
+        Ok(Output::SavedText(7))
+    ));
+    assert_eq!(remote.files["/srv/file.txt"], b"edited");
+    assert!(matches!(
+        run(&mut remote, &profile, &operation, &Progress::default()),
+        Err(Error::Changed)
+    ));
+    assert_eq!(remote.files["/srv/file.txt"], b"edited");
+    profile.excluded.push("file.txt".into());
+    assert!(matches!(
+        run(&mut remote, &profile, &operation, &Progress::default()),
+        Err(Error::Excluded)
+    ));
+    profile.excluded.clear();
+    profile.mappings[0].remote = "elsewhere".into();
+    assert!(matches!(
+        run(&mut remote, &profile, &operation, &Progress::default()),
+        Err(Error::Mapping)
+    ));
+}

@@ -21,8 +21,9 @@ pub(crate) enum Event {
     Key(window::Id, keyboard::Event, Status),
 }
 
-pub(super) fn command_message(command: Command) -> Option<Message> {
+pub(crate) fn command_message(command: Command) -> Option<Message> {
     match command {
+        Command::SaveFile => Some(Message::Editor(super::editor::Event::Save)),
         Command::GoToLine => Some(Message::GoToLine(line_navigation::Event::Open)),
         Command::CloseTab => Some(Message::CloseActiveTab),
         Command::ReopenTab => Some(Message::ReopenClosedTab),

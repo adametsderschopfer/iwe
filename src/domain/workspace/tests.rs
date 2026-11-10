@@ -169,7 +169,8 @@ fn restored_state_recovers_invalid_selections_and_old_preferences() {
     assert_eq!(workspace.spaces.len(), 2);
     assert_eq!(workspace.directory(), Some(&PathBuf::from("src")));
     assert_eq!(workspace.preferences.code_size, 22);
-    assert!(workspace.preferences.show_git);
+    assert!(!workspace.preferences.show_git);
+    assert!(!workspace.preferences.show_pipelines);
 }
 
 #[test]

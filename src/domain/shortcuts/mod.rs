@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) enum Command {
     GoToLine,
+    SaveFile,
     Copy,
     SelectAll,
     CloseTab,
@@ -15,8 +16,9 @@ pub(crate) enum Command {
 }
 
 impl Command {
-    pub(crate) const ALL: [Self; 7] = [
+    pub(crate) const ALL: [Self; 8] = [
         Self::GoToLine,
+        Self::SaveFile,
         Self::Copy,
         Self::SelectAll,
         Self::CloseTab,
@@ -33,6 +35,7 @@ impl Command {
                 Self::Copy | Self::DeploymentCompare => "C",
                 Self::DeploymentUpload => "V",
                 Self::SelectAll => "A",
+                Self::SaveFile => "S",
                 Self::CloseTab => "W",
                 Self::ReopenTab => "T",
             }

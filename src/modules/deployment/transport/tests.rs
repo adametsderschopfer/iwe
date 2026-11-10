@@ -31,6 +31,7 @@ fn ftp_and_both_ftps_modes_transfer_exact_bytes_over_loopback() {
             .write("/new.txt", &mut data.as_slice(), &Progress::default())
             .unwrap();
         assert_eq!(server.files.lock().unwrap()["/new.txt"], data);
+        edit_round_trip(&mut transport);
         drop(transport);
     }
 }
@@ -115,6 +116,7 @@ async fn sftp_checks_host_keys_passwords_and_private_keys_over_loopback() {
                 &Progress::default(),
             )
             .unwrap();
+        edit_round_trip(&mut transport);
         connection.authentication = Authentication::Key("key".into());
         settings.keys.push(crate::domain::deployment::PrivateKey {
             id: "key".into(),
@@ -177,4 +179,39 @@ fn directory_entries_cannot_escape_their_parent() {
         assert!(child_path("/srv", name).is_err());
     }
     assert_eq!(child_path("/srv", "тест.txt"), Ok("/srv/тест.txt".into()));
+}
+
+fn edit_round_trip(transport: &mut dyn Transport) {
+    use crate::{
+        domain::deployment::Profile,
+        modules::deployment::transfer::{self, Operation, Output},
+    };
+    let directory = tempfile::tempdir().unwrap();
+    let profile = Profile {
+        name: "Fixture".into(),
+        connection: "fixture".into(),
+        project: directory.path().to_owned(),
+        root: "/".into(),
+        mappings: vec![Default::default()],
+        ..Default::default()
+    };
+    let operation = Operation::SaveText {
+        token: 42,
+        path: "/hello.txt".into(),
+        expected: Arc::new("server\n".into()),
+        text: Arc::new("edited Привет\r\n".into()),
+    };
+    assert!(matches!(
+        transfer::run(transport, &profile, &operation, &Progress::default()),
+        Ok(Output::SavedText(42))
+    ));
+    let mut bytes = Vec::new();
+    transport
+        .read("/hello.txt", &mut bytes, &Progress::default())
+        .unwrap();
+    assert_eq!(bytes, "edited Привет\r\n".as_bytes());
+    assert!(matches!(
+        transfer::run(transport, &profile, &operation, &Progress::default()),
+        Err(Error::Changed)
+    ));
 }

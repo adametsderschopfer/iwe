@@ -1,4 +1,5 @@
 //! Model local workspaces and repository data without operating-system access.
+pub(crate) mod editor;
 
 pub(crate) mod auth;
 pub(crate) mod changes;

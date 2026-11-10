@@ -31,7 +31,8 @@ pub(crate) enum Event {
 
 impl App {
     pub(super) fn project_change_subscription(&self) -> Subscription<Message> {
-        if self.loaded
+        if self.module_enabled(crate::modules::ModuleId::Git)
+            && self.loaded
             && self
                 .workspace
                 .spaces
@@ -72,7 +73,10 @@ impl App {
     }
 
     pub(super) fn refresh_project_changes(&mut self) -> Task<Message> {
-        if !self.loaded || self.project_changes.pending {
+        if !self.module_enabled(crate::modules::ModuleId::Git)
+            || !self.loaded
+            || self.project_changes.pending
+        {
             return Task::none();
         }
         let roots: BTreeSet<_> = self
@@ -158,3 +162,13 @@ impl App {
 
 #[cfg(test)]
 mod tests;
+
+impl State {
+    pub(crate) fn suspend(&mut self) {
+        let request = self.request + 1;
+        *self = Self {
+            request,
+            ..Self::default()
+        };
+    }
+}

@@ -29,8 +29,8 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     Panel::Workspace => {
                         responsive(move |size| deployment_content(app, size.width)).into()
                     }
-                    Panel::Git => git::view(app),
-                    Panel::Pipelines => pipelines::view(app),
+                    Panel::Module(crate::modules::ModuleId::Git) => git::view(app),
+                    Panel::Module(crate::modules::ModuleId::Pipelines) => pipelines::view(app),
                     Panel::Module(id) => crate::ui::modules::panel(app, *id),
                 })
                 .width(Length::Fill)
@@ -71,9 +71,34 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         base,
         crate::app::modules::deployment_message,
     );
+    let base = crate::ui::activity::overlay(
+        base,
+        app.modules.deployment.activity_expanded.then(|| {
+            crate::modules::deployment::activity_details(&app.modules.deployment, &app.i18n)
+                .map(crate::app::modules::deployment_message)
+        }),
+    );
     let base = super::header_repositories::overlay(app, base);
     let base = super::tab_menu::overlay(app, base);
-    let base = crate::ui::branch_selection::watch(base, !app.branch_selection.selected.is_empty());
+    let base = crate::ui::branch_selection::watch(
+        base,
+        !app.modules.git.branch_selection.selected.is_empty(),
+        |message| {
+            matches!(
+                message,
+                Message::Module(crate::app::modules::Event::Git(
+                    crate::modules::git::Event::BranchSelection(_)
+                        | crate::modules::git::Event::Git(
+                            crate::modules::git::actions::Message::Menu(..)
+                        )
+                )) | Message::BranchSelection(
+                    crate::modules::git::selection::Event::Toggle(_)
+                        | crate::modules::git::selection::Event::Menu(..)
+                ) | Message::Git(crate::modules::git::actions::Message::Menu(..))
+            )
+        },
+        || Message::BranchSelection(crate::modules::git::selection::Event::Clear),
+    );
     let base = super::space_form::overlay(
         app,
         auth::overlay(
@@ -97,7 +122,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     );
     #[cfg(target_os = "windows")]
     let base = crate::ui::window_chrome::overlay(app, base);
-    base
+    crate::ui::editor::overlay(app, base)
 }
 
 fn header(app: &App) -> Element<'_, Message> {
@@ -208,7 +233,15 @@ fn footer(app: &App) -> Element<'_, Message> {
                 .style(theme::MUTED.text()),
         );
     }
-    container(content).padding([6, 16]).into()
+    if app.modules.deployment.activity_visible {
+        content = content.push(
+            crate::modules::deployment::activity(&app.modules.deployment, &app.i18n)
+                .map(crate::app::modules::deployment_message),
+        );
+    }
+    container(content.align_y(Alignment::Center))
+        .padding([6, 16])
+        .into()
 }
 
 fn sidebar(app: &App) -> Element<'_, Message> {
@@ -406,7 +439,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
             || app.space_draft.is_some()
             || app.project_add.is_some()
             || app.auth_dialog.is_some()
-            || app.git_actions.has_dialog()
+            || app.modules.git.git_actions.has_dialog()
         {
             groups.into()
         } else {
@@ -431,7 +464,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
         }
     }
     let mut tools = Column::new().spacing(4);
-    if app.workspace.directory().is_some() {
+    if app.workspace.directory().is_some() && app.module_enabled(crate::modules::ModuleId::Git) {
         tools = tools.push(
             container(
                 text(app.i18n.text(Key::Panels))
@@ -444,29 +477,35 @@ fn sidebar(app: &App) -> Element<'_, Message> {
             app,
             Icon::Branch,
             Key::Git,
-            Some(Message::TogglePanel(Panel::Git)),
+            Some(Message::TogglePanel(Panel::Module(
+                crate::modules::ModuleId::Git,
+            ))),
             app.workspace.preferences.show_git,
             "nav-git",
         ));
     }
-    if app.has_remote() {
+    if app.has_remote() && app.module_enabled(crate::modules::ModuleId::Pipelines) {
         tools = tools.push(navigation_button(
             app,
             Icon::Play,
             Key::Pipelines,
-            Some(Message::TogglePanel(Panel::Pipelines)),
+            Some(Message::TogglePanel(Panel::Module(
+                crate::modules::ModuleId::Pipelines,
+            ))),
             app.workspace.preferences.show_pipelines,
             "nav-pipelines",
         ));
     }
     if app.workspace.directory().is_some() {
         for module in crate::modules::MODULES {
-            if module.id == crate::modules::ModuleId::Deployment {
+            if module.id != crate::modules::ModuleId::Terminal || !app.module_enabled(module.id) {
                 continue;
             }
             tools = tools.push(navigation_button(
                 app,
                 match module.id {
+                    crate::modules::ModuleId::Git => Icon::Branch,
+                    crate::modules::ModuleId::Pipelines => Icon::Play,
                     crate::modules::ModuleId::Terminal => Icon::Terminal,
                     crate::modules::ModuleId::Deployment => Icon::Server,
                 },
@@ -515,6 +554,9 @@ fn sidebar(app: &App) -> Element<'_, Message> {
 
 fn deployment_content(app: &App, width: f32) -> Element<'_, Message> {
     use crate::{app::modules::deployment_message, modules::deployment::Event};
+    if !app.module_enabled(crate::modules::ModuleId::Deployment) {
+        return project_content(app, width);
+    }
     let toolbar_width = theme::FILE_PANEL_TOOL_SIZE + 2. * theme::FILE_PANEL_TOOL_INSET;
     let maximum = (width - toolbar_width - 400.).clamp(220., 640.);
     let panel_width = app
@@ -592,6 +634,11 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
         .spacing(theme::FILE_PANEL_TOOL_INSET)
         .width(theme::FILE_PANEL_TOOL_SIZE);
     for panel in &app.workspace.preferences.file_panels {
+        if *panel == crate::domain::workspace::FilePanel::Changes
+            && !app.module_enabled(crate::modules::ModuleId::Git)
+        {
+            continue;
+        }
         let (symbol, label, id) = match panel {
             FilePanel::Project => (Icon::Folder, Key::ProjectFiles, "file-panel-project"),
             FilePanel::Changes => (Icon::Changes, Key::WorkingChanges, "file-panel-changes"),
@@ -836,7 +883,7 @@ fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Mes
                         .align_y(Alignment::Center),
                     )
                     .on_press_maybe(
-                        (!app.git_actions.pending && !app.picking)
+                        (!app.modules.git.git_actions.pending && !app.picking)
                             .then_some(Message::RemoveProjectFromSpace)
                     )
                     .padding([10, 12])
@@ -893,7 +940,7 @@ fn space_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Messa
                     .width(Length::Fill)
                     .style(theme::action(false))
                     .on_press_maybe(
-                        (!app.git_actions.pending && !app.picking)
+                        (!app.modules.git.git_actions.pending && !app.picking)
                             .then_some(Message::Space(crate::app::spaces::Message::Delete(index)))
                     )
                 )
@@ -1140,11 +1187,12 @@ fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
                 preview.revision.as_deref().filter(|_| !preview.remote),
             );
             let width = tab_label::width(&label);
-            let mut description = if let Some(revision) = &preview.revision {
-                format!("{}\n{}", preview.title, revision)
-            } else {
-                preview.title.clone()
-            };
+            let mut description =
+                if let Some(revision) = preview.revision.as_ref().filter(|_| !preview.remote) {
+                    format!("{}\n{}", preview.title, revision)
+                } else {
+                    preview.title.clone()
+                };
             if preview
                 .document
                 .as_ref()
@@ -1156,7 +1204,11 @@ fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
                 container(
                     button(
                         row![
-                            file_icons::file(Path::new(&preview.title)),
+                            if preview.remote {
+                                icon(Icon::Server, theme::MUTED)
+                            } else {
+                                file_icons::file(Path::new(&preview.title))
+                            },
                             text(label)
                                 .size(theme::FILE_TAB_TEXT_SIZE)
                                 .shaping(text::Shaping::Advanced)
@@ -1179,12 +1231,22 @@ fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
             );
             let close = tooltip::view(
                 container(
-                    button(icon(Icon::Close, theme::FAINT))
-                        .on_press(Message::CloseTab(preview.id))
-                        .padding(4)
-                        .width(theme::FILE_TAB_CLOSE_WIDTH)
-                        .height(28)
-                        .style(theme::action(false)),
+                    button(
+                        if preview
+                            .editor
+                            .as_ref()
+                            .is_some_and(|buffer| buffer.document.dirty())
+                        {
+                            text("•").size(18).style(theme::YELLOW.text()).into()
+                        } else {
+                            icon(Icon::Close, theme::FAINT)
+                        },
+                    )
+                    .on_press(Message::CloseTab(preview.id))
+                    .padding(4)
+                    .width(theme::FILE_TAB_CLOSE_WIDTH)
+                    .height(28)
+                    .style(theme::action(false)),
                 )
                 .id(format!("close-file-tab-{}", preview.id)),
                 text(app.i18n.text(Key::CloseTab)).size(12),
@@ -1313,8 +1375,11 @@ fn preview(app: &App) -> Element<'_, Message> {
         .files
         .iter()
         .any(|preview| !preview.title.is_empty());
-    let content: Element<'_, Message> = if app.preview().loading && app.preview().document.is_none()
+    let content: Element<'_, Message> = if let Some(buffer) =
+        app.editor_buffer().filter(|buffer| !buffer.reviewing)
     {
+        crate::ui::editor::view(app, buffer)
+    } else if app.preview().loading && app.preview().document.is_none() {
         center_message(app, Key::Loading)
     } else if let Some(error) = app.preview().error {
         center_message(app, error_key(error))
@@ -1603,6 +1668,42 @@ fn preview(app: &App) -> Element<'_, Message> {
         }
         container(content).padding(40).center(Length::Fill).into()
     };
+    let content = if let Some((profile, path)) = &app.preview().pending_comparison {
+        let key = if let Some(error) = app.preview().error {
+            error_key(error)
+        } else if app.preview().comparison_received() {
+            Key::Loading
+        } else {
+            app.modules
+                .deployment
+                .comparison_error(profile, path)
+                .as_ref()
+                .map(crate::modules::deployment::error_key)
+                .unwrap_or(Key::DeploymentLoadingRemote)
+        };
+        let heading = |key| {
+            container(text(app.i18n.text(key)).size(12).style(theme::MUTED.text()))
+                .padding([6, 12])
+                .width(Length::Fill)
+        };
+        row![
+            column![
+                heading(Key::DeploymentRemote),
+                divider(),
+                container(text(app.i18n.text(key)).size(13)).center(Length::Fill)
+            ]
+            .width(Length::FillPortion(1))
+            .height(Length::Fill),
+            vertical_divider(),
+            column![heading(Key::DeploymentLocal), divider(), content]
+                .width(Length::FillPortion(1))
+                .height(Length::Fill)
+        ]
+        .height(Length::Fill)
+        .into()
+    } else {
+        content
+    };
     if has_tabs {
         let progress = if app.preview().loading {
             match app.preview().preparation {
@@ -1624,9 +1725,18 @@ fn preview(app: &App) -> Element<'_, Message> {
                 .style(theme::source_progress)
         ]
         .height(Length::Fill);
-        column![file_tabs(app), file_part_controls(app), content]
-            .height(Length::Fill)
-            .into()
+        let editor_toolbar: Element<'_, Message> = app.editor_buffer().map_or_else(
+            || Column::new().into(),
+            |buffer| crate::ui::editor::toolbar(app, buffer),
+        );
+        column![
+            file_tabs(app),
+            file_part_controls(app),
+            editor_toolbar,
+            content
+        ]
+        .height(Length::Fill)
+        .into()
     } else {
         content
     }

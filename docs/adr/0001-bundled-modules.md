@@ -1,6 +1,6 @@
 # Bundled modules
 
-Status: accepted for the initial module system.
+Status: accepted; activation policy updated for the four bundled modules.
 
 ## Context
 
@@ -21,10 +21,12 @@ Keep terminal execution behind the module's session boundary. Use `portable-pty`
 shell sessions and `vt100` for terminal screen parsing. Keep the runtime independent of the rendered
 terminal cells.
 
-System modules have no disable or removal command. Legacy disabled preferences do not change their
-availability. An available module does not start a shell until the user opens its panel. Keep module
-translations in `modules/<name>/locales/`. The shared localizer combines resources without
-overriding duplicate identifiers.
+System modules remain installed, but each module can be disabled. All modules are enabled by
+default. Persist disabled identifiers in workspace preferences. Preserve unknown identifiers and all
+module configuration. Disabling a module stops subscriptions and invalidates pending results.
+Terminal sessions end; deployment transfers receive cancellation. An available module does not start
+a shell until the user opens its panel. Keep module translations in `modules/<name>/locales/`. The
+shared localizer combines resources without overriding duplicate identifiers.
 
 ## Alternatives
 

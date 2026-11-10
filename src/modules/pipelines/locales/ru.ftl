@@ -1,0 +1,9 @@
+job-run-requested = Запуск задания запрошен
+job-retry-requested = Повторный запуск задания запрошен
+job-stop-requested = Остановка задания запрошена
+pipeline-stop-requested = Остановка пайплайна запрошена
+pipeline-stage-title = Этап: { $name }
+pipeline-job-title = Задача: { $name }
+job-action-pending = Отправляем команду…
+job-action-access = Войдите с правом запуска и остановки задач в этом проекте.
+pipelines-description = Показывать пайплайны, если у проекта есть remote.

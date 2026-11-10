@@ -95,7 +95,7 @@ impl Default for Preferences {
             shortcuts: super::shortcuts::Shortcuts::default(),
             appearance: Appearance::default(),
             code_size: 14,
-            show_git: true,
+            show_git: false,
             show_pipelines: false,
             line_numbers: true,
             collapse_unchanged: false,

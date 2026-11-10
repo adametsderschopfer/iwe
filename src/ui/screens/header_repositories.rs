@@ -24,6 +24,9 @@ fn head(app: &App, repo: &Repository) -> String {
 }
 
 pub(super) fn controls(app: &App) -> Element<'_, Message> {
+    if !app.module_enabled(crate::modules::ModuleId::Git) {
+        return Row::new().into();
+    }
     let Some(repos) = app.repository.as_ref() else {
         return Row::new().into();
     };

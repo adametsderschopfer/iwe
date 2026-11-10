@@ -53,8 +53,8 @@ pub(super) fn main_settings() -> window::Settings {
 
 pub(super) fn settings_settings() -> window::Settings {
     window::Settings {
-        size: Size::new(880., 760.),
-        min_size: Some(Size::new(780., 660.)),
+        size: Size::new(1120., 760.),
+        min_size: Some(Size::new(980., 660.)),
         position: window::Position::Centered,
         icon: crate::ui::branding::window_icon(),
         decorations: !cfg!(target_os = "windows"),
@@ -111,7 +111,12 @@ impl App {
                 ));
                 return Task::batch([cleanup, window::close(id)]);
             }
-            Event::Close(id) if self.window_id == Some(id) => return iced::exit(),
+            Event::Close(id) if self.window_id == Some(id) => {
+                if self.protect_editor(&Message::Window(Event::Close(id))) {
+                    return Task::none();
+                }
+                return iced::exit();
+            }
             Event::Closed(id) if self.windows.settings == Some(id) => {
                 self.windows.settings = None;
                 self.shortcuts = super::shortcuts::State::default();
@@ -170,14 +175,17 @@ impl App {
                 container(
                     text(self.i18n.text(Key::Settings))
                         .size(13)
+                        .font(theme::semibold())
                         .style(theme::MUTED.text()),
                 )
                 .id("settings-window-header")
                 .padding(iced::Padding {
                     left: inset,
+                    right: inset,
                     ..iced::Padding::ZERO
                 })
                 .align_y(iced::alignment::Vertical::Center)
+                .align_x(iced::alignment::Horizontal::Center)
                 .width(Length::Fill)
                 .height(theme::SETTINGS_HEADER_HEIGHT)
                 .style(theme::sidebar),

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
-    io::{Read, Write},
+    io::{BufWriter, Read, Write},
     path::{Component, Path, PathBuf},
     sync::mpsc,
     time::{Duration, Instant},
@@ -47,6 +47,7 @@ pub(crate) struct Worker {
     root: PathBuf,
     storage: Option<PathBuf>,
     tree: Tree,
+    entry_count: usize,
     commands: mpsc::Receiver<PathBuf>,
     events: events::Sender<Event>,
     cancelled: CancellationToken,
@@ -57,6 +58,7 @@ pub(crate) fn session(root: PathBuf, tree: Tree) -> (Handle, events::Receiver<Ev
     let (sender, events) = events::channel(16);
     let cancelled = CancellationToken::new();
     let storage = cache_path(&root).ok();
+    let entry_count = tree.values().map(Vec::len).sum();
     (
         Handle {
             commands,
@@ -67,6 +69,7 @@ pub(crate) fn session(root: PathBuf, tree: Tree) -> (Handle, events::Receiver<Ev
             root,
             storage,
             tree,
+            entry_count,
             commands: receiver,
             events: sender,
             cancelled,
@@ -75,7 +78,18 @@ pub(crate) fn session(root: PathBuf, tree: Tree) -> (Handle, events::Receiver<Ev
 }
 
 pub(crate) async fn run(worker: Worker) {
-    let _ = tokio::task::spawn_blocking(move || worker.run()).await;
+    // A session-long worker must not hold Tokio's blocking pool open during shutdown.
+    let (finished, completion) = tokio::sync::oneshot::channel();
+    if std::thread::Builder::new()
+        .name("project-index".into())
+        .spawn(move || {
+            worker.run();
+            let _ = finished.send(());
+        })
+        .is_ok()
+    {
+        let _ = completion.await;
+    }
 }
 
 impl Worker {
@@ -86,6 +100,7 @@ impl Worker {
             && let Some(tree) = storage.as_ref().and_then(|path| load_at(path, &self.root))
         {
             self.tree = tree;
+            self.entry_count = self.tree.values().map(Vec::len).sum();
             if !self.send(Event::Cached(self.tree.clone())) {
                 return;
             }
@@ -144,7 +159,7 @@ impl Worker {
         if !valid_directory(&self.root, path) || self.cancelled.is_cancelled() {
             return false;
         }
-        let count: usize = self.tree.values().map(Vec::len).sum();
+        let count = self.entry_count;
         if !foreground && count >= MAX_ENTRIES && !self.tree.contains_key(path) {
             return false;
         }
@@ -160,14 +175,33 @@ impl Worker {
             }
             changed = previous != Some(entries);
             if changed {
-                self.tree.retain(|directory, _| {
-                    directory == path
-                        || !directory.starts_with(path)
-                        || entries
-                            .iter()
-                            .any(|entry| entry.directory && directory.starts_with(&entry.path))
-                });
-                self.tree.insert(path.to_path_buf(), entries.clone());
+                let children: BTreeSet<_> = entries
+                    .iter()
+                    .filter(|entry| entry.directory)
+                    .filter_map(|entry| entry.path.file_name())
+                    .collect();
+                let obsolete: Vec<_> = self
+                    .tree
+                    .range(path.to_path_buf()..)
+                    .take_while(|(directory, _)| directory.starts_with(path))
+                    .filter(|(directory, _)| {
+                        *directory != path
+                            && directory
+                                .strip_prefix(path)
+                                .ok()
+                                .and_then(|relative| relative.components().next())
+                                .is_some_and(|child| !children.contains(child.as_os_str()))
+                    })
+                    .map(|(directory, _)| directory.clone())
+                    .collect();
+                for directory in obsolete {
+                    if let Some(removed) = self.tree.remove(&directory) {
+                        self.entry_count -= removed.len();
+                    }
+                }
+                let previous = self.tree.insert(path.to_path_buf(), entries.clone());
+                self.entry_count =
+                    self.entry_count - previous.map_or(0, |entries| entries.len()) + entries.len();
             }
             for entry in entries {
                 if entry.directory
@@ -186,8 +220,21 @@ impl Worker {
         changed
     }
 
-    fn send(&self, event: Event) -> bool {
-        !self.cancelled.is_cancelled() && self.events.blocking_send(event).is_ok()
+    fn send(&self, mut event: Event) -> bool {
+        while !self.cancelled.is_cancelled() {
+            match self.events.try_send(event) {
+                Ok(()) => return true,
+                Err(events::error::TrySendError::Full(pending)) => {
+                    event = pending;
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(events::error::TrySendError::Closed(_)) => {
+                    self.cancelled.cancel();
+                    return false;
+                }
+            }
+        }
+        false
     }
 
     fn save(&self, path: Option<&Path>) {
@@ -252,6 +299,37 @@ struct Stored {
     directories: Tree,
 }
 
+#[derive(Serialize)]
+struct StoredRef<'a> {
+    version: u8,
+    root: &'a Path,
+    directories: BTreeMap<&'a Path, &'a [FileEntry]>,
+}
+
+struct CacheWriter<W> {
+    inner: W,
+    remaining: u64,
+    exceeded: bool,
+}
+
+impl<W: Write> Write for CacheWriter<W> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if bytes.len() as u64 > self.remaining {
+            self.exceeded = true;
+            return Err(std::io::Error::other(
+                "Directory cache exceeds its byte limit",
+            ));
+        }
+        let written = self.inner.write(bytes)?;
+        self.remaining -= written as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 fn load_at(path: &Path, root: &Path) -> Option<Tree> {
     let file = std::fs::File::open(path).ok()?;
     if file.metadata().ok()?.len() > MAX_CACHE_BYTES {
@@ -289,28 +367,37 @@ fn load_at(path: &Path, root: &Path) -> Option<Tree> {
 }
 
 fn save_at(path: &Path, root: &Path, tree: &Tree) -> Result<(), Failure> {
-    let mut directories = Tree::new();
+    let mut directories = BTreeMap::new();
     let mut count = 0;
     for (directory, entries) in tree {
         if directories.len() == MAX_DIRECTORIES || count + entries.len() > MAX_ENTRIES {
             continue;
         }
         count += entries.len();
-        directories.insert(directory.clone(), entries.clone());
+        directories.insert(directory.as_path(), entries.as_slice());
     }
-    let stored = Stored {
+    let stored = StoredRef {
         version: 1,
-        root: root.to_path_buf(),
+        root,
         directories,
     };
-    let bytes = serde_json::to_vec(&stored).map_err(|_| Failure::Storage)?;
-    if bytes.len() as u64 > MAX_CACHE_BYTES {
-        return Err(Failure::TooLarge);
-    }
     let parent = path.parent().ok_or(Failure::Storage)?;
     std::fs::create_dir_all(parent).map_err(|_| Failure::Storage)?;
     let mut file = tempfile::NamedTempFile::new_in(parent).map_err(|_| Failure::Storage)?;
-    file.write_all(&bytes).map_err(|_| Failure::Storage)?;
+    let mut writer = CacheWriter {
+        inner: BufWriter::new(file.as_file_mut()),
+        remaining: MAX_CACHE_BYTES,
+        exceeded: false,
+    };
+    if serde_json::to_writer(&mut writer, &stored).is_err() {
+        return Err(if writer.exceeded {
+            Failure::TooLarge
+        } else {
+            Failure::Storage
+        });
+    }
+    writer.flush().map_err(|_| Failure::Storage)?;
+    drop(writer);
     file.as_file().sync_all().map_err(|_| Failure::Storage)?;
     file.persist(path).map_err(|_| Failure::Storage)?;
     Ok(())

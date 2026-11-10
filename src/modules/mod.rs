@@ -5,3 +5,6 @@ pub(crate) mod deployment;
 pub(crate) mod terminal;
 
 pub(crate) use catalog::{MODULES, ModuleId, Origin};
+
+pub(crate) mod git;
+pub(crate) mod pipelines;

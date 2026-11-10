@@ -152,7 +152,12 @@ impl Comparison {
     }
 }
 
-pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> Document {
+pub(super) fn apply(
+    mut document: Document,
+    source: Source,
+    extension: &str,
+    include_equal: bool,
+) -> Document {
     document.fingerprint = Document::fingerprint(&source);
     document.comparison_failed = source.comparison_failed;
     if source.comparison_failed {
@@ -185,7 +190,7 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
     }
     let Some(previous) = source
         .previous
-        .filter(|previous| previous != &document.text)
+        .filter(|previous| include_equal || previous != &document.text)
     else {
         return document;
     };

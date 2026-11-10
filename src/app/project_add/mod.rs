@@ -40,7 +40,7 @@ impl App {
                 || self.picking
                 || self.project_add.is_some()
                 || self.auth_dialog.is_some()
-                || self.git_actions.has_dialog()
+                || self.modules.git.git_actions.has_dialog()
                 || space.is_some_and(|index| index >= self.workspace.spaces.len())
                 || (space.is_none() && self.space_draft.is_none())
                 || (space.is_some() && self.space_draft.is_some())
@@ -94,8 +94,8 @@ impl App {
             self.repository_menu = None;
             self.tabs.menu = None;
             self.files.menu = None;
-            self.git_actions.menu = None;
-            self.git_actions.bulk.menu = None;
+            self.modules.git.git_actions.menu = None;
+            self.modules.git.git_actions.bulk.menu = None;
             self.space_request += 1;
             return Task::none();
         }

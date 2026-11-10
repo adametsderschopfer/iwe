@@ -60,13 +60,23 @@ The screenshots come from existing Iced rendering tests with fictional fixture p
 the actual application interface in English. The website opens in English by default. Regenerate the
 screenshots when the illustrated interface changes.
 
-`app::tests::render_website_screenshots_when_requested` renders the four website views from
+The feature section covers editing, deployment, Git, pipelines, the terminal, and spaces. A separate
+deployment section explains connections, comparisons, and manual transfers. The workspace section
+explains optional modules. All text appears in English, Russian, and Spanish. The gallery identifies
+its screenshots as development-build previews. Published downloads may differ.
+
+`app::tests::render_website_screenshots_when_requested` renders the five website views from
 fictional English fixtures. Set `IWE_RENDER_DIR` to a new temporary directory and run that exact
-rendering target when authorized. Convert its PNG outputs to the four existing
-`public/images/*-en.webp` files with lossless `cwebp` encoding. Keep the current image dimensions
-and inspect every capture before replacing website assets. This rendering target does not read
-project files, contact providers, or authenticate accounts. Respect explicit user restrictions on
-compiling or running tests before invoking it.
+rendering target when authorized. Convert its PNG outputs to the five `public/images/*-en.webp`
+files with lossless `cwebp` encoding. Keep the current image dimensions and inspect every capture
+before replacing website assets. This rendering target does not read project files, contact
+providers, or authenticate accounts. Respect explicit user restrictions on compiling or running
+tests before invoking it.
+
+The captures show the editable workspace, Git history, comparison, pipelines, and deployment
+settings. Deployment settings use a fictional Staging profile and an invalid example hostname. The
+gallery preserves each complete screenshot at every viewport width. Its buttons scroll horizontally
+on small screens.
 
 All website bitmap images use lossless WebP, including the product icon. Generated-page tests reject
 other bitmap formats in the published files.
@@ -90,7 +100,8 @@ Selected sections appear once when they enter the viewport. The reveal uses CSS 
 `IntersectionObserver`. The website honors reduced-motion preferences and reveals keyboard-focused
 content immediately. Content remains visible without JavaScript or observer support. The image
 reveal clips its image, while the observed container remains unclipped. Browser regression tests
-cover scrolling, navigation links, reduced motion, and keyboard focus.
+cover scrolling, navigation links, reduced motion, keyboard focus, and screenshot selection in all
+three languages.
 
 ## Release notes
 

@@ -39,11 +39,15 @@ fn header_branch_action_opens_git_without_toggling_an_open_panel() {
     let _ = app.update(Message::RevealGitBranches);
     assert!(app.workspace.preferences.show_git);
     assert!(!app.workspace.preferences.show_pipelines);
-    assert!(app.panes.iter().any(|(_, panel)| *panel == Panel::Git));
-    assert!(app.branch_attention.is_none());
+    assert!(
+        app.panes
+            .iter()
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Git))
+    );
+    assert!(app.modules.git.branch_attention.is_none());
     let _ = app.update(Message::RevealGitBranches);
     assert!(app.workspace.preferences.show_git);
-    assert!(app.branch_attention.is_some());
+    assert!(app.modules.git.branch_attention.is_some());
 }
 
 #[test]
@@ -53,14 +57,14 @@ fn repeated_branch_attention_rejects_an_older_timeout() {
         .create_space("Work".into(), vec![PathBuf::from("project")]);
     app.workspace.preferences.show_git = true;
     let _ = app.update(Message::RevealGitBranches);
-    let first = app.branch_attention.unwrap();
+    let first = app.modules.git.branch_attention.unwrap();
     let _ = app.update(Message::RevealGitBranches);
-    let second = app.branch_attention.unwrap();
+    let second = app.modules.git.branch_attention.unwrap();
     assert_ne!(first, second);
     let _ = app.update(Message::ClearBranchAttention(first));
-    assert_eq!(app.branch_attention, Some(second));
+    assert_eq!(app.modules.git.branch_attention, Some(second));
     let _ = app.update(Message::ClearBranchAttention(second));
-    assert!(app.branch_attention.is_none());
+    assert!(app.modules.git.branch_attention.is_none());
 }
 
 #[test]
@@ -78,7 +82,10 @@ fn appearance_switch_applies_immediately_in_every_language() {
         ] {
             let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
             ui.click(app.i18n.text(key)).unwrap();
-            let messages = ui.into_messages().collect::<Vec<_>>();
+            let messages = ui
+                .into_messages()
+                .map(crate::app::modules::host_message)
+                .collect::<Vec<_>>();
             assert!(
                 matches!(messages.as_slice(), [Message::SetAppearance(value)] if *value == appearance)
             );
@@ -124,11 +131,6 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
                 Key::DeploymentConnectionsHelp,
             ),
             (
-                SettingsTab::DeploymentKeys,
-                "deployment-keys",
-                Key::DeploymentKeysHelp,
-            ),
-            (
                 SettingsTab::Deployment,
                 "deployment",
                 Key::DeploymentProfilesHelp,
@@ -147,7 +149,7 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
                 .visible_bounds()
                 .unwrap();
             assert!(bounds.x + bounds.width <= 1080.);
-            for message in ui.into_messages() {
+            for message in ui.into_messages().map(crate::app::modules::host_message) {
                 let _ = app.update(message);
             }
             assert_eq!(app.settings_tab, tab);
@@ -244,7 +246,7 @@ fn branch_folders_remotes_and_tags_start_collapsed() {
         assert!(ui.find(hidden).is_err());
     }
     ui.click("backup").unwrap();
-    for message in ui.into_messages() {
+    for message in ui.into_messages().map(crate::app::modules::host_message) {
         let _ = app.update(message);
     }
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
@@ -252,7 +254,7 @@ fn branch_folders_remotes_and_tags_start_collapsed() {
     drop(ui);
     let _ = app.load_directory();
     assert_eq!(
-        app.expanded_branch_folders,
+        app.modules.git.expanded_branch_folders,
         BTreeSet::from(["false".to_owned()])
     );
 }
@@ -304,15 +306,15 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
                 .unwrap();
         }
     };
-    assert!(app.selected_commit.is_none());
-    assert_eq!(app.git_panes.len(), 2);
+    assert!(app.modules.git.selected_commit.is_none());
+    assert_eq!(app.modules.git.git_panes.len(), 2);
     capture(&app, "commit-unselected");
     let id = app.repository.as_ref().unwrap().commits[0].key();
     let _ = app.update(Message::SelectCommit(id.clone()));
-    assert_eq!(app.git_panes.len(), 3);
+    assert_eq!(app.modules.git.git_panes.len(), 3);
     let _ = app.update(Message::ChangesLoaded(
         app.generation,
-        app.commit_request,
+        app.modules.git.commit_request,
         Ok(vec![ChangedFile {
             path: "src/main.rs".into(),
             status: 'M',
@@ -323,22 +325,25 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
     let file = ui.find("main.rs").unwrap().visible_bounds().unwrap();
     assert!(file.width > 0. && file.height > 0.);
     ui.click("main.rs").unwrap();
-    let messages = ui.into_messages().collect::<Vec<_>>();
+    let messages = ui
+        .into_messages()
+        .map(crate::app::modules::host_message)
+        .collect::<Vec<_>>();
     assert!(matches!(messages.as_slice(), [Message::OpenCommitFile(0)]));
     for message in messages {
         let _ = app.update(message);
     }
     let preview = app.preview().id;
     let _ = app.update(Message::SelectCommit(id.clone()));
-    let request = app.commit_request;
+    let request = app.modules.git.commit_request;
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1440., 920.), app.view());
     ui.click(iced::widget::Id::new("close-commit-files"))
         .unwrap();
-    for message in ui.into_messages() {
+    for message in ui.into_messages().map(crate::app::modules::host_message) {
         let _ = app.update(message);
     }
-    assert!(app.selected_commit.is_none());
-    assert_eq!(app.git_panes.len(), 2);
+    assert!(app.modules.git.selected_commit.is_none());
+    assert_eq!(app.modules.git.git_panes.len(), 2);
     assert_eq!(app.preview().id, preview);
     assert_eq!(app.preview().revision.as_ref(), Some(&id.id));
     let _ = app.update(Message::FileLoaded(
@@ -358,13 +363,13 @@ fn closing_commit_files_clears_selection_and_rejects_pending_changes() {
             status: 'M',
         }]),
     ));
-    assert!(app.changed_files.is_empty());
-    assert!(!app.changes_loading);
+    assert!(app.modules.git.changed_files.is_empty());
+    assert!(!app.modules.git.changes_loading);
     let _ = app.update(Message::SelectCommit(id));
-    assert_eq!(app.git_panes.len(), 3);
+    assert_eq!(app.modules.git.git_panes.len(), 3);
     let _ = app.update(Message::SelectBranch(branch_key("refs/heads/main")));
-    assert_eq!(app.git_panes.len(), 2);
-    assert!(app.selected_commit.is_none());
+    assert_eq!(app.modules.git.git_panes.len(), 2);
+    assert!(app.modules.git.selected_commit.is_none());
 }
 
 #[test]
@@ -391,7 +396,7 @@ fn pipeline_badges_match_full_commits_and_refresh_without_flicker() {
         date: String::new(),
         url: format!("https://github.com/team/app/actions/runs/{id}"),
     };
-    app.pipelines = PipelineState::Ready(vec![
+    app.modules.pipelines.pipelines = PipelineState::Ready(vec![
         run(1, commit.clone(), "in_progress"),
         run(2, commit[..7].to_owned(), "running"),
         run(3, commit.clone(), "success"),
@@ -410,10 +415,10 @@ fn pipeline_badges_match_full_commits_and_refresh_without_flicker() {
     }
     drop(ui);
     let _ = app.update(Message::RefreshPipelines);
-    let request = app.pipeline_request;
+    let request = app.modules.pipelines.pipeline_request;
     assert_eq!(app.active_pipelines(&commit).len(), 1);
     let _ = app.update(Message::RefreshPipelines);
-    assert_eq!(app.pipeline_request, request);
+    assert_eq!(app.modules.pipelines.pipeline_request, request);
     let _ = app.update(Message::PipelinesLoaded(
         app.generation,
         request,
@@ -435,13 +440,13 @@ fn pipeline_badges_match_full_commits_and_refresh_without_flicker() {
     let _ = app.update(Message::RefreshPipelines);
     let _ = app.update(Message::PipelinesLoaded(
         app.generation,
-        app.pipeline_request,
+        app.modules.pipelines.pipeline_request,
         pipelines::Loaded {
             runs: Err(Failure::Unavailable),
             username: None,
         },
     ));
-    assert!(!app.pipeline_refreshing);
+    assert!(!app.modules.pipelines.pipeline_refreshing);
     assert!(app.active_pipelines(&commit).is_empty());
 }
 
@@ -459,7 +464,7 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
         .unwrap()
         .remote = Remote::parse("https://github.com/team/app.git");
     let repo = app.repository.as_ref().unwrap().clone();
-    app.pipelines = PipelineState::Ready(Vec::new());
+    app.modules.pipelines.pipelines = PipelineState::Ready(Vec::new());
     app.account_username = Some("account".into());
     app.workspace.preferences.show_git = false;
     app.workspace.preferences.show_pipelines = true;
@@ -467,7 +472,7 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
     let pipeline_pane = *app
         .panes
         .iter()
-        .find(|(_, panel)| **panel == Panel::Pipelines)
+        .find(|(_, panel)| **panel == Panel::Module(crate::modules::ModuleId::Pipelines))
         .unwrap()
         .0;
     let previous_generation = app.generation;
@@ -475,9 +480,15 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
     assert!(app.loading);
     assert!(app.has_remote());
     assert_eq!(app.repository.as_ref().unwrap().commits.len(), 3);
-    assert!(matches!(app.pipelines, PipelineState::Ready(_)));
+    assert!(matches!(
+        app.modules.pipelines.pipelines,
+        PipelineState::Ready(_)
+    ));
     assert_eq!(app.account_username.as_deref(), Some("account"));
-    assert_eq!(app.panes.get(pipeline_pane), Some(&Panel::Pipelines));
+    assert_eq!(
+        app.panes.get(pipeline_pane),
+        Some(&Panel::Module(crate::modules::ModuleId::Pipelines))
+    );
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
     assert!(
         ui.find(iced::widget::Id::new("nav-pipelines"))
@@ -498,17 +509,20 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
         app.repo_request,
         Ok(repo.clone()),
     ));
-    assert!(app.pipeline_refreshing);
-    assert!(matches!(app.pipelines, PipelineState::Ready(_)));
+    assert!(app.modules.pipelines.pipeline_refreshing);
+    assert!(matches!(
+        app.modules.pipelines.pipelines,
+        PipelineState::Ready(_)
+    ));
     let _ = app.update(Message::PipelinesLoaded(
         app.generation,
-        app.pipeline_request,
+        app.modules.pipelines.pipeline_request,
         pipelines::Loaded {
             runs: Ok(Vec::new()),
             username: Some("account".into()),
         },
     ));
-    assert!(!app.pipeline_refreshing);
+    assert!(!app.modules.pipelines.pipeline_refreshing);
 
     let _ = app.update(Message::Refresh);
     let _ = app.update(Message::RepositoryLoaded(
@@ -532,7 +546,7 @@ fn project_refresh_retains_git_and_pipeline_availability_until_results_arrive() 
     assert!(
         !app.panes
             .iter()
-            .any(|(_, panel)| *panel == Panel::Pipelines)
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Pipelines))
     );
 }
 
@@ -546,7 +560,7 @@ fn refresh_discards_confirmed_removed_repositories_and_does_not_reuse_other_proj
         .active_mut()
         .unwrap()
         .remote = Remote::parse("https://github.com/team/app.git");
-    app.pipelines = PipelineState::Ready(Vec::new());
+    app.modules.pipelines.pipelines = PipelineState::Ready(Vec::new());
     let repo = app.repository.as_ref().unwrap().clone();
     let _ = app.update(Message::Refresh);
     let _ = app.update(Message::RepositoryLoaded(
@@ -556,7 +570,10 @@ fn refresh_discards_confirmed_removed_repositories_and_does_not_reuse_other_proj
     ));
     assert!(app.repository.is_none());
     assert!(!app.has_remote());
-    assert!(matches!(app.pipelines, PipelineState::Idle));
+    assert!(matches!(
+        app.modules.pipelines.pipelines,
+        PipelineState::Idle
+    ));
     let _ = app.update(Message::Refresh);
     let _ = app.update(Message::RepositoryLoaded(
         app.generation,
@@ -569,7 +586,10 @@ fn refresh_discards_confirmed_removed_repositories_and_does_not_reuse_other_proj
     let _ = app.load_directory();
     assert!(app.repository.is_none());
     assert!(!app.has_remote());
-    assert!(matches!(app.pipelines, PipelineState::Idle));
+    assert!(matches!(
+        app.modules.pipelines.pipelines,
+        PipelineState::Idle
+    ));
 }
 
 #[test]
@@ -653,7 +673,10 @@ fn selecting_projects_immediately_opens_the_file_panel_without_reloading_on_repe
             .create_space("Personal".to_owned(), vec![PathBuf::from("notes")]);
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
         ui.click(Id::new("space-project-0-0")).unwrap();
-        let messages = ui.into_messages().collect::<Vec<_>>();
+        let messages = ui
+            .into_messages()
+            .map(crate::app::modules::host_message)
+            .collect::<Vec<_>>();
         assert!(matches!(
             messages.as_slice(),
             [Message::SelectProject(0, 0)]
@@ -671,7 +694,7 @@ fn selecting_projects_immediately_opens_the_file_panel_without_reloading_on_repe
         assert_eq!(panel.width, app.workspace.preferences.file_panel_width);
         assert!(ui.find(Id::new("space-project-0-0")).is_ok());
         ui.click(Id::new("space-project-0-0")).unwrap();
-        for message in ui.into_messages() {
+        for message in ui.into_messages().map(crate::app::modules::host_message) {
             let _ = app.update(message);
         }
         assert_eq!(app.generation, generation);
@@ -714,7 +737,7 @@ fn selecting_projects_immediately_opens_the_file_panel_without_reloading_on_repe
             }
         }
         ui.click(Id::new("file-panel-project")).unwrap();
-        for message in ui.into_messages() {
+        for message in ui.into_messages().map(crate::app::modules::host_message) {
             let _ = app.update(message);
         }
         assert_eq!(app.file_panel, FilePanel::Project);
@@ -818,7 +841,7 @@ fn project_file_rows_fill_the_resized_panel_and_open_from_the_trailing_edge() {
         ui.point_at((file.x + file.width - 2., file.center_y()));
         ui.simulate(iced_test::simulator::click());
         assert!(
-            matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::OpenFile(path)] if path == &PathBuf::from("project/example.rs"))
+            matches!(ui.into_messages().map(crate::app::modules::host_message).collect::<Vec<_>>().as_slice(), [Message::OpenFile(path)] if path == &PathBuf::from("project/example.rs"))
         );
     }
 }
@@ -841,7 +864,7 @@ fn file_panel_buttons_toggle_without_changing_open_files() {
     ] {
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
         ui.click(Id::new(button)).unwrap();
-        for message in ui.into_messages() {
+        for message in ui.into_messages().map(crate::app::modules::host_message) {
             let _ = app.update(message);
         }
         assert_eq!(app.file_panel_visible, visible);
@@ -1007,8 +1030,10 @@ fn checkout_precedes_main_master_and_alphabetical_branches() {
         .active_mut()
         .unwrap()
         .branches = branches;
-    app.branch = Some(branch_key("refs/heads/master"));
-    app.expanded_branch_folders
+    app.modules.git.branch = Some(branch_key("refs/heads/master"));
+    app.modules
+        .git
+        .expanded_branch_folders
         .extend(["true".to_owned(), "true/origin".to_owned()]);
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1440., 920.), app.view());
     let mut previous_y = 0.;
@@ -1172,6 +1197,7 @@ async fn hiding_and_resizing_the_file_panel_preserves_scroll_widget_state() {
             format!("{}\n", "x".repeat(400)).repeat(200),
         )),
     );
+    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
     let mut renderer =
         iced_test::renderer::Renderer::new(theme::font(), 16.into(), Some("tiny-skia"))
             .await
@@ -1269,6 +1295,7 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
         app.preview().id,
         Ok(Document::new("let value = 42;\n".repeat(80), "rs")),
     );
+    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
     let mut renderer =
         iced_test::renderer::Renderer::new(theme::font(), 16.into(), Some("tiny-skia"))
             .await
@@ -1721,7 +1748,7 @@ fn history_state(count: usize, more: bool) -> App {
     state
         .workspace
         .create_space("Work".to_owned(), vec![PathBuf::from("project")]);
-    state.panes = pane_grid::State::new(Panel::Git).0;
+    state.panes = pane_grid::State::new(Panel::Module(crate::modules::ModuleId::Git)).0;
     state.project_directory = state.workspace.directory().cloned();
     state.repository = Some(
         Repository {
@@ -1757,7 +1784,7 @@ fn repository_load_focuses_checkout_and_preserves_selected_branches() {
         Some("refs/remotes/origin/main"),
     ] {
         let mut state = history_state(2, false);
-        state.branch = selected.map(branch_key);
+        state.modules.git.branch = selected.map(branch_key);
         let mut repo = state.repository.take().unwrap();
         repo.active_mut().unwrap().head = "work/current".to_owned();
         repo.active_mut().unwrap().branches = [
@@ -1780,10 +1807,15 @@ fn repository_load_focuses_checkout_and_preserves_selected_branches() {
         let _ = state.update(Message::RepositoryLoaded(0, 0, Ok(repo)));
 
         assert_eq!(
-            state.branch.as_ref().map(|key| key.reference.as_str()),
+            state
+                .modules
+                .git
+                .branch
+                .as_ref()
+                .map(|key| key.reference.as_str()),
             Some(selected.unwrap_or("refs/heads/work/current"))
         );
-        assert!(state.selected_commit.is_none());
+        assert!(state.modules.git.selected_commit.is_none());
     }
 }
 
@@ -1813,7 +1845,7 @@ fn tags_select_history_and_collapse_independently() {
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
     ui.click("v1.0").unwrap();
     assert!(
-        matches!(ui.into_messages().collect::<Vec<_>>().as_slice(), [Message::SelectBranch(reference)] if reference.reference == "refs/tags/v1.0")
+        matches!(ui.into_messages().map(crate::app::modules::host_message).collect::<Vec<_>>().as_slice(), [Message::SelectBranch(reference)] if reference.reference == "refs/tags/v1.0")
     );
     let _ = state.update(Message::ToggleBranchFolder("tags".to_owned()));
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
@@ -1849,7 +1881,10 @@ fn git_columns_resize_by_dragging_both_separators() {
             Event::Mouse(mouse::Event::CursorMoved { position: end }),
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
         ]);
-        let messages: Vec<_> = ui.into_messages().collect();
+        let messages: Vec<_> = ui
+            .into_messages()
+            .map(crate::app::modules::host_message)
+            .collect();
         assert!(
             messages
                 .iter()
@@ -1879,8 +1914,15 @@ fn commit_search_remains_above_history_when_columns_and_window_resize() {
                         let id = state.repository.as_ref().unwrap().commits[0].key();
                         let _ = state.update(Message::SelectCommit(id));
                     }
-                    let split = *state.git_panes.layout().splits().next().unwrap();
-                    state.git_panes.resize(split, ratio);
+                    let split = *state
+                        .modules
+                        .git
+                        .git_panes
+                        .layout()
+                        .splits()
+                        .next()
+                        .unwrap();
+                    state.modules.git.git_panes.resize(split, ratio);
                     let mut ui =
                         iced_test::Simulator::with_size(ui_settings(), (width, 720.), state.view());
                     let commits = ui
@@ -1919,10 +1961,10 @@ fn commit_search_input_filters_history_from_the_column_header() {
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
     ui.click(iced::widget::Id::new("git-search")).unwrap();
     ui.typewrite("Commit 0002");
-    for message in ui.into_messages() {
+    for message in ui.into_messages().map(crate::app::modules::host_message) {
         let _ = state.update(message);
     }
-    assert_eq!(state.query, "Commit 0002");
+    assert_eq!(state.modules.git.query, "Commit 0002");
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
     assert!(ui.find("Commit 0002").is_ok());
     assert!(ui.find("Commit 0001").is_err());
@@ -1932,13 +1974,13 @@ fn commit_search_input_filters_history_from_the_column_header() {
 #[test]
 fn history_loading_preserves_rows_and_position_and_rejects_stale_pages() {
     let mut state = history_state(250, true);
-    state.selected_commit = Some(state.repository.as_ref().unwrap().commits[0].key());
-    let selected = state.selected_commit.clone();
+    state.modules.git.selected_commit = Some(state.repository.as_ref().unwrap().commits[0].key());
+    let selected = state.modules.git.selected_commit.clone();
     let _ = state.update(Message::HistoryScrolled {
         offset: 6900.,
         remaining: 100.,
     });
-    assert!(state.history_loading);
+    assert!(state.modules.git.history_loading);
     let _ = state.update(Message::LoadMoreHistory);
     for (generation, request, offset) in [(1, 0, 250), (0, 1, 250), (0, 0, 0)] {
         let _ = state.update(Message::HistoryLoaded(
@@ -1947,32 +1989,32 @@ fn history_loading_preserves_rows_and_position_and_rejects_stale_pages() {
             offset,
             Err(Failure::Read),
         ));
-        assert!(state.history_loading);
-        assert!(state.history_error.is_none());
+        assert!(state.modules.git.history_loading);
+        assert!(state.modules.git.history_error.is_none());
     }
     let _ = state.update(Message::HistoryLoaded(0, 0, 250, Err(Failure::Read)));
-    assert!(!state.history_loading);
-    assert_eq!(state.history_error, Some(Failure::Read));
+    assert!(!state.modules.git.history_loading);
+    assert_eq!(state.modules.git.history_error, Some(Failure::Read));
     assert_eq!(state.repository.as_ref().unwrap().commits.len(), 250);
     let _ = state.update(Message::HistoryScrolled {
         offset: 6900.,
         remaining: 50.,
     });
     assert!(
-        !state.history_loading,
+        !state.modules.git.history_loading,
         "Failed pages require an explicit retry"
     );
     let _ = state.update(Message::LoadMoreHistory);
-    assert!(state.history_loading && state.history_error.is_none());
+    assert!(state.modules.git.history_loading && state.modules.git.history_error.is_none());
     let page = HistoryPage {
         commits: history_state(1, false).repository.unwrap().commits,
         next: None,
     };
     let _ = state.update(Message::HistoryLoaded(0, 0, 250, Ok(page.clone())));
     assert_eq!(state.repository.as_ref().unwrap().commits.len(), 251);
-    assert_eq!(state.history_scroll_y, 6900.);
-    assert_eq!(state.selected_commit, selected);
-    assert!(!state.history_loading);
+    assert_eq!(state.modules.git.history_scroll_y, 6900.);
+    assert_eq!(state.modules.git.selected_commit, selected);
+    assert!(!state.modules.git.history_loading);
     let _ = state.update(Message::HistoryLoaded(0, 0, 250, Ok(page)));
     assert_eq!(state.repository.as_ref().unwrap().commits.len(), 251);
 }
@@ -1980,10 +2022,10 @@ fn history_loading_preserves_rows_and_position_and_rejects_stale_pages() {
 #[test]
 fn history_search_preloads_pages_and_branch_changes_invalidate_pending_reads() {
     let mut state = history_state(250, true);
-    state.history_scroll_y = 5000.;
+    state.modules.git.history_scroll_y = 5000.;
     let _ = state.update(Message::Search("old commit".to_owned()));
-    assert!(state.history_loading);
-    assert_eq!(state.history_scroll_y, 0.);
+    assert!(state.modules.git.history_loading);
+    assert_eq!(state.modules.git.history_scroll_y, 0.);
     let mut next = state
         .repository
         .as_ref()
@@ -1998,7 +2040,7 @@ fn history_search_preloads_pages_and_branch_changes_invalidate_pending_reads() {
     };
     let _ = state.update(Message::HistoryLoaded(0, 0, 250, Ok(page.clone())));
     assert!(
-        state.history_loading,
+        state.modules.git.history_loading,
         "Search continues through older pages"
     );
     let _ = state.update(Message::Search(String::new()));
@@ -2012,11 +2054,11 @@ fn history_search_preloads_pages_and_branch_changes_invalidate_pending_reads() {
         }),
     ));
     assert!(
-        !state.history_loading,
+        !state.modules.git.history_loading,
         "Clearing search stops background preloading"
     );
     let _ = state.update(Message::LoadMoreHistory);
-    assert!(state.history_loading);
+    assert!(state.modules.git.history_loading);
     state
         .repository
         .as_mut()
@@ -2031,10 +2073,10 @@ fn history_search_preloads_pages_and_branch_changes_invalidate_pending_reads() {
             kind: crate::domain::repository::ReferenceKind::Local,
         });
     let _ = state.update(Message::SelectBranch(branch_key("refs/heads/other")));
-    assert!(!state.history_loading);
-    assert_eq!(state.history_scroll_y, 0.);
+    assert!(!state.modules.git.history_loading);
+    assert_eq!(state.modules.git.history_scroll_y, 0.);
     let _ = state.update(Message::HistoryLoaded(0, 0, 251, Err(Failure::Read)));
-    assert!(state.history_error.is_none());
+    assert!(state.modules.git.history_error.is_none());
 }
 
 #[test]
@@ -2050,7 +2092,7 @@ fn commit_history_scroll_reaches_the_oldest_row_and_requests_more() {
                 .visible_bounds()
                 .unwrap()
         };
-        state.history_scroll_y = (28. + 1000. * 30. - bounds.height).max(0.);
+        state.modules.git.history_scroll_y = (28. + 1000. * 30. - bounds.height).max(0.);
         let mut ui = iced_test::Simulator::with_size(ui_settings(), size, state.view());
         ui.point_at(bounds.center());
         ui.simulate([Event::Mouse(mouse::Event::WheelScrolled {
@@ -2079,10 +2121,10 @@ fn commit_history_scroll_reaches_the_oldest_row_and_requests_more() {
                 }))
                 .unwrap();
         }
-        for message in ui.into_messages() {
+        for message in ui.into_messages().map(crate::app::modules::host_message) {
             let _ = state.update(message);
         }
-        assert_eq!(state.history_loading, more);
+        assert_eq!(state.modules.git.history_loading, more);
     }
 }
 
@@ -2117,7 +2159,7 @@ fn commit_titles_follow_the_graph_in_each_row() {
     assign_graph(&mut commits, Vec::new());
     let mut state = App::new(Rc::new(I18n::new(Language::English)));
     state.loaded = true;
-    state.panes = pane_grid::State::new(Panel::Git).0;
+    state.panes = pane_grid::State::new(Panel::Module(crate::modules::ModuleId::Git)).0;
     state.repository = Some(
         Repository {
             remotes: vec!["origin".to_owned()],
@@ -2175,10 +2217,12 @@ fn commit_titles_follow_the_graph_in_each_row() {
                 .unwrap();
         }
         ui.click("Recent change").unwrap();
-        assert!(matches!(ui.into_messages().collect::<Vec<_>>().as_slice(),
-            [Message::SelectCommit(selected)] if selected.id == id(1)));
+        assert!(
+            matches!(ui.into_messages().map(crate::app::modules::host_message).collect::<Vec<_>>().as_slice(),
+            [Message::SelectCommit(selected)] if selected.id == id(1))
+        );
     }
-    state.query = "Update".to_owned();
+    state.modules.git.query = "Update".to_owned();
     let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
     let main = ui.find("Update main").unwrap().visible_bounds().unwrap();
     let feature = ui.find("Update feature").unwrap().visible_bounds().unwrap();
@@ -2218,7 +2262,10 @@ fn sidebar_navigation_fits_and_routes_in_every_screen_and_language() {
                         bounds.y >= theme::SIDEBAR_TOP_INSET
                             && bounds.y + bounds.height <= size.height
                     );
-                    let messages: Vec<_> = ui.into_messages().collect();
+                    let messages: Vec<_> = ui
+                        .into_messages()
+                        .map(crate::app::modules::host_message)
+                        .collect();
                     assert!(
                         matches!(messages.as_slice(), [Message::Navigate(target)] if *target == expected)
                     );
@@ -2228,7 +2275,10 @@ fn sidebar_navigation_fits_and_routes_in_every_screen_and_language() {
                 assert!(ui.find(iced::widget::Id::new("nav-files")).is_err());
                 ui.click(iced::widget::Id::new("new-space")).unwrap();
                 assert!(matches!(
-                    ui.into_messages().collect::<Vec<_>>().as_slice(),
+                    ui.into_messages()
+                        .map(crate::app::modules::host_message)
+                        .collect::<Vec<_>>()
+                        .as_slice(),
                     [Message::Space(spaces::Message::New)]
                 ));
             }
@@ -2249,7 +2299,7 @@ fn welcome_and_settings_fit_supported_window_sizes_in_every_language() {
         for size in [settings.size, settings.min_size.unwrap()] {
             for (navigation, key) in [
                 (Navigation::Projects, Key::Greeting),
-                (Navigation::Settings, Key::SettingsDescription),
+                (Navigation::Settings, Key::General),
             ] {
                 state.navigation = navigation;
                 let mut ui = iced_test::Simulator::with_size(ui_settings(), size, state.view());
@@ -2291,7 +2341,10 @@ fn header_moves_the_window_without_capturing_action_buttons() {
                     .unwrap();
                 ui.click(iced::widget::Id::new("window-header-drag-area"))
                     .unwrap();
-                let messages: Vec<_> = ui.into_messages().collect();
+                let messages: Vec<_> = ui
+                    .into_messages()
+                    .map(crate::app::modules::host_message)
+                    .collect();
                 assert!(matches!(
                     messages.as_slice(),
                     [
@@ -2304,7 +2357,10 @@ fn header_moves_the_window_without_capturing_action_buttons() {
                 let mut ui = iced_test::Simulator::with_size(ui_settings(), size, state.view());
                 ui.click(iced::widget::Id::new("window-header-action"))
                     .unwrap();
-                let messages: Vec<_> = ui.into_messages().collect();
+                let messages: Vec<_> = ui
+                    .into_messages()
+                    .map(crate::app::modules::host_message)
+                    .collect();
                 if navigation == Navigation::Settings {
                     assert!(matches!(
                         messages.as_slice(),
@@ -2361,11 +2417,13 @@ fn git_and_pipeline_panels_open_exclusively_and_can_both_close() {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
     app.workspace
         .create_space("Work".to_owned(), vec![PathBuf::from("project")]);
-    let _ = app.update(Message::TogglePanel(Panel::Pipelines));
+    let _ = app.update(Message::TogglePanel(Panel::Module(
+        crate::modules::ModuleId::Pipelines,
+    )));
     assert!(
         !app.panes
             .iter()
-            .any(|(_, panel)| *panel == Panel::Pipelines)
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Pipelines))
     );
     app.repository = Some(
         Repository {
@@ -2385,27 +2443,41 @@ fn git_and_pipeline_panels_open_exclusively_and_can_both_close() {
     assert!(
         app.panes
             .iter()
-            .any(|(_, panel)| *panel == Panel::Pipelines)
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Pipelines))
     );
-    let _ = app.update(Message::TogglePanel(Panel::Git));
+    let _ = app.update(Message::TogglePanel(Panel::Module(
+        crate::modules::ModuleId::Git,
+    )));
     assert_eq!(app.panes.len(), 2);
     assert!(app.workspace.preferences.show_git);
     assert!(!app.workspace.preferences.show_pipelines);
-    assert!(app.panes.iter().any(|(_, panel)| *panel == Panel::Git));
-    assert!(
-        !app.panes
-            .iter()
-            .any(|(_, panel)| *panel == Panel::Pipelines)
-    );
-    let _ = app.update(Message::TogglePanel(Panel::Pipelines));
-    assert!(!app.workspace.preferences.show_git);
-    assert!(!app.panes.iter().any(|(_, panel)| *panel == Panel::Git));
     assert!(
         app.panes
             .iter()
-            .any(|(_, panel)| *panel == Panel::Pipelines)
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Git))
     );
-    let _ = app.update(Message::TogglePanel(Panel::Pipelines));
+    assert!(
+        !app.panes
+            .iter()
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Pipelines))
+    );
+    let _ = app.update(Message::TogglePanel(Panel::Module(
+        crate::modules::ModuleId::Pipelines,
+    )));
+    assert!(!app.workspace.preferences.show_git);
+    assert!(
+        !app.panes
+            .iter()
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Git))
+    );
+    assert!(
+        app.panes
+            .iter()
+            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Pipelines))
+    );
+    let _ = app.update(Message::TogglePanel(Panel::Module(
+        crate::modules::ModuleId::Pipelines,
+    )));
     assert_eq!(app.panes.len(), 1);
     assert!(!app.workspace.preferences.show_git);
     assert!(!app.workspace.preferences.show_pipelines);
@@ -2486,13 +2558,13 @@ fn authentication_replaces_an_inflight_pipeline_refresh() {
         .unwrap()
         .remote = crate::domain::repository::Remote::parse("https://github.com/team/app.git");
     let _ = app.update(Message::RefreshPipelines);
-    let previous = app.pipeline_request;
-    assert!(app.pipeline_refreshing);
+    let previous = app.modules.pipelines.pipeline_request;
+    assert!(app.modules.pipelines.pipeline_refreshing);
     let _ = app.update(Message::Auth(auth::Message::Finished(
         app.auth_request,
         Ok("connected".to_owned()),
     )));
-    assert!(app.pipeline_request > previous);
+    assert!(app.modules.pipelines.pipeline_request > previous);
     let _ = app.update(Message::PipelinesLoaded(
         app.generation,
         previous,
@@ -2501,9 +2573,12 @@ fn authentication_replaces_an_inflight_pipeline_refresh() {
             username: None,
         },
     ));
-    assert!(app.pipeline_refreshing);
+    assert!(app.modules.pipelines.pipeline_refreshing);
     assert_eq!(app.account_username.as_deref(), Some("connected"));
-    assert!(matches!(app.pipelines, PipelineState::Loading));
+    assert!(matches!(
+        app.modules.pipelines.pipelines,
+        PipelineState::Loading
+    ));
 }
 
 #[test]
@@ -2626,16 +2701,16 @@ async fn render_for_visual_review_when_requested() {
         .create_space("Work".to_owned(), vec![root.clone()]);
     let repo = repository::load(root.clone(), None).await.unwrap();
     if let Some(commit) = repo.commits.first() {
-        state.selected_commit = Some(CommitKey {
+        state.modules.git.selected_commit = Some(CommitKey {
             root: root.clone(),
             id: commit.id.clone(),
         });
-        state.changed_files = repository::changed_files(root.clone(), commit.clone())
+        state.modules.git.changed_files = repository::changed_files(root.clone(), commit.clone())
             .await
             .unwrap();
     }
     state.repository = Some(repo.into());
-    if state.selected_commit.is_some() {
+    if state.modules.git.selected_commit.is_some() {
         state.show_commit_files();
     }
     state.tree.insert(
@@ -2654,7 +2729,7 @@ async fn render_for_visual_review_when_requested() {
         .into(),
     );
     state.workspace.preferences.show_pipelines = false;
-    state.pipelines = PipelineState::Ready(Vec::new());
+    state.modules.pipelines.pipelines = PipelineState::Ready(Vec::new());
     state.sync_panels();
     capture(&state, "workspace", (1440., 920.));
     state.navigation = Navigation::Files;
@@ -2855,7 +2930,7 @@ async fn render_for_visual_review_when_requested() {
         (Key::RemoteBranches, "branches-remote-collapsed"),
         (Key::Tags, "branches-tags-collapsed"),
     ] {
-        state.expanded_branch_folders = [
+        state.modules.git.expanded_branch_folders = [
             "false",
             "false/backup",
             "true",
@@ -2868,7 +2943,7 @@ async fn render_for_visual_review_when_requested() {
         .collect();
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
         ui.click(state.i18n.text(key)).unwrap();
-        for message in ui.into_messages() {
+        for message in ui.into_messages().map(crate::app::modules::host_message) {
             let _ = state.update(message);
         }
         capture(&state, name, (1080., 720.));
@@ -2941,7 +3016,10 @@ fn empty_preview_offers_project_files_only_when_that_panel_is_not_visible() {
             }
             if show_action {
                 ui.click(Id::new("preview-empty-action")).unwrap();
-                let messages = ui.into_messages().collect::<Vec<_>>();
+                let messages = ui
+                    .into_messages()
+                    .map(crate::app::modules::host_message)
+                    .collect::<Vec<_>>();
                 assert!(matches!(
                     messages.as_slice(),
                     [Message::SelectFilePanel(FilePanel::Project)]
@@ -2969,7 +3047,10 @@ fn empty_preview_preserves_space_creation_and_project_selection_guidance() {
         let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
         ui.click(Id::new("preview-empty-action")).unwrap();
         assert!(matches!(
-            ui.into_messages().collect::<Vec<_>>().as_slice(),
+            ui.into_messages()
+                .map(crate::app::modules::host_message)
+                .collect::<Vec<_>>()
+                .as_slice(),
             [Message::Space(spaces::Message::New)]
         ));
         app.workspace.create_space("Empty".into(), vec![]);
@@ -2989,7 +3070,7 @@ async fn history_hash_click_copies_the_full_identifier_without_selecting_the_com
     for language in [Language::English, Language::Russian, Language::Spanish] {
         let mut state = App::new(Rc::new(I18n::new(language)));
         state.loaded = true;
-        state.panes = pane_grid::State::new(Panel::Git).0;
+        state.panes = pane_grid::State::new(Panel::Module(crate::modules::ModuleId::Git)).0;
         state.repository = Some(
             Repository {
                 root: PathBuf::new(),
@@ -3084,7 +3165,10 @@ async fn history_hash_click_copies_the_full_identifier_without_selecting_the_com
         }
         ui.click(Id::from(format!("copy-commit-id--{hash}")))
             .unwrap();
-        let messages = ui.into_messages().collect::<Vec<_>>();
+        let messages = ui
+            .into_messages()
+            .map(crate::app::modules::host_message)
+            .collect::<Vec<_>>();
         assert!(matches!(messages.as_slice(), [Message::CopyCommitId(id)] if id == hash));
         let mut stream =
             task::into_stream(state.update(messages.into_iter().next().unwrap())).unwrap();
@@ -3094,7 +3178,7 @@ async fn history_hash_click_copies_the_full_identifier_without_selecting_the_com
             }
             action => panic!("Expected a clipboard write, got {action:?}"),
         }
-        assert!(state.selected_commit.is_none());
+        assert!(state.modules.git.selected_commit.is_none());
     }
 }
 
@@ -3212,11 +3296,11 @@ fn render_website_screenshots_when_requested() {
     }];
     repositories.repositories.push(second);
     repositories.active_root = frontend.clone();
-    app.branch = Some(BranchKey {
+    app.modules.git.branch = Some(BranchKey {
         root: frontend.clone(),
         reference: "refs/heads/feature/workspace".into(),
     });
-    app.expanded_branch_folders = [
+    app.modules.git.expanded_branch_folders = [
         format!("repo:{}", frontend.display()),
         format!("{}:false", frontend.display()),
         format!("repo:{}", backend.display()),
@@ -3367,7 +3451,7 @@ export function App() {
     app.sync_panels();
     capture(&app, "workspace-en", (1440., 1000.));
     app.workspace.preferences.show_git = true;
-    app.panes = pane_grid::State::new(Panel::Git).0;
+    app.panes = pane_grid::State::new(Panel::Module(crate::modules::ModuleId::Git)).0;
     capture(&app, "history-en", (1440., 920.));
     app.workspace.preferences.show_git = false;
     app.sync_panels();
@@ -3383,8 +3467,9 @@ export function App() {
             "tsx",
         )),
     );
+    app.preview_mut().editor.as_mut().unwrap().reviewing = true;
     capture(&app, "comparison-en", (1440., 920.));
-    app.pipelines = PipelineState::Ready(
+    app.modules.pipelines.pipelines = PipelineState::Ready(
         subjects
             .iter()
             .take(6)
@@ -3409,38 +3494,84 @@ export function App() {
             })
             .collect(),
     );
-    if let PipelineState::Ready(runs) = &app.pipelines {
+    if let PipelineState::Ready(runs) = &app.modules.pipelines.pipelines {
         for (index, run) in runs.iter().enumerate() {
-            let mut entry = jobs::overview::Entry::default();
-            entry.details = Some(Details {
-                stages: vec![Stage {
-                    name: None,
-                    provider_status: None,
-                    jobs: ["Format", "Lint", "Types", "Tests", "Build"]
-                        .iter()
-                        .enumerate()
-                        .map(|(job, name)| Job {
-                            id: job as u64 + 1,
-                            name: (*name).into(),
-                            status: if index == 0 && job == 4 {
-                                "in_progress"
-                            } else {
-                                "success"
-                            }
-                            .into(),
-                            url: run.url.clone(),
-                            actions: Vec::new(),
-                        })
-                        .collect(),
-                }],
-                cancelable: false,
-            });
-            app.jobs.overview.entries.insert(run.id, entry);
+            let entry = jobs::overview::Entry {
+                details: Some(Details {
+                    stages: vec![Stage {
+                        name: None,
+                        provider_status: None,
+                        jobs: ["Format", "Lint", "Types", "Tests", "Build"]
+                            .iter()
+                            .enumerate()
+                            .map(|(job, name)| Job {
+                                id: job as u64 + 1,
+                                name: (*name).into(),
+                                status: if index == 0 && job == 4 {
+                                    "in_progress"
+                                } else {
+                                    "success"
+                                }
+                                .into(),
+                                url: run.url.clone(),
+                                actions: Vec::new(),
+                            })
+                            .collect(),
+                    }],
+                    cancelable: false,
+                }),
+                ..Default::default()
+            };
+            app.modules
+                .pipelines
+                .jobs
+                .overview
+                .entries
+                .insert(run.id, entry);
         }
     }
     app.workspace.preferences.show_pipelines = true;
-    app.panes = pane_grid::State::new(Panel::Pipelines).0;
+    app.panes = pane_grid::State::new(Panel::Module(crate::modules::ModuleId::Pipelines)).0;
     capture(&app, "pipelines-en", (1080., 720.));
+
+    // Render settings with fictional metadata, without accessing a server or credentials.
+    use crate::domain::deployment::{Authentication, Connection, Mapping, Profile};
+    let connection = Connection {
+        id: "northstar-staging".into(),
+        name: "Northstar staging".into(),
+        host: "staging.example.invalid".into(),
+        port: 22,
+        username: "deploy".into(),
+        authentication: Authentication::Agent,
+        ..Default::default()
+    };
+    let profile = Profile {
+        id: "staging".into(),
+        name: "Staging".into(),
+        project: root,
+        connection: connection.id.clone(),
+        root: "/srv/northstar".into(),
+        mappings: vec![Mapping {
+            local: "frontend".into(),
+            remote: "www".into(),
+        }],
+        excluded: vec!["frontend/node_modules".into()],
+        default: true,
+    };
+    app.workspace.deployment.connections.push(connection);
+    app.workspace.spaces[0].deployments.push(profile.clone());
+    app.modules.deployment.profile = Some(profile);
+    let _ = app.open_settings();
+    app.settings_tab = SettingsTab::Deployment;
+    let mut ui = iced_test::Simulator::with_size(
+        ui_settings(),
+        (1200., 800.),
+        app.view_window(app.windows.settings.unwrap()),
+    );
+    ui.snapshot(&Theme::Dark)
+        .unwrap()
+        .matches_image(output.join("deployment-en"))
+        .unwrap();
 }
 
 #[test]
@@ -3448,10 +3579,13 @@ fn copied_commit_feedback_ignores_old_timers_and_resets_after_two_seconds() {
     let mut app = history_state(2, false);
     let first_id = format!("{:040x}", 2);
     let _ = app.update(Message::CopyCommitId(first_id.clone()));
-    let first = app.copy_request;
-    assert!(app.copied_commit.is_none());
+    let first = app.modules.git.copy_request;
+    assert!(app.modules.git.copied_commit.is_none());
     let _ = app.update(Message::CommitIdCopied(first, first_id.clone()));
-    assert_eq!(app.copied_commit.as_deref(), Some(first_id.as_str()));
+    assert_eq!(
+        app.modules.git.copied_commit.as_deref(),
+        Some(first_id.as_str())
+    );
     if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
         use iced::{Event, mouse, widget::Id};
         app.i18n = Rc::new(I18n::new(Language::Russian));
@@ -3472,10 +3606,10 @@ fn copied_commit_feedback_ignores_old_timers_and_resets_after_two_seconds() {
             .unwrap();
     }
     let _ = app.update(Message::CopyCommitId("second".into()));
-    let second = app.copy_request;
+    let second = app.modules.git.copy_request;
     let _ = app.update(Message::CommitIdCopied(second, "second".into()));
     let _ = app.update(Message::ClearCopiedCommit(first));
-    assert_eq!(app.copied_commit.as_deref(), Some("second"));
+    assert_eq!(app.modules.git.copied_commit.as_deref(), Some("second"));
     let _ = app.update(Message::ClearCopiedCommit(second));
-    assert!(app.copied_commit.is_none());
+    assert!(app.modules.git.copied_commit.is_none());
 }

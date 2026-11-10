@@ -130,15 +130,15 @@ impl App {
             }
             Message::Finished(request, result) if request == self.auth_request => match result {
                 Ok(username) => {
-                    self.pipeline_cache.clear();
-                    self.pipelines = PipelineState::Idle;
+                    self.modules.pipelines.pipeline_cache.clear();
+                    self.modules.pipelines.pipelines = PipelineState::Idle;
                     self.notifications
                         .success(Key::SignedIn, Some(username.clone()));
                     self.auth_cancel = None;
                     self.auth_dialog = None;
                     self.auth_request += 1;
                     self.account_username = Some(username);
-                    self.pipeline_refreshing = false;
+                    self.modules.pipelines.pipeline_refreshing = false;
                     return Task::batch([self.load_pipelines(), self.reload_jobs_after_sign_in()]);
                 }
                 Err(error) => {
@@ -197,11 +197,11 @@ impl App {
                 };
                 self.cancel_auth();
                 self.reset_jobs();
-                self.pipeline_cache.clear();
+                self.modules.pipelines.pipeline_cache.clear();
                 self.disconnecting = true;
-                self.pipeline_request += 1;
-                self.pipeline_refreshing = false;
-                self.pipelines = PipelineState::Loading;
+                self.modules.pipelines.pipeline_request += 1;
+                self.modules.pipelines.pipeline_refreshing = false;
+                self.modules.pipelines.pipelines = PipelineState::Loading;
                 let (generation, request) = (self.generation, self.auth_request);
                 let service = self.auth_service.clone();
                 return Task::perform(
@@ -224,7 +224,7 @@ impl App {
                     }
                     Err(error) => {
                         self.notifications.error(error_key(error), None);
-                        self.pipelines = PipelineState::Failed(error);
+                        self.modules.pipelines.pipelines = PipelineState::Failed(error);
                     }
                 }
             }

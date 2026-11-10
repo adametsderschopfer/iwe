@@ -1,11 +1,35 @@
 # Modules
 
-IWE Code provides bundled modules under **Settings → Modules**. Each system module displays a
-**System** badge. System modules are always enabled. You cannot disable or remove a system module.
-Legacy disabled-module preferences do not affect system modules.
+IWE Code provides Git, Pipelines, Terminal, and Deployment under **Settings → Modules**. Each module
+is enabled by default. Each row provides an activation switch and a **System** badge. Changes apply
+immediately and persist across restarts. Modules remain installed when disabled. Saved connections,
+profiles, credentials, shortcuts, and panel preferences remain unchanged. Unknown module identifiers
+survive settings updates. Older settings without activation preferences enable every module.
 
-The terminal is the first module. Git and pipelines keep their existing panel settings. The current
-application has no module store, external module installation, or external module loader.
+Disabling hides module controls and panels. It also stops subscriptions and rejects new module
+actions. Terminal sessions end. Deployment transfers receive cancellation, and queued transfers are
+cleared. Git and provider operations already submitted can finish externally. Their obsolete results
+cannot replace current module state. Re-enabling never repeats a write operation automatically.
+Existing source and comparison tabs remain available.
+
+Module panels start collapsed when no visibility preference exists. Modules remain enabled. Click a
+module's sidebar control to expand or collapse its panel. Deployment uses the right server icon. The
+minus button in each panel header collapses that panel without disabling its module. Existing Git
+and Pipelines visibility preferences remain unchanged. Terminal and Deployment start collapsed after
+each application restart.
+
+## Git and Pipelines
+
+Git owns history panels, branch selection, branch operations, and their presentation state.
+Pipelines owns run lists, job details, status popups, caches, and provider adapters. They share the
+existing lower panel position. Terminal and Deployment keep their independent panel positions.
+
+Pipelines works with Git disabled. Shared repository discovery reads provider endpoints without
+loading history or branches. Disabling Git stops status polling and new working-file comparisons.
+Normal local file viewing remains available. Disabling Pipelines stops run and job polling,
+including pipeline status updates in Git history.
+
+The application has no module store, external installation, or external module loader.
 
 ## Deployment
 
@@ -16,11 +40,11 @@ behavior, keyboard shortcuts, and verification limits.
 
 ## Terminal
 
-Select a project, then choose **Terminal** in the sidebar. Module cards show the name, system badge,
-and enabled status. They have no activation switch. The first opening creates a terminal tab in the
-project's directory. Later openings restore existing tabs. Each tab owns an independent interactive
-shell. Commands inherit your account's permissions and environment. Commands can modify files,
-launch programs, and access the network.
+Select a project, then choose **Terminal** in the sidebar. Compact module rows show the name, system
+badge, and activation switch. The first opening creates a terminal tab in the project's directory.
+Later openings restore existing tabs. Each tab owns an independent interactive shell. Commands
+inherit your account's permissions and environment. Commands can modify files, launch programs, and
+access the network.
 
 Click the terminal area before typing. The terminal supports Unicode text, colors, cursor movement,
 command history, Tab completion, and common function keys. Ctrl+C interrupts the current command.
@@ -31,7 +55,7 @@ The shell determines which commands and programs are available.
 | Plus beside the tabs                | Create and select another terminal tab                 |
 | Tab label                           | Select that tab without changing its session or output |
 | Cross on a tab                      | Close that tab and end its session                     |
-| Cross opposite the Terminal heading | Hide the panel while keeping all tabs and sessions     |
+| Minus opposite the Terminal heading | Hide the panel while keeping all tabs and sessions     |
 | Mouse wheel                         | Read earlier terminal output                           |
 | Mouse drag                          | Select visible terminal text                           |
 
@@ -49,6 +73,11 @@ the shell on every platform. Clicking the terminal clears source-text and branch
 Dragging the horizontal divider resizes the terminal. The terminal also follows window resizing. The
 terminal uses the saved source font size and current appearance. Output does not change when the
 appearance changes.
+
+The terminal reuses prepared drawing geometry while its visible screen remains unchanged. Output,
+resizing, and scrollback changes update a screen revision. Font size, appearance, selection, focus,
+and tab changes invalidate drawing geometry. The terminal uses the source viewer's platform font.
+This avoids rebuilding terminal cells when unrelated panels redraw.
 
 Selecting a different project stops all sessions and closes the panel. Reopening the panel creates a
 tab for that project. Refreshing the same project keeps its existing tabs and sessions. Sessions and
@@ -104,12 +133,15 @@ modules/
         └── tests.rs
 ```
 
-The module exposes its state, events, subscriptions, and view through `terminal/mod.rs`. The module
-does not import host application state. The session adapter does not import presentation code.
-Shared application code connects module events to workspace actions. Host integration tests remain
-under `src/app/modules/`. Shared settings remain under `src/ui/modules.rs`.
+Each module exposes its state, events, and views through its `mod.rs` boundary. Git and pipeline
+host coordination lives under `app/modules/git/` and `app/modules/pipelines/`. Their views receive
+explicit read-only projections instead of application state. The terminal also exposes tasks and
+subscriptions through `terminal/mod.rs`. The module does not import host application state. The
+session adapter does not import presentation code. Shared application code connects module events to
+workspace actions. Host integration tests remain under `src/app/modules/`. Shared settings remain
+under `src/ui/modules.rs`.
 
-Terminal translations live in the module's own `locales/` directory. Shared application translations
+Module translations live in each module's own `locales/` directory. Shared application translations
 remain under root `locales/`. The shared localizer embeds and combines both resource sets. Duplicate
 message identifiers reject the combined catalog. Typed built-in message keys remain registered in
 `src/i18n/mod.rs`. Catalog tests validate each source and the combined messages.

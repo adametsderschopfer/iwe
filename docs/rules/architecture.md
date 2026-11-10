@@ -87,7 +87,10 @@ under `docs/`. Documentation topics do not define source architecture.
 - Keep the pure module catalog under `modules/catalog/`. It must not import runtimes, Iced, or
   operating-system APIs.
 - Keep host message routing, panel visibility, and workspace coordination in `app/modules/`.
-- System modules must remain available. Do not provide disable or removal operations for them.
+- Keep system modules installed. Enable every module by default, and allow users to disable each
+  module.
+- Disabling a module stops its subscriptions, rejects new actions, and invalidates pending results.
+  Preserve saved configuration.
 - Keep shared module settings in `ui/modules.rs`. Pass module state and presentation values to each
   public view.
 - Module code must not import `app`, host screens, or another module's private implementation.

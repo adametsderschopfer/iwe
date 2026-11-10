@@ -30,6 +30,7 @@ pub(crate) struct Tab {
     pub number: u64,
     pub status: Status,
     pub parser: vt100::Parser<Replies>,
+    pub revision: u64,
     session: Option<Arc<Session>>,
 }
 
@@ -40,6 +41,7 @@ impl Tab {
             number,
             status: Status::Starting,
             parser: vt100::Parser::new_with_callbacks(24, 80, 2000, Replies::default()),
+            revision: 0,
             session: None,
         }
     }
@@ -86,6 +88,9 @@ impl Tab {
             if session.input(bytes).is_err() {
                 self.fail();
             } else {
+                if self.parser.screen().scrollback() != 0 {
+                    self.revision = self.revision.wrapping_add(1);
+                }
                 self.parser.screen_mut().set_scrollback(0);
             }
         }
@@ -211,6 +216,9 @@ impl Tab {
                 }
             }
             Event::Output(request, events) if request == state.request && state.running() => {
+                if !events.is_empty() {
+                    state.revision = state.revision.wrapping_add(1);
+                }
                 for event in events {
                     match event {
                         Output::Bytes(bytes) => state.parser.process(&bytes),
@@ -234,6 +242,7 @@ impl Tab {
             Event::Resize(request, rows, cols) if request == state.request => {
                 let (rows, cols) = (rows.clamp(1, 200), cols.clamp(1, 400));
                 if state.parser.screen().size() != (rows, cols) {
+                    state.revision = state.revision.wrapping_add(1);
                     state.parser.screen_mut().set_size(rows, cols);
                     if let Some(session) = &state.session
                         && session.resize(rows, cols).is_err()
@@ -243,12 +252,16 @@ impl Tab {
                 }
             }
             Event::Scroll(request, lines) if request == state.request => {
+                let previous = state.parser.screen().scrollback();
                 let offset = state
                     .parser
                     .screen()
                     .scrollback()
                     .saturating_add_signed(lines as isize);
                 state.parser.screen_mut().set_scrollback(offset);
+                if state.parser.screen().scrollback() != previous {
+                    state.revision = state.revision.wrapping_add(1);
+                }
             }
             Event::Paste(request) if request == state.request && state.running() => {
                 return iced::clipboard::read().map(move |text| Event::Pasted(request, text));

@@ -13,6 +13,13 @@ const tabs = computed(() => [
     height: 2000,
   },
   {
+    id: 'deployment',
+    title: messages.preview.deployment,
+    alt: messages.preview.altDeployment,
+    width: 2400,
+    height: 1600,
+  },
+  {
     id: 'history',
     title: messages.preview.history,
     alt: messages.preview.altHistory,
@@ -89,6 +96,8 @@ const tabs = computed(() => [
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 9px;
+  min-width: 0;
+  overflow-x: auto;
 }
 .preview-options button {
   padding: 8px 14px;
@@ -110,7 +119,7 @@ const tabs = computed(() => [
   font-size: 12px;
 }
 .preview-image {
-  aspect-ratio: 1.65;
+  aspect-ratio: 1.44;
   overflow: hidden;
   border: 1px solid #444540;
   border-radius: 9px;
@@ -120,8 +129,8 @@ const tabs = computed(() => [
 .preview-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: top left;
+  object-fit: contain;
+  object-position: center;
 }
 figcaption {
   text-align: center;
@@ -143,14 +152,6 @@ figcaption {
   }
   .preview-product {
     display: none;
-  }
-  .preview-image {
-    aspect-ratio: 1.25;
-  }
-  .preview-image img {
-    width: 137%;
-    max-width: none;
-    object-fit: cover;
   }
 }
 </style>

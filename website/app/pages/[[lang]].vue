@@ -63,27 +63,9 @@ useSeoMeta({
         <ScrollReveal><ProductShowcase :messages="messages" /></ScrollReveal>
       </section>
 
-      <section id="features" class="features section-space" aria-labelledby="features-title">
-        <ScrollReveal class="section-heading">
-          <h2 id="features-title" class="section-title preserve-lines">
-            {{ messages.features.title }}
-          </h2>
-          <p class="section-description">{{ messages.features.description }}</p>
-        </ScrollReveal>
-        <div class="feature-list">
-          <ScrollReveal
-            v-for="(feature, index) in messages.features.items"
-            :key="feature.icon"
-            as="article"
-            class="feature"
-            :delay="index * 60"
-          >
-            <SiteIcon :name="feature.icon" />
-            <h3>{{ feature.title }}</h3>
-            <p>{{ feature.description }}</p>
-          </ScrollReveal>
-        </div>
-      </section>
+      <FeatureSection :messages="messages" />
+
+      <DeploymentSection :messages="messages" />
 
       <section id="workflow" class="workflow section-space" aria-labelledby="workflow-title">
         <div class="workflow-copy">
@@ -225,35 +207,11 @@ useSeoMeta({
   font-size: 11px;
   margin: 20px 0 0;
 }
-.section-heading {
-  display: flex;
-  gap: 50px;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-.section-heading .section-description {
-  max-width: 280px;
-  margin: 0 0 4px;
-}
-.feature-list {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 60px;
-  margin-top: 64px;
-}
-.feature > svg {
-  color: var(--accent);
-  width: 25px;
-  height: 25px;
-  margin-bottom: 26px;
-}
-.feature h3,
 .workflow-points h3 {
   font-size: 16px;
   font-weight: 550;
   margin: 0 0 13px;
 }
-.feature p,
 .workflow-points p {
   font-size: 14px;
   line-height: 1.65;
@@ -462,9 +420,6 @@ useSeoMeta({
   .hero-description {
     max-width: 550px;
   }
-  .feature-list {
-    gap: 32px;
-  }
   .workflow-content {
     gap: 36px;
     grid-template-columns: 1.4fr 1fr;
@@ -488,25 +443,12 @@ useSeoMeta({
     flex-wrap: wrap;
     gap: 20px;
   }
-  .section-heading,
   .workflow-copy {
     display: block;
   }
-  .section-heading .section-description,
   .workflow-copy .section-description {
     margin: 22px 0 0;
     max-width: 450px;
-  }
-  .feature-list {
-    grid-template-columns: 1fr;
-    gap: 36px;
-    margin-top: 40px;
-  }
-  .feature > svg {
-    margin-bottom: 17px;
-  }
-  .feature p {
-    max-width: 420px;
   }
   .workflow-content {
     grid-template-columns: 1fr;

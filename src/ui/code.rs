@@ -18,8 +18,9 @@ use two_face::re_exports::syntect::{
     easy::HighlightLines, highlighting::Theme, parsing::SyntaxSet,
 };
 
-static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(two_face::syntax::extra_no_newlines);
-static PALETTE: LazyLock<Theme> = LazyLock::new(syntax::palette);
+pub(crate) static SYNTAXES: LazyLock<SyntaxSet> =
+    LazyLock::new(two_face::syntax::extra_no_newlines);
+pub(crate) static PALETTE: LazyLock<Theme> = LazyLock::new(syntax::palette);
 
 #[derive(Debug, Clone)]
 pub(crate) struct Document {
@@ -162,7 +163,12 @@ impl Document {
     }
 
     pub(crate) fn with_comparison(self, source: Source, extension: &str) -> Self {
-        comparison::apply(self, source, extension).measure_memory()
+        comparison::apply(self, source, extension, false).measure_memory()
+    }
+
+    /// Keep both sides visible when an explicit comparison finds identical content.
+    pub(crate) fn with_explicit_comparison(self, source: Source, extension: &str) -> Self {
+        comparison::apply(self, source, extension, true).measure_memory()
     }
 
     pub(crate) fn memory_bytes(&self) -> usize {

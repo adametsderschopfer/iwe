@@ -24,13 +24,54 @@ pub(crate) enum Field {
     Root,
     KeyName,
     KeyPath,
+    DraftName,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum ProfileTab {
+    #[default]
+    Connection,
+    Mappings,
+    Exclusions,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NameAction {
+    NewConnection,
+    NewProfile,
+    DuplicateConnection,
+    DuplicateProfile,
+    RenameConnection,
+    RenameProfile,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
+    SaveText {
+        profile: String,
+        token: u64,
+        path: String,
+        expected: std::sync::Arc<String>,
+        text: std::sync::Arc<String>,
+    },
     Toggle,
+    ToggleActivity,
+    DismissActivity,
     Settings,
     SpaceSettings(usize),
+    OpenConnections,
+    OpenProfiles,
+    ShowConnections,
+    BeginName(NameAction),
+    ConfirmName,
+    NewProtocol(Protocol),
+    DiscardChanges,
+    RevertConnection,
+    RevertProfile,
+    ProfileTab(ProfileTab),
+    TestProfile,
+    OpenKeys,
+    EditKey(String),
     NewConnection,
     EditConnection(String),
     Input(Field, String),
@@ -82,16 +123,35 @@ pub(crate) enum Event {
 }
 
 pub(crate) enum Effect {
+    EditorSaved(u64, Result<(), Error>),
     None,
     Save,
     Settings,
+    Connections,
     Preview(Output),
+    CompareRequested {
+        profile: String,
+        label: String,
+        path: PathBuf,
+        remote: String,
+    },
     Transferred(String),
 }
 
 #[derive(Default)]
 pub(crate) struct State {
     pub open: bool,
+    pub activity_visible: bool,
+    pub activity_expanded: bool,
+    pub operation_label: Option<Key>,
+    pub operation_path: String,
+    pub profile_tab: ProfileTab,
+    pub keys_open: bool,
+    pub key_editing: Option<String>,
+    pub naming: Option<NameAction>,
+    pub name_value: String,
+    pub new_protocol: Protocol,
+    pub pending: Option<Box<Event>>,
     pub connection: Option<Connection>,
     pub secret: Secret,
     pub secret_changed: bool,
@@ -130,13 +190,37 @@ fn identifier() -> Result<String, Error> {
 }
 
 impl State {
+    pub(crate) fn comparison_error(&self, profile: &str, path: &Path) -> Option<Error> {
+        let matches = |request: &&Request| {
+            request.profile.id == profile
+                && matches!(&request.operation, Operation::Compare(local) if local == path)
+        };
+        if self
+            .current
+            .iter()
+            .chain(self.queue.iter())
+            .any(|request| matches(&request))
+        {
+            return None;
+        }
+        if self.failed.iter().any(|request| matches(&request)) {
+            return self.error.clone().or(Some(Error::Cancelled));
+        }
+        Some(Error::Cancelled)
+    }
+
+    pub(crate) fn queued(&self) -> usize {
+        self.queue.len()
+    }
+
     pub(crate) fn has_dialog(&self) -> bool {
-        self.key_dialog || self.connection.is_some()
+        self.key_dialog || self.keys_open || self.naming.is_some() || self.pending.is_some()
     }
 
     fn close_key_dialog(&mut self) {
         self.key_request += 1;
         self.key_dialog = false;
+        self.key_editing = None;
         self.key_name.clear();
         self.key_path.clear();
         self.key_error = None;
@@ -174,6 +258,17 @@ impl State {
         Task::none()
     }
 
+    pub(crate) fn suspend(&mut self) {
+        self.progress.cancel.cancel();
+        let request = self.request + 1;
+        let credential_request = self.credential_request + 1;
+        let key_request = self.key_request + 1;
+        *self = Self::default();
+        self.request = request;
+        self.credential_request = credential_request;
+        self.key_request = key_request;
+    }
+
     pub(crate) fn sync_context(&mut self, space: Option<usize>, project: Option<&Path>) {
         let context = space.zip(project.map(Path::to_path_buf));
         if self.context == context {
@@ -182,6 +277,8 @@ impl State {
         self.progress.cancel.cancel();
         self.request += 1;
         self.context = context;
+        self.activity_visible = false;
+        self.activity_expanded = false;
         self.busy = false;
         self.current = None;
         self.failed = None;
@@ -208,6 +305,15 @@ impl State {
             .find(|p| p.project == project && Some(&p.id) == self.selected_profile.as_ref())
             .or_else(|| profiles.iter().find(|p| p.project == project && p.default))
             .or_else(|| profiles.iter().find(|p| p.project == project))
+    }
+
+    pub(crate) fn forget_editor_save(&mut self, token: u64) {
+        if self.failed.as_ref().is_some_and(|request| matches!(request.operation, Operation::SaveText { token: saved, .. } if saved == token)) {
+            self.failed = None;
+            self.error = None;
+            self.activity_visible = false;
+            self.activity_expanded = false;
+        }
     }
 
     pub(crate) fn subscription(&self) -> Subscription<Event> {
@@ -239,6 +345,25 @@ impl State {
         };
         self.progress = Progress::default();
         let progress = self.progress.clone();
+        self.activity_visible = true;
+        self.operation_label = Some(match &request.operation {
+            Operation::Test => Key::DeploymentTest,
+            Operation::List(_) => Key::DeploymentRefresh,
+            Operation::Preview(_) => Key::DeploymentLoadingRemote,
+            Operation::Compare(_) => Key::DeploymentCompare,
+            Operation::Upload(_) | Operation::SaveText { .. } => Key::DeploymentUpload,
+            Operation::Download(_, _) => Key::DeploymentDownload,
+        });
+        self.operation_path = match &request.operation {
+            Operation::Compare(path) | Operation::Upload(path) => {
+                path.to_string_lossy().into_owned()
+            }
+            Operation::List(path) | Operation::Preview(path) | Operation::Download(path, _) => {
+                path.clone()
+            }
+            Operation::SaveText { path, .. } => path.clone(),
+            Operation::Test => String::new(),
+        };
         self.current = Some(request.clone());
         Task::perform(
             async move {
@@ -292,7 +417,119 @@ impl State {
         project: Option<&Path>,
     ) -> (Task<Event>, Effect) {
         let mut effect = Effect::None;
+        if self.guard_selection(&event, settings, profiles) {
+            self.pending = Some(Box::new(event));
+            return (Task::none(), effect);
+        }
         match event {
+            Event::OpenConnections if self.connection.is_none() => {
+                if let Some(connection) = settings.connections.first() {
+                    return self.update(
+                        Event::EditConnection(connection.id.clone()),
+                        settings,
+                        profiles,
+                        project,
+                    );
+                }
+            }
+            Event::OpenProfiles if self.profile.is_none() => {
+                if let Some(profile) = self
+                    .active_profile(profiles, project)
+                    .or_else(|| profiles.first())
+                {
+                    return self.update(
+                        Event::EditProfile(profile.id.clone()),
+                        settings,
+                        profiles,
+                        project,
+                    );
+                }
+            }
+            Event::ShowConnections => return (Task::none(), Effect::Connections),
+            Event::BeginName(action) => {
+                self.name_value = match action {
+                    NameAction::NewConnection | NameAction::NewProfile => String::new(),
+                    NameAction::DuplicateConnection | NameAction::RenameConnection => self
+                        .connection
+                        .as_ref()
+                        .map(|c| c.name.clone())
+                        .unwrap_or_default(),
+                    NameAction::DuplicateProfile | NameAction::RenameProfile => self
+                        .profile
+                        .as_ref()
+                        .map(|p| p.name.clone())
+                        .unwrap_or_default(),
+                };
+                self.new_protocol = Protocol::Sftp;
+                self.naming = Some(action);
+            }
+            Event::NewProtocol(protocol) => self.new_protocol = protocol,
+            Event::ConfirmName => return self.confirm_name(settings, profiles, project),
+            Event::DiscardChanges => {
+                if let Some(event) = self.pending.take() {
+                    match event.as_ref() {
+                        Event::EditConnection(_) | Event::BeginName(NameAction::NewConnection) => {
+                            let cleanup = self.close_connection();
+                            let (next, effect) = self.update(*event, settings, profiles, project);
+                            return (Task::batch([cleanup, next]), effect);
+                        }
+                        _ => self.profile = None,
+                    }
+                    return self.update(*event, settings, profiles, project);
+                }
+            }
+            Event::RevertConnection if !self.saving => {
+                let id = self.connection.as_ref().map(|c| c.id.clone());
+                let cleanup = self.close_connection();
+                if let Some(id) = id {
+                    let (select, _) =
+                        self.update(Event::EditConnection(id), settings, profiles, project);
+                    return (Task::batch([cleanup, select]), effect);
+                }
+            }
+            Event::RevertProfile => {
+                let id = self.profile.take().map(|p| p.id);
+                if let Some(id) = id {
+                    return self.update(Event::EditProfile(id), settings, profiles, project);
+                }
+            }
+            Event::ProfileTab(tab) => self.profile_tab = tab,
+            Event::OpenKeys => self.keys_open = true,
+            Event::EditKey(id) => {
+                if let Some(key) = settings.keys.iter().find(|k| k.id == id) {
+                    self.key_request += 1;
+                    self.key_dialog = true;
+                    self.key_editing = Some(id);
+                    self.key_name = key.name.clone();
+                    self.key_path = key.path.to_string_lossy().into_owned();
+                    self.key_error = None;
+                }
+            }
+            Event::TestProfile => {
+                if let Some(profile) = &self.profile
+                    && let Some(connection) = settings
+                        .connections
+                        .iter()
+                        .find(|c| c.id == profile.connection)
+                {
+                    let request = Request {
+                        connection: connection.clone(),
+                        settings: settings.clone(),
+                        profile: profile.clone(),
+                        operation: Operation::Test,
+                        secret: None,
+                    };
+                    return (self.start(request), effect);
+                }
+                self.error = Some(Error::Configuration);
+            }
+            Event::ToggleActivity => self.activity_expanded = !self.activity_expanded,
+            Event::DismissActivity => {
+                self.activity_expanded = false;
+                if !self.busy {
+                    self.activity_visible = false;
+                }
+            }
             Event::Toggle => {
                 self.open = !self.open;
                 if self.open && self.tree.is_empty() {
@@ -315,6 +552,9 @@ impl State {
                 Err(error) => self.error = Some(error),
             },
             Event::EditConnection(id) => {
+                if self.connection.as_ref().is_some_and(|c| c.id == id) {
+                    return (Task::none(), effect);
+                }
                 self.connection = settings.connections.iter().find(|c| c.id == id).cloned();
                 self.port = self
                     .connection
@@ -326,6 +566,7 @@ impl State {
                 self.error = None;
             }
             Event::Input(field, value) => match field {
+                Field::DraftName => self.name_value = value,
                 Field::KeyName => self.key_name = value,
                 Field::KeyPath => self.key_path = value,
                 Field::ProfileName => {
@@ -383,7 +624,15 @@ impl State {
             }
             Event::SaveConnection if !self.saving => {
                 if let Some(connection) = self.connection.clone() {
-                    if let Err(error) = connection.validate() {
+                    let validation = connection.validate().and_then(|()| {
+                        if let Authentication::Key(id) = &connection.authentication
+                            && !settings.keys.iter().any(|key| &key.id == id)
+                        {
+                            return Err(Error::Configuration);
+                        }
+                        Ok(())
+                    });
+                    if let Err(error) = validation {
                         self.error = Some(error);
                     } else {
                         self.credential_request += 1;
@@ -421,6 +670,7 @@ impl State {
                 self.saving = false;
                 match result {
                     Ok(()) => {
+                        self.connection = Some(connection.clone());
                         if let Some(existing) = settings
                             .connections
                             .iter_mut()
@@ -432,7 +682,6 @@ impl State {
                         }
                         self.secret = Secret::default();
                         self.secret_changed = false;
-                        self.connection = None;
                         self.status = Some(Key::DeploymentSaved);
                         self.error = None;
                         effect = Effect::Save;
@@ -455,14 +704,21 @@ impl State {
                 self.key_error = None;
             }
             Event::CloseDialog => {
-                if self.key_dialog {
+                if self.pending.take().is_some() || self.naming.take().is_some() {
+                    self.name_value.clear();
+                } else if self.key_dialog {
                     self.close_key_dialog();
+                } else if self.keys_open {
+                    self.keys_open = false;
                 } else if !self.saving {
                     return (self.close_connection(), effect);
                 }
             }
             Event::CloseSettings => {
                 self.close_key_dialog();
+                self.keys_open = false;
+                self.naming = None;
+                self.pending = None;
                 let (cleanup, effect) =
                     self.update(Event::StopBrowsing, settings, profiles, project);
                 let connection = if self.saving {
@@ -498,14 +754,17 @@ impl State {
                 if self.key_name.trim().is_empty() || !Path::new(&self.key_path).is_absolute() {
                     self.key_error = Some(Error::Configuration);
                 } else {
-                    match identifier() {
+                    match self.key_editing.clone().map_or_else(identifier, Ok) {
                         Ok(id) => {
+                            settings.keys.retain(|key| key.id != id);
                             settings.keys.push(PrivateKey {
                                 id: id.clone(),
                                 name: self.key_name.trim().to_owned(),
                                 path: PathBuf::from(&self.key_path),
                             });
-                            if let Some(connection) = &mut self.connection {
+                            if !self.keys_open
+                                && let Some(connection) = &mut self.connection
+                            {
                                 connection.authentication = Authentication::Key(id);
                                 self.secret = Secret::default();
                                 self.secret_changed = false;
@@ -542,6 +801,7 @@ impl State {
                 }
             }
             Event::NewProfile => {
+                self.profile_tab = ProfileTab::Connection;
                 if let (Some(project), Ok(id)) = (project, identifier()) {
                     self.profile = Some(Profile {
                         id,
@@ -560,6 +820,11 @@ impl State {
                 }
             }
             Event::EditProfile(id) => {
+                if self.profile.as_ref().is_some_and(|p| p.id == id) {
+                    return (Task::none(), effect);
+                }
+                let _ = self.update(Event::StopBrowsing, settings, profiles, project);
+                self.profile_tab = ProfileTab::Connection;
                 self.profile = profiles.iter().find(|p| p.id == id).cloned();
                 self.error = None;
             }
@@ -752,11 +1017,95 @@ impl State {
                     );
                 }
             }
+            Event::SaveText {
+                profile,
+                token,
+                path,
+                expected,
+                text,
+            } => {
+                if self.busy {
+                    return (
+                        Task::none(),
+                        Effect::EditorSaved(token, Err(Error::Connection)),
+                    );
+                }
+                let Some(profile) = profiles
+                    .iter()
+                    .find(|candidate| {
+                        candidate.id == profile && Some(candidate.project.as_path()) == project
+                    })
+                    .cloned()
+                else {
+                    return (
+                        Task::none(),
+                        Effect::EditorSaved(token, Err(Error::Configuration)),
+                    );
+                };
+                let Some(connection) = settings
+                    .connections
+                    .iter()
+                    .find(|connection| connection.id == profile.connection)
+                    .cloned()
+                else {
+                    return (
+                        Task::none(),
+                        Effect::EditorSaved(token, Err(Error::Configuration)),
+                    );
+                };
+                return (
+                    self.start(Request {
+                        connection,
+                        settings: settings.clone(),
+                        profile,
+                        operation: Operation::SaveText {
+                            token,
+                            path,
+                            expected,
+                            text,
+                        },
+                        secret: None,
+                    }),
+                    Effect::None,
+                );
+            }
             Event::Run(operation) => {
                 self.menu = None;
-                self.open = true;
                 match self.request(settings, profiles, project, operation) {
-                    Ok(request) => return (self.start(request), effect),
+                    Ok(request) => {
+                        if let Operation::Compare(path) = &request.operation {
+                            let remote = match request.profile.to_remote(path) {
+                                Ok(remote) => remote,
+                                Err(error) => {
+                                    self.error = Some(error);
+                                    return (Task::none(), Effect::Settings);
+                                }
+                            };
+                            effect = Effect::CompareRequested {
+                                profile: request.profile.id.clone(),
+                                label: request.profile.name.clone(),
+                                path: path.clone(),
+                                remote,
+                            };
+                            if self
+                                .current
+                                .iter()
+                                .chain(self.queue.iter())
+                                .any(|existing| {
+                                    existing.profile.id == request.profile.id
+                                        && existing.operation == request.operation
+                                })
+                            {
+                                return (Task::none(), effect);
+                            }
+                            if self.busy && self.queue.len() >= 32 {
+                                self.error = Some(Error::TooLarge);
+                                self.activity_expanded = true;
+                                return (Task::none(), Effect::None);
+                            }
+                        }
+                        return (self.start(request), effect);
+                    }
                     Err(error) => {
                         self.error = Some(error);
                         return (Task::none(), Effect::Settings);
@@ -769,7 +1118,9 @@ impl State {
                     Ok(output) => {
                         self.error = None;
                         self.failed = None;
+                        self.status = Some(Key::DeploymentComplete);
                         match output {
+                            Output::SavedText(token) => effect = Effect::EditorSaved(token, Ok(())),
                             Output::Connected => self.status = Some(Key::DeploymentConnected),
                             Output::Transferred => {
                                 self.status = Some(Key::DeploymentComplete);
@@ -779,6 +1130,12 @@ impl State {
                                 self.expanded.insert(path.clone());
                                 self.tree.insert(path, entries);
                             }
+                            output @ Output::Preview {
+                                previous: Some(_), ..
+                            } => {
+                                self.status = Some(Key::DeploymentComparisonReady);
+                                effect = Effect::Preview(output);
+                            }
                             output @ Output::Preview { .. } => effect = Effect::Preview(output),
                         }
                         self.current = None;
@@ -787,7 +1144,15 @@ impl State {
                         }
                     }
                     Err(error) => {
-                        self.error = Some(error);
+                        self.activity_expanded = true;
+                        self.error = Some(error.clone());
+                        if let Some(Request {
+                            operation: Operation::SaveText { token, .. },
+                            ..
+                        }) = &self.current
+                        {
+                            effect = Effect::EditorSaved(*token, Err(error.clone()));
+                        }
                         self.failed = self.current.take();
                         self.queue.clear();
                     }
@@ -850,3 +1215,5 @@ impl Drop for State {
 
 #[cfg(test)]
 mod tests;
+
+mod settings;

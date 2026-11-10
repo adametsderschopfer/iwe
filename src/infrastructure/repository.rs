@@ -7,7 +7,7 @@ pub(crate) use changes::{
     commit_comparison, commit_text, working_comparison, working_file, working_page, working_status,
     working_text,
 };
-pub(crate) use project::{load_project, load_project_history};
+pub(crate) use project::{load_project, load_project_history, load_project_remotes};
 
 use super::{
     process::{self, Failure},
@@ -116,28 +116,14 @@ async fn load_reference(
         },
     )
     .await?;
-    let remote_names = git(&root, &["remote"]).await?;
-    let remote_names = String::from_utf8_lossy(&remote_names);
-    let selected_remote = if remote_names.lines().any(|name| name == "origin") {
-        Some("origin")
-    } else {
-        remote_names.lines().next()
-    };
-    let remote = if let Some(name) = selected_remote {
-        git(&root, &["remote", "get-url", name])
-            .await
-            .ok()
-            .and_then(|bytes| Remote::parse(String::from_utf8_lossy(&bytes).trim()))
-    } else {
-        None
-    };
+    let (remote, remotes) = read_remote(&root).await?;
     Ok(Repository {
         root,
         branches,
         commits: history.commits,
         next_history: history.next,
         remote,
-        remotes: remote_names.lines().map(str::to_owned).collect(),
+        remotes,
         head,
     })
 }
@@ -308,3 +294,35 @@ pub(crate) async fn blob_page(
 
 #[cfg(test)]
 mod tests;
+
+async fn read_remote(root: &Path) -> Result<(Option<Remote>, Vec<String>), Failure> {
+    let remote_names = git(root, &["remote"]).await?;
+    let remote_names = String::from_utf8_lossy(&remote_names);
+    let selected_remote = if remote_names.lines().any(|name| name == "origin") {
+        Some("origin")
+    } else {
+        remote_names.lines().next()
+    };
+    let remote = if let Some(name) = selected_remote {
+        git(root, &["remote", "get-url", name])
+            .await
+            .ok()
+            .and_then(|bytes| Remote::parse(String::from_utf8_lossy(&bytes).trim()))
+    } else {
+        None
+    };
+    Ok((remote, remote_names.lines().map(str::to_owned).collect()))
+}
+
+async fn load_remote(root: PathBuf) -> Result<Repository, Failure> {
+    let (remote, remotes) = read_remote(&root).await?;
+    Ok(Repository {
+        root,
+        remote,
+        remotes,
+        branches: Vec::new(),
+        commits: Vec::new(),
+        next_history: None,
+        head: String::new(),
+    })
+}
