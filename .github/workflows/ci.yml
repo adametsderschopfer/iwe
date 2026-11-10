@@ -55,6 +55,13 @@ jobs:
       - name: Audit dependency lockfile
         run: cargo audit --file Cargo.lock
 
+  release_scripts:
+    name: Checks / Release scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 -m unittest discover -s .github/scripts/tests -v
+
   lint:
     name: Checks / Linter (${{ matrix.os }})
     needs: plan
@@ -83,7 +90,7 @@ jobs:
 
   unit_tests:
     name: Tests / Unit (${{ matrix.target }})
-    needs: [plan, format, lint, security, typecheck]
+    needs: [plan, format, lint, security, typecheck, release_scripts]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.targets) }}
@@ -97,7 +104,7 @@ jobs:
 
   integration_tests:
     name: Tests / Integration (${{ matrix.os }})
-    needs: [plan, format, lint, security, typecheck]
+    needs: [plan, format, lint, security, typecheck, release_scripts]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.checks) }}

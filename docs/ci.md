@@ -112,3 +112,24 @@ Public downloads use the `iwe-code-` prefix. Executables retain `iwe` or `iwe.ex
 identifier and existing workspace paths remain unchanged. Update archives retain the `iwe-` prefix
 and their previous payload roots, including `IWE.app`. Existing updater versions require those
 names. The GitHub repository redirect preserves their previous update URLs.
+
+## Shared Latest summary
+
+The Release summary workflow runs after successful platform CI or through a manual version input.
+Its privileged job checks out trusted main, never the triggering branch. Fork workflow runs cannot
+start publication. The job requires three published platform releases with identical versions and
+commits. Missing platforms leave Latest unchanged. Global publication concurrency prevents competing
+summary uploads.
+
+`publish-summary.py` checks both installation packages for macOS and Linux, plus all four Windows
+packages. It verifies each platform manifest signature with the embedded public key. It checks
+archive sizes and digests before copying the six update archives. The existing signing script signs
+their shared manifest with the repository signing key.
+
+The summary uses `vVERSION`, links to platform downloads, and collects authored changes since the
+previous shared release. It includes update archives and their signed manifest for older clients.
+Only complete summaries receive Latest. Late workflows cannot replace a newer shared Latest.
+Platform releases remain independently available while other platforms finish.
+
+Run the summary manually with `gh workflow run release-summary.yml -f version=VERSION`. Do not push
+a shared tag for this operation. Ordinary shared tag pushes still start the complete build matrix.

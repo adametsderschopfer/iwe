@@ -76,5 +76,10 @@ record with items. A missing release note stops release jobs before builds begin
 script supplies the authored English body with `gh release create --notes-file`. Each body links to
 the version's English, Russian, and Spanish website pages.
 
+Shared Latest summaries collect authored items since the preceding shared release. They link to
+verified platform releases and retain six signed update packages for older installations. Never mark
+an incomplete platform set Latest. Follow [the CI guide](../ci.md#shared-latest-summary) for summary
+publication and recovery.
+
 Follow [website instructions](../website.md) for formatting, lint, type checks, and route
 verification. Do not run forbidden checks merely to complete this workflow.

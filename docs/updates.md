@@ -69,8 +69,11 @@ to 4 MiB per page and share the existing 45-second metadata deadline.
 
 Older updater versions only understand the shared Latest release and six-archive manifests. Publish
 one shared migration release containing this updater before relying on platform-only tags. Platform
-releases do not replace that shared Latest release. Older installations can receive the migration
-release, then discover subsequent platform releases. Existing published releases remain unchanged.
+releases do not replace Latest directly. The release-summary workflow waits for all three published
+platform releases of one version and commit. It verifies their signed manifests and archive digests.
+It publishes a shared Latest with platform download links, collected changes, and six update
+archives. The shared manifest preserves older updater compatibility. Incomplete platform releases
+leave Latest unchanged. Existing published packages remain unchanged.
 
 The publication job signs the manifest only after its selected platform packages pass their CI
 prerequisites. Shared release tags still require every platform. Only the publication step receives

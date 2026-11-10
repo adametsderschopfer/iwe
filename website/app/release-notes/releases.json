@@ -621,6 +621,16 @@
           "es": "Se corrigen las comprobaciones de Windows y Linux al limitar las claves del menú de macOS a sus compilaciones."
         },
         "sources": ["src/i18n/mod.rs"]
+      },
+      {
+        "id": "shared-latest-summary",
+        "category": "added",
+        "text": {
+          "en": "A shared Latest release collects changes and platform download links after every platform finishes publishing.",
+          "ru": "Общий релиз Latest собирает изменения и ссылки на скачивание после публикации всех платформ.",
+          "es": "Una versión Latest compartida reúne cambios y enlaces de descarga cuando termina la publicación de todas las plataformas."
+        },
+        "sources": [".github/workflows/release-summary.yml", ".github/scripts/publish-summary.py"]
       }
     ]
   },
