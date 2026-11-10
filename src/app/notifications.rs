@@ -1,7 +1,7 @@
 //! Keep transient operation results outside persisted workspace state.
 
-use crate::i18n::Key;
-use iced::{Subscription, time::Instant};
+use crate::{i18n::Key, ui::theme};
+use iced::{Subscription, animation::Easing, time::Instant};
 use std::{collections::VecDeque, time::Duration};
 
 const MAX_VISIBLE: usize = 3;
@@ -20,6 +20,7 @@ pub(crate) struct Notification {
     pub context: Option<String>,
     expires: Instant,
     paused: Option<Instant>,
+    dismissed_at: Option<Instant>,
 }
 
 #[derive(Default)]
@@ -60,12 +61,22 @@ impl State {
             context,
             expires: now + LIFETIME,
             paused: None,
+            dismissed_at: None,
         });
     }
 
     pub(crate) fn subscription(&self) -> Subscription<Event> {
-        if self.items.iter().any(|item| item.paused.is_none()) {
-            iced::time::every(Duration::from_millis(33)).map(Event::Tick)
+        if self
+            .items
+            .iter()
+            .any(|item| item.dismissed_at.is_some() || item.paused.is_none())
+        {
+            let millis = if self.items.iter().any(|item| item.dismissed_at.is_some()) {
+                16
+            } else {
+                33
+            };
+            iced::time::every(Duration::from_millis(millis)).map(Event::Tick)
         } else {
             Subscription::none()
         }
@@ -81,6 +92,28 @@ impl State {
             .clamp(0., 1.)
     }
 
+    pub(crate) fn motion(&self, item: &Notification) -> (f32, f32) {
+        let Some(start) = item.dismissed_at else {
+            return (0., 1.);
+        };
+        let elapsed = self.now.unwrap_or(start).saturating_duration_since(start);
+        let slide = (elapsed.as_secs_f32() / theme::NOTIFICATION_SLIDE_DURATION.as_secs_f32())
+            .clamp(0., 1.);
+        let settle = (elapsed
+            .saturating_sub(theme::NOTIFICATION_SLIDE_DURATION)
+            .as_secs_f32()
+            / theme::NOTIFICATION_SETTLE_DURATION.as_secs_f32())
+        .clamp(0., 1.);
+        (
+            Easing::EaseOutCubic.value(slide),
+            1. - Easing::EaseInOutCubic.value(settle),
+        )
+    }
+
+    pub(crate) fn closing(&self, item: &Notification) -> bool {
+        item.dismissed_at.is_some()
+    }
+
     fn update_at(&mut self, event: Event, now: Instant) {
         self.now = Some(match &event {
             Event::Tick(instant) => *instant,
@@ -88,12 +121,30 @@ impl State {
         });
         match event {
             Event::Tick(now) => {
-                self.items
-                    .retain(|item| item.paused.is_some() || now < item.expires);
+                for item in &mut self.items {
+                    if item.paused.is_none() && now >= item.expires {
+                        item.dismissed_at.get_or_insert(item.expires);
+                    }
+                }
+                self.items.retain(|item| {
+                    item.dismissed_at.is_none_or(|start| {
+                        now.saturating_duration_since(start)
+                            < theme::NOTIFICATION_SLIDE_DURATION
+                                + theme::NOTIFICATION_SETTLE_DURATION
+                    })
+                });
             }
-            Event::Dismiss(id) => self.items.retain(|item| item.id != id),
-            Event::Hover(id, hovered) => {
+            Event::Dismiss(id) => {
                 if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
+                    item.dismissed_at.get_or_insert(now);
+                }
+            }
+            Event::Hover(id, hovered) => {
+                if let Some(item) = self
+                    .items
+                    .iter_mut()
+                    .find(|item| item.id == id && item.dismissed_at.is_none())
+                {
                     if hovered {
                         item.paused.get_or_insert(now);
                     } else if let Some(start) = item.paused.take() {

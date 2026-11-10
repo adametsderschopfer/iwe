@@ -317,3 +317,59 @@ fn compact_tree_keeps_full_filenames_and_folder_selection() {
         iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
     assert!(ui.find(long_name).is_err());
 }
+
+#[test]
+fn collapsing_a_folder_keeps_descendants_collapsed_when_reopened() {
+    let mut app = app();
+    directory(
+        &mut app,
+        "/project",
+        vec![
+            entry("/project/src", true),
+            entry("/project/src-other", true),
+        ],
+    );
+    directory(
+        &mut app,
+        "/project/src",
+        vec![entry("/project/src/nested", true)],
+    );
+    directory(
+        &mut app,
+        "/project/src/nested",
+        vec![entry("/project/src/nested/deep", true)],
+    );
+    for path in [
+        "/project/src",
+        "/project/src/nested",
+        "/project/src/nested/deep",
+        "/project/src-other",
+    ] {
+        let _ = app.toggle_folder(path.into());
+    }
+    let deep = PathBuf::from("/project/src/nested/deep");
+    let request = app.files.pending[&deep];
+    let _ = app.update_files(Event::Slow(app.files.epoch, deep.clone(), request));
+    assert!(app.files.loading.contains(&deep));
+
+    let _ = app.toggle_folder("/project/src".into());
+    assert!(
+        !app.expanded
+            .iter()
+            .any(|path| path.starts_with("/project/src"))
+    );
+    assert!(app.expanded.contains(&PathBuf::from("/project/src-other")));
+    assert!(app.files.loading.is_empty());
+    assert!(app.tree.contains_key(&PathBuf::from("/project/src/nested")));
+
+    let _ = app.update_files(Event::Slow(app.files.epoch, deep, request));
+    assert!(app.files.loading.is_empty());
+    let _ = app.toggle_folder("/project/src".into());
+    assert!(app.expanded.contains(&PathBuf::from("/project/src")));
+    assert!(!app.expanded.contains(&PathBuf::from("/project/src/nested")));
+    assert!(
+        !app.expanded
+            .contains(&PathBuf::from("/project/src/nested/deep"))
+    );
+    assert!(app.expanded.contains(&PathBuf::from("/project/src-other")));
+}

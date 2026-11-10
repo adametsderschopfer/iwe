@@ -177,3 +177,109 @@ for (const { language, route } of locales) {
     assert.ok(localAssets > 0, 'The generated page must reference its local assets')
   })
 }
+
+const releaseNotes = JSON.parse(
+  readFileSync(join(websiteDirectory, 'app', 'release-notes', 'releases.json'), 'utf8'),
+).filter((release) => release.items.length > 0)
+
+for (const { language, route } of locales) {
+  test(`${language} release history links every authored version`, () => {
+    const html = readPage(`${route}releases/`)
+    const catalog = readCatalog(language)
+    assert.equal(elements(html, 'html')[0]?.lang, language)
+    assert.equal(elements(html, 'h1').length, 1)
+    assert.ok(decode(html).includes(catalog.releaseNotes.title))
+    const links = elements(html, 'a')
+    for (const release of releaseNotes) {
+      const path = `${baseURL}${route}releases/${release.version}/`
+      assert.ok(
+        links.some((link) => link.href === path),
+        `Missing release link: ${path}`,
+      )
+      staticTarget(new URL(path, localOrigin))
+    }
+  })
+
+  test(`${language} version pages preserve translations, publication status, and navigation`, () => {
+    const catalog = readCatalog(language)
+    for (const release of releaseNotes) {
+      const path = `${route}releases/${release.version}/`
+      const html = readPage(path)
+      const content = decode(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ''))
+      assert.equal(elements(html, 'html')[0]?.lang, language)
+      assert.equal(elements(html, 'h1').length, 1)
+      assert.ok(content.includes(catalog.releaseNotes.status[release.status]))
+      for (const item of release.items) {
+        assert.ok(content.includes(item.text[language]), `Missing ${language} note: ${item.id}`)
+      }
+      const dates = elements(html, 'time')
+      assert.deepEqual(
+        dates.map((date) => date.datetime),
+        release.publishedAt ? [release.publishedAt] : [],
+      )
+      const metadata = elements(html, 'link')
+      assert.equal(
+        metadata.find((link) => link.rel === 'canonical')?.href,
+        new URL(path, siteURL).href,
+      )
+      const links = elements(html, 'a')
+      for (const locale of locales) {
+        const alternate = `${locale.route}releases/${release.version}/`
+        assert.equal(
+          metadata.find((link) => link.hreflang === locale.language)?.href,
+          new URL(alternate, siteURL).href,
+        )
+        assert.ok(
+          links.some(
+            (link) => link.href === `${baseURL}${alternate}` && link.lang === locale.language,
+          ),
+        )
+      }
+      const tags = links.filter((link) => link.href?.includes('/releases/tag/'))
+      assert.deepEqual(
+        tags.map((link) => decodeURIComponent(link.href.split('/releases/tag/')[1])),
+        release.tags,
+      )
+      for (const link of links) {
+        const url = new URL(link.href, new URL(`${baseURL}${path}`, localOrigin))
+        if (url.origin === localOrigin) staticTarget(url)
+      }
+    }
+  })
+}
+
+for (const { language, route } of locales) {
+  test(`${language} license page preserves the project license and localized navigation`, () => {
+    const html = readPage(`${route}license/`)
+    const catalog = readCatalog(language)
+    const original = readFileSync(join(websiteDirectory, '..', 'LICENSE'), 'utf8')
+    assert.equal(
+      decode(html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? ''),
+      catalog.license.metaTitle,
+    )
+    const displayed = html.match(/<pre\b[^>]*>([\s\S]*?)<\/pre>/i)?.[1]
+    assert.equal(decode(displayed ?? '').trim(), original.trim())
+    assert.equal(elements(html, 'html')[0]?.lang, language)
+    assert.equal(elements(html, 'pre')[0]?.lang, 'en')
+    assert.equal(elements(html, 'h1').length, 1)
+    const links = elements(html, 'link')
+    assert.equal(
+      links.find((link) => link.rel === 'canonical')?.href,
+      new URL(`${route}license/`, siteURL).href,
+    )
+    const anchors = elements(html, 'a')
+    for (const locale of locales) {
+      const path = `${locale.route}license/`
+      assert.equal(
+        links.find((link) => link.hreflang === locale.language)?.href,
+        new URL(path, siteURL).href,
+      )
+      assert.ok(
+        anchors.some((link) => link.lang === locale.language && link.href === `${baseURL}${path}`),
+      )
+    }
+    assert.ok(
+      elements(readPage(route), 'a').some((link) => link.href === `${baseURL}${route}license/`),
+    )
+  })
+}

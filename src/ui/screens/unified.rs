@@ -42,6 +42,10 @@ pub(super) fn line<'a>(
     height: f32,
 ) -> Element<'a, Message> {
     let size = app.workspace.preferences.code_size as f32;
+    let highlighted =
+        app.preview()
+            .selection
+            .highlights_line(document, code::selection::Lane::Unified, index);
     let color = line
         .change
         .map(|change| theme::unified_color(change).resolve(&app.theme()))
@@ -90,7 +94,13 @@ pub(super) fn line<'a>(
             app.workspace.preferences.line_numbers,
         ))
         .height(height)
-        .style(theme::unified_gutter(line.change));
+        .style(move |theme| {
+            theme::source_row(
+                theme,
+                theme::unified_gutter(line.change)(theme),
+                highlighted,
+            )
+        });
     let source = code::selection::line(
         app,
         document,
@@ -107,11 +117,15 @@ pub(super) fn line<'a>(
         ),
         size,
     );
-    container(row![gutter, source].spacing(8).height(height))
-        .id(format!("unified-line-{index}"))
-        .width(Length::Fill)
-        .style(theme::unified_row(line.change))
-        .into()
+    code::frozen_gutter::view(
+        container(row![gutter, source].spacing(8).height(height))
+            .id(format!("unified-line-{index}"))
+            .width(Length::Fill)
+            .style(move |theme| {
+                theme::source_row(theme, theme::unified_row(line.change)(theme), highlighted)
+            }),
+        gutter_width(document, size, app.workspace.preferences.line_numbers) + 8.,
+    )
 }
 
 pub(super) fn fold<'a>(

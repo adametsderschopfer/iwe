@@ -150,7 +150,7 @@ useSeoMeta({
         </ScrollReveal>
       </section>
 
-      <DownloadSection :messages="messages" />
+      <DownloadSection :messages="messages" :locale="locale" />
 
       <section class="faq section-space" aria-labelledby="faq-title">
         <h2 id="faq-title">{{ messages.faq.title }}</h2>
@@ -162,7 +162,7 @@ useSeoMeta({
         </div>
       </section>
     </main>
-    <SiteFooter :messages="messages" />
+    <SiteFooter :messages="messages" :locale="locale" />
   </div>
 </template>
 

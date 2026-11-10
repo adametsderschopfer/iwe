@@ -1,6 +1,8 @@
 //! Keep opened source files and their scroll positions in memory.
 
 use super::{App, Message};
+#[cfg(test)]
+use crate::ui::theme;
 use crate::{
     domain::{
         Failure,
@@ -9,10 +11,7 @@ use crate::{
         workspace::DiffView,
     },
     infrastructure::repository,
-    ui::{
-        code::{Document, comparison::Side, folding::Folding, syntax_for},
-        theme,
-    },
+    ui::code::{Document, comparison::Side, folding::Folding, syntax_for},
 };
 use iced::{Task, widget::operation};
 use std::{path::PathBuf, sync::Arc};
@@ -163,6 +162,7 @@ pub(crate) struct Preview {
 
 pub(crate) struct State {
     pub files: Vec<Preview>,
+    pub menu: Option<iced::Point>,
     closed: Vec<Preview>,
     active: usize,
     root: Option<PathBuf>,
@@ -173,6 +173,7 @@ impl Default for State {
         Self {
             // Keep an empty preview when no file is open.
             files: vec![Preview::default()],
+            menu: None,
             closed: Vec::new(),
             active: 0,
             root: None,
@@ -577,6 +578,7 @@ impl App {
     }
 
     pub(super) fn select_tab(&mut self, id: u64) -> Task<Message> {
+        self.tabs.menu = None;
         let Some(index) = self.tabs.files.iter().position(|preview| preview.id == id) else {
             return Task::none();
         };
@@ -592,6 +594,7 @@ impl App {
     }
 
     pub(super) fn close_tab(&mut self, id: u64) -> Task<Message> {
+        self.tabs.menu = None;
         let Some(index) = self.tabs.files.iter().position(|preview| preview.id == id) else {
             return Task::none();
         };
@@ -710,13 +713,16 @@ impl App {
     }
 
     fn reveal_tab(&self) -> Task<Message> {
-        operation::scroll_to(
-            "file-tabs",
-            operation::AbsoluteOffset {
-                x: self.tabs.active as f32 * theme::FILE_TAB_WIDTH,
-                y: 0.,
-            },
-        )
+        let offset = self.tabs.files[..self.tabs.active]
+            .iter()
+            .filter(|preview| !preview.title.is_empty())
+            .map(|preview| {
+                let label =
+                    crate::ui::tab_label::label(&preview.title, preview.revision.as_deref());
+                crate::ui::tab_label::width(&label)
+            })
+            .sum();
+        operation::scroll_to("file-tabs", operation::AbsoluteOffset { x: offset, y: 0. })
     }
 }
 

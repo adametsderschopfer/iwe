@@ -10,13 +10,13 @@ fn lane_x(lane: usize) -> f32 {
     12. + lane as f32 * 12.
 }
 
-pub(crate) fn width(row: &GraphRow) -> f32 {
+pub(crate) fn width(row: &GraphRow, trailing: f32) -> f32 {
     let rightmost = row
         .incoming
         .iter()
         .chain(&row.outgoing)
         .fold(row.lane, |lane, &(from, to)| lane.max(from).max(to));
-    lane_x(rightmost) + 12.
+    lane_x(rightmost) + trailing
 }
 
 pub(crate) fn view<'a, Message: 'a>(row: &'a GraphRow, width: f32) -> Element<'a, Message> {

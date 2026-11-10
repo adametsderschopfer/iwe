@@ -1,5 +1,7 @@
 //! Coordinate explicit repository actions and discard results from other projects.
 
+pub(crate) mod bulk;
+
 use super::{App, Message as AppMessage};
 use crate::{
     domain::{
@@ -17,8 +19,15 @@ pub(crate) struct State {
     pub menu: Option<(BranchKey, Branch, Point)>,
     pub dialog: Option<Dialog>,
     pub pending: bool,
+    pub bulk: bulk::State,
     completion: Option<(Key, Option<String>)>,
     request: u64,
+}
+
+impl State {
+    pub(crate) fn has_dialog(&self) -> bool {
+        self.dialog.is_some() || self.bulk.dialog.is_some()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,6 +53,7 @@ pub(crate) struct Dialog {
 #[derive(Clone, Debug)]
 pub(crate) enum Message {
     Menu(BranchKey, Point),
+    Bulk(bulk::Event),
     Close,
     Fetch,
     Choose(Action, BranchKey),
@@ -58,6 +68,7 @@ pub(crate) enum Message {
 impl App {
     pub(super) fn update_git(&mut self, message: Message) -> Task<AppMessage> {
         match message {
+            Message::Bulk(event) => return self.update_bulk_git(event),
             Message::Fetched(request, generation, results)
                 if self.git_actions.pending && request == self.git_actions.request =>
             {
@@ -110,13 +121,23 @@ impl App {
                 }
             }
             Message::Close if !self.git_actions.pending => {
+                self.branch_selection.selected.clear();
                 self.git_actions.menu = None;
                 self.git_actions.dialog = None;
+                self.git_actions.bulk.menu = None;
+                self.git_actions.bulk.dialog = None;
             }
             _ if self.git_actions.pending
                 || self.space_draft.is_some()
                 || self.auth_dialog.is_some() => {}
             Message::Menu(key, position) => {
+                if self.branch_selection.selected.contains(&key) {
+                    self.git_actions.menu = None;
+                    self.git_actions.bulk.menu = Some(position);
+                    return Task::none();
+                }
+                self.branch_selection.selected.clear();
+                self.git_actions.bulk.menu = None;
                 if let Some(branch) = self
                     .repository
                     .as_ref()
@@ -129,6 +150,7 @@ impl App {
                     .cloned()
                 {
                     self.project_menu = None;
+                    self.space_menu = None;
                     self.git_actions.menu = Some((key, branch, position));
                 }
             }
@@ -319,6 +341,7 @@ pub(crate) fn error_key(error: Error) -> Key {
         Error::MissingUpstream => Key::GitMissingUpstream,
         Error::Dirty => Key::GitDirty,
         Error::CurrentBranch => Key::GitCurrentBranch,
+        Error::BranchInWorktree => Key::GitBranchInWorktree,
     }
 }
 

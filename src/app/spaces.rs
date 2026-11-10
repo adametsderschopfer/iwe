@@ -14,6 +14,7 @@ pub(crate) struct Draft {
 pub(crate) enum Message {
     New,
     Edit(usize),
+    Delete(usize),
     NameChanged(String),
     PickProject(Option<usize>),
     ProjectsPicked(u64, Option<usize>, Vec<PathBuf>),
@@ -29,7 +30,7 @@ impl App {
         if self.picking
             || self.space_draft.is_some()
             || self.auth_dialog.is_some()
-            || self.git_actions.dialog.is_some()
+            || self.git_actions.has_dialog()
             || self.git_actions.pending
         {
             return Task::none();
@@ -67,6 +68,10 @@ impl App {
     }
 
     pub(super) fn open_space(&mut self, directories: Vec<PathBuf>) -> Task<AppMessage> {
+        self.repository_menu = None;
+        self.tabs.menu = None;
+        self.space_menu = None;
+        self.project_menu = None;
         self.space_draft = Some(Draft {
             editing: None,
             name: String::new(),
@@ -77,7 +82,7 @@ impl App {
     }
 
     pub(super) fn update_space(&mut self, message: Message) -> Task<AppMessage> {
-        if self.git_actions.dialog.is_some() {
+        if self.git_actions.has_dialog() {
             return Task::none();
         }
         match message {
@@ -88,6 +93,10 @@ impl App {
                 let Some(space) = self.workspace.spaces.get(index) else {
                     return Task::none();
                 };
+                self.space_menu = None;
+                self.project_menu = None;
+                self.tabs.menu = None;
+                self.repository_menu = None;
                 self.space_draft = Some(Draft {
                     editing: Some(index),
                     name: space.name.clone(),
@@ -99,6 +108,42 @@ impl App {
                 });
                 self.space_request += 1;
                 return operation::focus("space-name");
+            }
+            Message::Delete(index)
+                if self.loaded
+                    && !self.picking
+                    && self.auth_dialog.is_none()
+                    && !self.git_actions.pending
+                    && self
+                        .space_draft
+                        .as_ref()
+                        .is_none_or(|draft| draft.editing == Some(index)) =>
+            {
+                let previous = self.workspace.directory().cloned();
+                if !self.workspace.remove_space(index) {
+                    return Task::none();
+                }
+                self.space_draft = None;
+                self.space_menu = None;
+                self.project_menu = None;
+                self.space_request += 1;
+                self.collapsed_spaces = self
+                    .collapsed_spaces
+                    .iter()
+                    .filter_map(|&space| {
+                        if space == index {
+                            None
+                        } else {
+                            Some(space - usize::from(space > index))
+                        }
+                    })
+                    .collect();
+                let load = if self.workspace.directory() != previous.as_ref() {
+                    self.load_directory()
+                } else {
+                    Task::none()
+                };
+                return Task::batch([load, self.save()]);
             }
             Message::NameChanged(name) => {
                 if let Some(draft) = self.space_draft.as_mut() {

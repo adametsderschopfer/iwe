@@ -1,0 +1,616 @@
+[
+  {
+    "version": "0.0.1",
+    "status": "released",
+    "publishedAt": "2026-11-08T23:44:09Z",
+    "tags": ["0.0.1"],
+    "source": "d90f9712201afa1f527fb89ba928dc4569783bbb",
+    "items": [
+      {
+        "id": "initial-workspaces",
+        "category": "added",
+        "text": {
+          "en": "Organize local projects into workspaces and preview source files.",
+          "ru": "Объединяйте локальные проекты в пространства и просматривайте исходные файлы.",
+          "es": "Organiza proyectos locales en espacios y consulta sus archivos."
+        },
+        "sources": ["7310761"]
+      },
+      {
+        "id": "initial-git-pipelines",
+        "category": "added",
+        "text": {
+          "en": "Explore Git history and view project pipelines alongside your source files.",
+          "ru": "Просматривайте историю Git и процессы сборки рядом с исходными файлами.",
+          "es": "Consulta el historial de Git y las ejecuciones junto a los archivos del proyecto."
+        },
+        "sources": ["7310761"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.1",
+    "status": "released",
+    "publishedAt": "2026-11-09T10:14:04Z",
+    "tags": ["0.1.1"],
+    "source": "bc0443872c18988c77843f67bcf0d43b2621e468",
+    "items": [
+      {
+        "id": "workspace-comparisons",
+        "category": "changed",
+        "text": {
+          "en": "Improved workspace controls and file comparisons.",
+          "ru": "Улучшены управление пространством и сравнение файлов.",
+          "es": "Mejoras en los controles del espacio y la comparación de archivos."
+        },
+        "sources": ["0591a64"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.2",
+    "status": "released",
+    "publishedAt": "2026-11-09T12:11:53Z",
+    "tags": ["0.1.2"],
+    "source": "8d3b50e71eff89dfd844fdf5f06d174983d5bf1e",
+    "items": [
+      {
+        "id": "pipeline-overview",
+        "category": "added",
+        "text": {
+          "en": "See pipeline stages and job summaries directly in the pipeline list.",
+          "ru": "Просматривайте этапы процессов сборки и сводки заданий прямо в списке.",
+          "es": "Consulta etapas y resúmenes de tareas directamente en la lista de ejecuciones."
+        },
+        "sources": ["837744b"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.3",
+    "status": "development",
+    "publishedAt": null,
+    "tags": [],
+    "source": "d66a91269e37b67648e00f67a8280b85de0fcee4",
+    "items": [
+      {
+        "id": "pipeline-navigation",
+        "category": "changed",
+        "text": {
+          "en": "Improved pipeline navigation and workspace separators.",
+          "ru": "Улучшены навигация по процессам сборки и разделители пространства.",
+          "es": "Mejoras en la navegación de ejecuciones y los separadores del espacio."
+        },
+        "sources": ["d66a912"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.4",
+    "status": "development",
+    "publishedAt": null,
+    "tags": [],
+    "source": "55d30b348b42e893dbc381674e6a79d96ca4ffff",
+    "items": [
+      {
+        "id": "compact-branches",
+        "category": "changed",
+        "text": {
+          "en": "Branch names take less space in the branch list.",
+          "ru": "Названия веток занимают меньше места в списке.",
+          "es": "Los nombres de las ramas ocupan menos espacio en la lista."
+        },
+        "sources": ["55d30b3"]
+      },
+      {
+        "id": "operation-notifications",
+        "category": "added",
+        "text": {
+          "en": "Operation results appear as notifications above the workspace.",
+          "ru": "Результаты действий появляются в уведомлениях поверх пространства.",
+          "es": "Los resultados de las operaciones aparecen como notificaciones sobre el espacio."
+        },
+        "sources": ["55d30b3"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.5",
+    "status": "development",
+    "publishedAt": null,
+    "tags": [],
+    "source": "2c508424c45120f61dfb872050415351daf818ae",
+    "items": [
+      {
+        "id": "mac-close-shortcut",
+        "category": "added",
+        "text": {
+          "en": "Added Command+W support for closing the application on macOS.",
+          "ru": "Добавлена поддержка Command+W для закрытия приложения на macOS.",
+          "es": "Compatibilidad con Command+W para cerrar la aplicación en macOS."
+        },
+        "sources": ["2c50842"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.6",
+    "status": "development",
+    "publishedAt": null,
+    "tags": [],
+    "source": "22a5202addb139bb9ae60eaefff47d0aacda7bfb",
+    "items": [
+      {
+        "id": "credential-session-cache",
+        "category": "changed",
+        "text": {
+          "en": "Reduced repeated credential requests and aligned branch controls.",
+          "ru": "Сокращены повторные запросы учётных данных и выровнены кнопки управления ветками.",
+          "es": "Menos solicitudes repetidas de credenciales y controles de ramas alineados."
+        },
+        "sources": ["22a5202"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.7",
+    "status": "development",
+    "publishedAt": null,
+    "tags": [],
+    "source": "65597a08e7e7db505499ad47c011c1e86f3ca756",
+    "items": [
+      {
+        "id": "resizable-file-panels",
+        "category": "added",
+        "text": {
+          "en": "Hide file panels and adjust their width to make more room for source files.",
+          "ru": "Скрывайте панели файлов и изменяйте их ширину, чтобы освободить место для кода.",
+          "es": "Oculta los paneles de archivos y ajusta su anchura para dejar más espacio al código."
+        },
+        "sources": ["65597a0"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.8",
+    "status": "development",
+    "publishedAt": null,
+    "tags": [],
+    "source": "6e1035c19ef79a6db4cd074ce38fdb0b5a4ff419",
+    "items": [
+      {
+        "id": "nested-repositories",
+        "category": "added",
+        "text": {
+          "en": "View repositories in immediate project subfolders together in one shared history.",
+          "ru": "Просматривайте репозитории из непосредственных подпапок проекта в общей истории.",
+          "es": "Consulta los repositorios de las subcarpetas directas del proyecto en un historial compartido."
+        },
+        "sources": ["6e1035c"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.9",
+    "status": "development",
+    "publishedAt": null,
+    "tags": [],
+    "source": "ca5aa57f26d19ce099cf5e6d0a1c6044d883cf7c",
+    "items": [
+      {
+        "id": "tooltip-spacing",
+        "category": "changed",
+        "text": {
+          "en": "Tooltips use consistent spacing around interface controls.",
+          "ru": "Всплывающие подсказки используют одинаковые отступы от элементов интерфейса.",
+          "es": "Las ayudas mantienen una separación uniforme respecto a los controles."
+        },
+        "sources": ["ca5aa57"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.10",
+    "status": "released",
+    "publishedAt": "2026-11-09T19:36:09Z",
+    "tags": ["0.1.10"],
+    "source": "8991a80d85a670da67eb3071a5e1f658feb3aea5",
+    "items": [
+      {
+        "id": "signed-updates",
+        "category": "added",
+        "text": {
+          "en": "Check for signed application updates, then download and install them from the application.",
+          "ru": "Проверяйте подписанные обновления, затем скачивайте и устанавливайте их из приложения.",
+          "es": "Busca actualizaciones firmadas y descárgalas e instálalas desde la aplicación."
+        },
+        "sources": ["cfcf2e6"]
+      },
+      {
+        "id": "iwe-code-name",
+        "category": "changed",
+        "text": {
+          "en": "The application is now named IWE Code.",
+          "ru": "Приложение теперь называется IWE Code.",
+          "es": "La aplicación ahora se llama IWE Code."
+        },
+        "sources": ["cfcf2e6"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.11",
+    "status": "released",
+    "publishedAt": "2026-11-09T20:16:12Z",
+    "tags": ["0.1.11"],
+    "source": "83aac962e218e508c0497252979e8f796e1a3478",
+    "items": [
+      {
+        "id": "direct-project-files",
+        "category": "changed",
+        "text": {
+          "en": "Selecting a project opens its files without a separate project-file button.",
+          "ru": "Выбор проекта открывает его файлы без отдельной кнопки.",
+          "es": "Al seleccionar un proyecto se abren sus archivos sin un botón adicional."
+        },
+        "sources": ["83aac96"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.12",
+    "status": "released",
+    "publishedAt": "2026-11-09T22:13:20Z",
+    "tags": ["macos-v0.1.12", "linux-v0.1.12"],
+    "source": "e51e946da1e230af3ecfda4b852aef4d8b754d03",
+    "items": [
+      {
+        "id": "large-file-parts",
+        "category": "added",
+        "text": {
+          "en": "Open large source files in parts and jump to a specific line.",
+          "ru": "Открывайте большие исходные файлы по частям и переходите к указанной строке.",
+          "es": "Abre archivos grandes por partes y salta a una línea concreta."
+        },
+        "sources": ["55d18ea", "68d6f4b"]
+      },
+      {
+        "id": "source-clipboard",
+        "category": "added",
+        "text": {
+          "en": "Select source text and copy file paths from context menus.",
+          "ru": "Выделяйте исходный текст и копируйте пути файлов через контекстные меню.",
+          "es": "Selecciona texto del código y copia rutas de archivos desde los menús contextuales."
+        },
+        "sources": ["630541f", "be87735"]
+      },
+      {
+        "id": "notification-countdowns",
+        "category": "added",
+        "text": {
+          "en": "Notification countdowns pause while you point at a notification.",
+          "ru": "Обратный отсчёт уведомления приостанавливается при наведении указателя.",
+          "es": "La cuenta atrás de una notificación se pausa al colocar el puntero sobre ella."
+        },
+        "sources": ["56a5b72"]
+      },
+      {
+        "id": "background-updates",
+        "category": "added",
+        "text": {
+          "en": "The application checks for updates periodically and when its window regains focus.",
+          "ru": "Приложение периодически проверяет обновления и повторяет проверку при возвращении фокуса окна.",
+          "es": "La aplicación busca actualizaciones periódicamente y cuando su ventana recupera el foco."
+        },
+        "sources": ["644bd86"]
+      },
+      {
+        "id": "project-navigation",
+        "category": "added",
+        "text": {
+          "en": "Open Git from the branch badge and remove projects through their context menu.",
+          "ru": "Открывайте Git через метку ветки и удаляйте проекты через их контекстное меню.",
+          "es": "Abre Git desde la etiqueta de la rama y elimina proyectos desde su menú contextual."
+        },
+        "sources": ["80aaeec", "4e395be"]
+      },
+      {
+        "id": "windows-installer",
+        "category": "added",
+        "text": {
+          "en": "Added a Windows installer and application window controls.",
+          "ru": "Добавлены установщик Windows и элементы управления окном приложения.",
+          "es": "Se añadieron un instalador de Windows y controles de ventana."
+        },
+        "sources": ["0bedfbc"]
+      },
+      {
+        "id": "windows-scrollbars",
+        "category": "fixed",
+        "text": {
+          "en": "Fixed resize handles covering source scrollbars on Windows.",
+          "ru": "Исправлено перекрытие полос прокрутки кода элементами изменения размера окна в Windows.",
+          "es": "Corregida la superposición de los controles de tamaño sobre las barras de desplazamiento en Windows."
+        },
+        "sources": ["e51e946"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.13",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "full-line-highlight",
+        "category": "changed",
+        "text": {
+          "en": "Line navigation highlights the whole row, including its line number.",
+          "ru": "Переход к строке подсвечивает всю строку вместе с её номером.",
+          "es": "La navegación a una línea resalta toda la fila, incluido su número."
+        },
+        "sources": ["src/ui/code/selection.rs"]
+      },
+      {
+        "id": "collapse-nested-folders",
+        "category": "changed",
+        "text": {
+          "en": "Collapsing a project folder also collapses its nested folders.",
+          "ru": "Сворачивание папки проекта также сворачивает вложенные папки.",
+          "es": "Al contraer una carpeta del proyecto también se contraen sus subcarpetas."
+        },
+        "sources": ["src/app/files.rs"]
+      },
+      {
+        "id": "shortcut-groups",
+        "category": "changed",
+        "text": {
+          "en": "Keyboard shortcuts are grouped by their purpose in settings.",
+          "ru": "Горячие клавиши в настройках разделены на группы по назначению.",
+          "es": "Los atajos de teclado se agrupan por su función en los ajustes."
+        },
+        "sources": ["src/ui/screens/settings.rs"]
+      },
+      {
+        "id": "toast-exit-motion",
+        "category": "changed",
+        "text": {
+          "en": "Notifications slide right when dismissed, and notifications above move down smoothly.",
+          "ru": "Уведомления уезжают вправо при закрытии, а уведомления выше плавно опускаются.",
+          "es": "Las notificaciones salen hacia la derecha y las superiores bajan suavemente."
+        },
+        "sources": ["src/app/notifications.rs", "src/ui/notifications/motion.rs"]
+      },
+      {
+        "id": "linked-worktree-deletion-error",
+        "category": "fixed",
+        "text": {
+          "en": "Branch deletion explains when a branch is open in another working copy.",
+          "ru": "При удалении ветки приложение сообщает, если она открыта в другой рабочей копии.",
+          "es": "Al eliminar una rama se indica si está abierta en otra copia de trabajo."
+        },
+        "sources": ["src/infrastructure/git/mod.rs"]
+      },
+      {
+        "id": "compact-repository-badges",
+        "category": "fixed",
+        "text": {
+          "en": "Repository labels fit their names and sit closer to the history graph.",
+          "ru": "Метки репозиториев соответствуют длине названий и расположены ближе к графу истории.",
+          "es": "Las etiquetas de repositorio se ajustan al nombre y quedan más cerca del gráfico del historial."
+        },
+        "sources": ["src/ui/screens/git.rs"]
+      },
+      {
+        "id": "separate-settings-window",
+        "category": "added",
+        "text": {
+          "en": "Settings open in a separate window and reuse that window when opened again.",
+          "ru": "Настройки открываются отдельным окном и используют его при повторном открытии.",
+          "es": "Los ajustes se abren en una ventana independiente que se reutiliza al abrirlos de nuevo."
+        },
+        "sources": ["src/app/windows.rs"]
+      },
+      {
+        "id": "native-workspace-menu",
+        "category": "added",
+        "text": {
+          "en": "The macOS application menu includes settings, spaces, new spaces, and projects.",
+          "ru": "Меню приложения macOS включает настройки, пространства, создание пространства и проекты.",
+          "es": "El menú de macOS incluye ajustes, espacios, creación de espacios y proyectos."
+        },
+        "sources": ["src/infrastructure/native_menu.rs"]
+      },
+      {
+        "id": "bulk-branch-actions",
+        "category": "added",
+        "text": {
+          "en": "Select branches and folders with Command or Ctrl, then push, update, or delete the selection.",
+          "ru": "Выбирайте ветки и папки через Command или Ctrl, затем отправляйте, обновляйте или удаляйте выбранные ветки.",
+          "es": "Selecciona ramas y carpetas con Command o Ctrl para enviarlas, actualizarlas o eliminarlas."
+        },
+        "sources": ["src/app/branch_selection.rs", "src/app/git_actions/bulk.rs"]
+      },
+      {
+        "id": "pull-icon-shape",
+        "category": "fixed",
+        "text": {
+          "en": "The branch update icon has a clear arrow separated from the branch line.",
+          "ru": "Иконка обновления ветки получила отчётливую стрелку, отделённую от линии ветки.",
+          "es": "El icono de actualización muestra una flecha clara y separada de la línea de la rama."
+        },
+        "sources": ["src/ui/icons.rs"]
+      },
+      {
+        "id": "website-platform-icons",
+        "category": "changed",
+        "text": {
+          "en": "Download cards use recognizable Apple, Windows, and Linux icons.",
+          "ru": "Карточки скачивания используют узнаваемые иконки Apple, Windows и Linux.",
+          "es": "Las tarjetas de descarga usan iconos reconocibles de Apple, Windows y Linux."
+        },
+        "sources": ["website/app/components/SiteIcon.vue"]
+      },
+      {
+        "id": "website-release-notes",
+        "category": "added",
+        "text": {
+          "en": "The website includes versioned release notes in English, Russian, and Spanish.",
+          "ru": "На сайте появился раздел релизноутов по версиям на английском, русском и испанском языках.",
+          "es": "El sitio incluye notas de versión en inglés, ruso y español."
+        },
+        "sources": ["website/app/components/ReleaseNotesPage.vue"]
+      },
+      {
+        "id": "flexible-file-tabs",
+        "category": "fixed",
+        "text": {
+          "en": "File tabs fit revision identifiers, shorten long names, and list hidden tabs in a dropdown.",
+          "ru": "Вкладки вмещают хэш версии, сокращают длинные имена и показывают скрытые файлы в выпадающем списке.",
+          "es": "Las pestañas ajustan el identificador de versión, acortan nombres largos y muestran las ocultas en un menú."
+        },
+        "sources": ["src/ui/tab_label/mod.rs", "src/ui/screens/tab_menu.rs"]
+      },
+      {
+        "id": "copy-history-hashes",
+        "category": "added",
+        "text": {
+          "en": "Commit hashes appear beside their titles and copy the full identifier when clicked.",
+          "ru": "Хэши коммитов отображаются рядом с названиями и копируют полный идентификатор при нажатии.",
+          "es": "Los hashes aparecen junto al título del commit y copian el identificador completo al pulsarlos."
+        },
+        "sources": ["src/ui/screens/git.rs", "src/app/mod.rs"]
+      },
+      {
+        "id": "single-history-tooltip",
+        "category": "fixed",
+        "text": {
+          "en": "Commit titles and hashes show separate hover hints without overlapping tooltips.",
+          "ru": "Названия и хэши коммитов показывают отдельные подсказки без наложения.",
+          "es": "Los títulos y hashes muestran ayudas independientes sin superponerse."
+        },
+        "sources": ["src/ui/screens/git.rs"]
+      },
+      {
+        "id": "source-toolbar-buttons",
+        "category": "changed",
+        "text": {
+          "en": "Source view buttons have rounded corners and clearer spacing.",
+          "ru": "Кнопки просмотра файлов получили скруглённые углы и увеличенные промежутки.",
+          "es": "Los botones de vista tienen esquinas redondeadas y una separación más clara."
+        },
+        "sources": ["src/ui/screens/diff.rs"]
+      },
+      {
+        "id": "space-edit-delete",
+        "category": "added",
+        "text": {
+          "en": "Edit or delete spaces from their context menu or delete them from the editing window.",
+          "ru": "Редактируйте и удаляйте пространства через контекстное меню или удаляйте их в окне редактирования.",
+          "es": "Edita o elimina espacios desde el menú contextual o elimínalos desde la ventana de edición."
+        },
+        "sources": ["src/app/spaces.rs", "src/ui/screens/space_form.rs"]
+      },
+      {
+        "id": "project-dirty-indicators",
+        "category": "added",
+        "text": {
+          "en": "Project lists show a small indicator when a project contains uncommitted changes.",
+          "ru": "Список проектов показывает небольшой индикатор незакоммиченных изменений.",
+          "es": "La lista de proyectos indica cuáles contienen cambios sin confirmar."
+        },
+        "sources": ["src/app/project_changes/mod.rs", "src/ui/screens/workspace.rs"]
+      },
+      {
+        "id": "fixed-line-number-gutter",
+        "category": "fixed",
+        "text": {
+          "en": "Line numbers remain visible while code scrolls horizontally in source and comparison views.",
+          "ru": "Номера строк остаются видимыми при горизонтальной прокрутке кода и сравнения файлов.",
+          "es": "Los números de línea permanecen visibles al desplazar horizontalmente el código y las comparaciones."
+        },
+        "sources": ["src/ui/code/frozen_gutter/mod.rs"]
+      },
+      {
+        "id": "settings-sidebar-header",
+        "category": "changed",
+        "text": {
+          "en": "Settings use left-side sections and a corrected macOS window header.",
+          "ru": "Разделы настроек расположены слева; шапка окна macOS исправлена.",
+          "es": "Los ajustes muestran las secciones a la izquierda y corrigen la cabecera de macOS."
+        },
+        "sources": ["src/ui/screens/settings.rs", "src/app/windows.rs"]
+      },
+      {
+        "id": "space-scrollbar-clearance",
+        "category": "fixed",
+        "text": {
+          "en": "The spaces scrollbar no longer covers the editing buttons.",
+          "ru": "Полоса прокрутки пространств больше не перекрывает кнопки редактирования.",
+          "es": "La barra de desplazamiento de espacios ya no tapa los botones de edición."
+        },
+        "sources": ["src/ui/screens/workspace.rs"]
+      },
+      {
+        "id": "git-side-toolbar",
+        "category": "changed",
+        "text": {
+          "en": "Git actions appear in the vertical toolbar beside the branch list.",
+          "ru": "Действия Git расположены на вертикальной панели рядом со списком веток.",
+          "es": "Las acciones de Git aparecen en la barra vertical junto a la lista de ramas."
+        },
+        "sources": ["src/ui/screens/git.rs"]
+      },
+      {
+        "id": "cached-project-history",
+        "category": "changed",
+        "text": {
+          "en": "Reopened projects display cached Git history while fresh information loads in the background.",
+          "ru": "Повторно открытые проекты показывают сохранённую историю Git во время фонового обновления.",
+          "es": "Los proyectos reabiertos muestran el historial guardado mientras se actualiza en segundo plano."
+        },
+        "sources": ["src/app/repository_cache/mod.rs"]
+      },
+      {
+        "id": "multiple-header-repositories",
+        "category": "added",
+        "text": {
+          "en": "The header shows two repositories and lists additional repositories with their branches in a dropdown.",
+          "ru": "Шапка показывает два репозитория, а остальные репозитории с ветками доступны в выпадающем списке.",
+          "es": "La cabecera muestra dos repositorios y agrupa los restantes con sus ramas en un menú."
+        },
+        "sources": ["src/ui/screens/header_repositories.rs"]
+      },
+      {
+        "id": "website-license-page",
+        "category": "added",
+        "text": {
+          "en": "The website includes the application license with navigation in three languages.",
+          "ru": "На сайте появилась лицензия приложения с навигацией на трёх языках.",
+          "es": "El sitio incluye la licencia de la aplicación con navegación en tres idiomas."
+        },
+        "sources": ["website/app/components/LicensePage.vue"]
+      },
+      {
+        "id": "updated-product-screenshots",
+        "category": "changed",
+        "text": {
+          "en": "Website screenshots now show the current workspace, history, file comparison, and pipelines.",
+          "ru": "Скриншоты сайта показывают актуальные пространство, историю, сравнение файлов и процессы сборки.",
+          "es": "Las capturas del sitio muestran el espacio, historial, comparaciones y ejecuciones actuales."
+        },
+        "sources": ["website/public/images/workspace-en.webp", "src/app/tests.rs"]
+      }
+    ]
+  },
+  {
+    "version": "unreleased",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": []
+  }
+]

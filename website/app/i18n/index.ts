@@ -14,3 +14,5 @@ export const languages = [
 
 export const repository = 'https://github.com/adametsderschopfer/iwe-code'
 export const releases = `${repository}/releases/latest`
+
+export const licensePath = (locale: Locale) => `${locale === 'en' ? '' : `/${locale}`}/license/`

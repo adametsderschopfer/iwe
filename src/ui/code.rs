@@ -2,6 +2,7 @@
 
 pub(crate) mod comparison;
 pub(crate) mod folding;
+pub(crate) mod frozen_gutter;
 pub(crate) mod overview;
 mod rows;
 pub(crate) mod selection;

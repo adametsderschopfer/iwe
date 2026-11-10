@@ -603,3 +603,137 @@ fn translated_space_forms_fit_and_block_the_background() {
         }
     }
 }
+
+#[test]
+fn space_context_menu_and_edit_form_delete_only_workspace_metadata() {
+    use iced::{Event, mouse, widget::Id};
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        for from_form in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let keep = directory.path().join("keep");
+            let remove = directory.path().join("remove");
+            std::fs::create_dir_all(&keep).unwrap();
+            std::fs::create_dir_all(&remove).unwrap();
+            std::fs::write(remove.join("source.rs"), "fn main() {}\n").unwrap();
+            let mut app = state(language);
+            app.workspace
+                .create_space("Keep".into(), vec![keep.clone()]);
+            app.workspace
+                .create_space("Remove".into(), vec![remove.clone()]);
+            app.collapsed_spaces.insert(0);
+            app.collapsed_spaces.insert(1);
+            let mut ui = iced_test::Simulator::with_size(settings(), (1280., 900.), app.view());
+            let heading = ui
+                .find(Id::new("space-group-1"))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            ui.point_at(heading.center());
+            ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Right,
+            ))]);
+            for message in ui.into_messages() {
+                let _ = app.update(message);
+            }
+            assert_eq!(app.space_menu.map(|(index, _)| index), Some(1));
+            assert!(app.collapsed_spaces.contains(&1));
+            let mut ui = iced_test::Simulator::with_size(settings(), (1280., 900.), app.view());
+            assert!(ui.find(Id::new("space-menu-delete")).is_ok());
+            assert!(ui.find(Id::new("space-menu-edit")).is_ok());
+            ui.click(Id::new(if from_form {
+                "space-menu-edit"
+            } else {
+                "space-menu-delete"
+            }))
+            .unwrap();
+            for message in ui.into_messages() {
+                let _ = app.update(message);
+            }
+            if from_form {
+                assert!(app.space_menu.is_none());
+                assert_eq!(app.space_draft.as_ref().unwrap().editing, Some(1));
+                let mut ui = iced_test::Simulator::with_size(settings(), (1280., 900.), app.view());
+                let delete = ui
+                    .find(Id::new("space-delete"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                let cancel = ui
+                    .find(Id::new("space-cancel"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                assert!(delete.x + delete.width < cancel.x);
+                ui.click(Id::new("space-delete")).unwrap();
+                for message in ui.into_messages() {
+                    let _ = app.update(message);
+                }
+            }
+            assert_eq!(app.workspace.spaces.len(), 1);
+            assert_eq!(app.workspace.spaces[0].name, "Keep");
+            assert_eq!(app.workspace.directory(), Some(&keep));
+            assert!(app.space_draft.is_none());
+            assert!(app.space_menu.is_none());
+            assert_eq!(
+                app.collapsed_spaces.iter().copied().collect::<Vec<_>>(),
+                vec![0]
+            );
+            assert_eq!(
+                std::fs::read_to_string(remove.join("source.rs")).unwrap(),
+                "fn main() {}\n"
+            );
+            let restored: Workspace =
+                serde_json::from_value(serde_json::to_value(&app.workspace).unwrap()).unwrap();
+            assert_eq!(restored.spaces.len(), 1);
+            assert_eq!(restored.directory(), Some(&keep));
+        }
+    }
+}
+
+#[test]
+fn space_deletion_rejects_pending_actions_and_preserves_another_active_project() {
+    let mut app = state(Language::English);
+    app.workspace.create_space("Remove".into(), Vec::new());
+    app.workspace
+        .create_space("Keep".into(), vec![PathBuf::from("keep")]);
+    app.collapsed_spaces.insert(1);
+    app.git_actions.pending = true;
+    let _ = app.update_space(Message::Delete(0));
+    assert_eq!(app.workspace.spaces.len(), 2);
+    app.git_actions.pending = false;
+    let _ = app.update_space(Message::Delete(0));
+    assert_eq!(app.workspace.selected_space, Some(0));
+    assert_eq!(app.workspace.directory(), Some(&PathBuf::from("keep")));
+    assert!(app.collapsed_spaces.contains(&0));
+    let _ = app.update_space(Message::Delete(0));
+    assert!(app.workspace.spaces.is_empty());
+    assert!(app.workspace.directory().is_none());
+    assert!(app.collapsed_spaces.is_empty());
+}
+
+#[test]
+fn overflowing_space_list_keeps_edit_buttons_outside_the_scrollbar_lane() {
+    use iced::widget::Id;
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = state(language);
+        for index in 0..12 {
+            app.workspace.create_space(
+                format!("Space {index}"),
+                vec![PathBuf::from(format!("project-{index}"))],
+            );
+        }
+        let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
+        let edit = ui
+            .find(Id::new("edit-space-0"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let scrollbar_left = theme::SIDEBAR_WIDTH - 12. - 10.;
+        assert!(edit.x + edit.width <= scrollbar_left - theme::SIDEBAR_SCROLL_GAP);
+        ui.click(Id::new("edit-space-0")).unwrap();
+        assert!(
+            ui.into_messages()
+                .any(|message| matches!(message, AppMessage::Space(Message::Edit(0))))
+        );
+    }
+}

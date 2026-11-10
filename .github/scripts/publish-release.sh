@@ -35,7 +35,8 @@ done
 )
 title="IWE Code $version"
 if [[ "$family" != all ]]; then title="$title ($family)"; fi
-args=(--verify-tag --generate-notes --title "$title")
+python3 .github/scripts/release-notes.py --version "$version" --output dist/release-notes.md
+args=(--verify-tag --notes-file dist/release-notes.md --title "$title")
 if [[ "$family" != all ]]; then
   # Legacy clients must keep seeing the last shared migration release.
   args+=(--latest=false)

@@ -1,5 +1,7 @@
 //! Show operation results above the workspace without changing its layout.
 
+mod motion;
+
 use crate::ui::tooltip;
 use crate::{
     app::notifications::{Event, Kind, State},
@@ -54,31 +56,32 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
             text(i18n.text(Key::Dismiss)).size(12),
             tooltip::Position::Top,
         );
+        let (slide, space) = state.motion(item);
+        let card = mouse_area(
+            container(
+                column![
+                    row![icon(symbol, tone), content.width(Length::Fill), close]
+                        .spacing(10)
+                        .align_y(Alignment::Start),
+                    progress_bar(0.0..=1.0, state.remaining(item))
+                        .girth(3)
+                        .style(move |theme| theme::notification_progress(theme, tone)),
+                ]
+                .spacing(10),
+            )
+            .id(format!("notification-{}", item.id))
+            .padding(theme::NOTIFICATION_PADDING)
+            .width(Length::Fill)
+            .style(theme::notification),
+        )
+        .on_enter(on_event(Event::Hover(item.id, true)))
+        .on_exit(on_event(Event::Hover(item.id, false)));
         items.push((
             item.id,
-            mouse_area(
-                container(
-                    column![
-                        row![icon(symbol, tone), content.width(Length::Fill), close]
-                            .spacing(10)
-                            .align_y(Alignment::Start),
-                        progress_bar(0.0..=1.0, state.remaining(item))
-                            .girth(3)
-                            .style(move |theme| theme::notification_progress(theme, tone)),
-                    ]
-                    .spacing(10),
-                )
-                .id(format!("notification-{}", item.id))
-                .padding(theme::NOTIFICATION_PADDING)
-                .width(Length::Fill)
-                .style(theme::notification),
-            )
-            .on_enter(on_event(Event::Hover(item.id, true)))
-            .on_exit(on_event(Event::Hover(item.id, false)))
-            .into(),
+            motion::card(card.into(), slide, space, state.closing(item)),
         ));
     }
-    let items = container(opaque(keyed_column(items).spacing(theme::NOTIFICATION_GAP)))
+    let items = container(opaque(keyed_column(items)))
         .id("notifications")
         .width(theme::NOTIFICATION_WIDTH);
     stack![

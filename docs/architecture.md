@@ -3,11 +3,21 @@
 The application provides named spaces, projects, source previews, Git history, pipelines, and
 settings.
 
+The settings window uses persistent left navigation and a separate scrollable section on the right.
+Its macOS content extends into the titlebar, with an opaque header below native window controls.
+
+`app/repository_cache/` keeps the last successful initial Git snapshot for eight recent project
+directories. Snapshots include repository identities, history cursors, the selected branch, and
+expanded branch groups. Project switches restore cached data before starting generation-checked
+repository reads. Temporary errors preserve cached content. Confirmed missing repositories
+invalidate their entries.
+
 | Module                                                | Responsibility                                                                           |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `main.rs`                                             | Select the language and start the graphics launcher                                      |
 | `app/`                                                | Configure the window, own interface state, and process native material results           |
 | `app/notifications.rs`                                | Bound operation notifications, coalesce duplicates, and manage dismissal timers          |
+| `app/project_changes/`                                | Refresh sidebar change indicators for inactive projects with bounded Git status reads    |
 | `ui/notifications.rs`                                 | Overlay localized result cards without resizing the workspace                            |
 | `domain/`                                             | Model spaces, projects, preferences, accounts, remotes, commits, and graph relationships |
 | `ui/screens/`                                         | Compose workspace, Git, pipeline, and settings screens                                   |
@@ -62,6 +72,12 @@ cursor history, and request identifiers reject obsolete page responses. Only the
 receives syntax preparation. Paged documents skip comparison and automatic content polling. Syntax
 state restarts on each page, and lines over 16 KiB remain plain text.
 
+`ui/code/frozen_gutter/` pins line numbers and change markers to the horizontal viewport edge. It
+clips scrolling source separately and redraws the gutter with its original row background. The
+wrapper preserves vertical positioning and rejects source clicks beneath the gutter. Plain source
+and both comparison views share this wrapper without changing scroll identifiers or cached row
+layouts.
+
 `ui/code/selection.rs` shares tab selection state across virtual source rows. Iced paragraph hit
 testing maps pointer positions to UTF-8 boundaries. Syntax spans keep their colors while selected
 ranges receive the current theme's selection background. Comparison columns use separate source
@@ -71,9 +87,11 @@ invalidate stale selections after refresh, and page requests use existing tab id
 
 `app/line_navigation.rs` coordinates numbered-line navigation and its localized modal dialog. It
 reveals folded targets through the existing folding projection and restores source scroll offsets.
-Large-file searches reuse bounded page reads with a 45-second overall deadline. Search identifiers,
-tab identifiers, and project generations reject stale results after cancellation or navigation. The
-dialog uses Command+L on macOS and Ctrl+G on Windows and Linux.
+Selection state marks the target row separately from its selected text. Source views highlight its
+full width and line number, including empty target rows. Large-file searches reuse bounded page
+reads with a 45-second overall deadline. Search identifiers, tab identifiers, and project
+generations reject stale results after cancellation or navigation. The dialog uses Command+L on
+macOS and Ctrl+G on Windows and Linux.
 
 The shared process launcher resolves Git for repository reads and explicit Git operations. On
 Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
@@ -83,11 +101,14 @@ Git or change the environment.
 Notifications keep typed message keys and optional user context in application memory. They never
 persist with workspace settings. Successful action responses enqueue notifications after request and
 project checks. Error messages use existing localized mappings. Success and error notifications
-expire after five seconds. Each card has its own hover pause and remaining-time bar. Active timers
-update every 33 milliseconds and stop when all remaining cards are paused. Stable notification keys
-preserve each card's hover state when its neighbors change. The notification stack captures clicks
-inside its cards and preserves workspace clicks outside them. Modal dialogs keep their existing
-error messages.
+start closing after five seconds. Each card has its own hover pause and remaining-time bar. Closing
+retains each card for a 200-millisecond rightward slide and a 200-millisecond gap collapse. The
+motion wrapper preserves measured card heights, stable keys, and bottom alignment while releasing
+space. Active timers update every 33 milliseconds. Closing animations update every 16 milliseconds,
+including while other cards remain paused. The timer stops when all remaining cards are paused.
+Stable notification keys preserve each card's hover state when its neighbors change. The
+notification stack captures clicks inside its cards and preserves workspace clicks outside them.
+Modal dialogs keep their existing error messages.
 
 Git status uses NUL-delimited records and preserves renamed paths. Application state aggregates file
 status into folder decorations. Background polling refreshes status, affected directories, and the
@@ -202,6 +223,19 @@ Multiple repositories initially show all references in one history. Selecting a 
 history to its repository. The all-repositories control restores the merged history. Pipeline
 accounts follow the selected repository; the first discovered repository is the default.
 
+`app/branch_selection.rs` owns branch selection independently from the history filter. Selection
+keys contain repository roots and full references. Folder targets resolve their current descendants
+at click time. `ui/branch_selection.rs` captures modifier clicks and forwards ordinary controls
+without changing their pointer behavior. Its workspace wrapper clears selection on other clicks
+while preserving selected-row context menus and modal controls. Repository refresh prunes obsolete
+references. Project changes and window focus loss clear selection.
+
+`app/git_actions/bulk.rs` snapshots confirmed batches and executes validated operations sequentially
+in their owning repositories. The existing pending flag serializes batches with individual Git
+writes. Failed results retain only failed targets for explicit retries. Generation and request
+guards isolate obsolete results. `ui/screens/git_bulk.rs` presents localized menus, branch lists,
+remote choices, and errors.
+
 Git actions use typed operations and validated full references. Dialog drafts remain available after
 failures. One pending operation blocks duplicate submissions. Request identifiers and repository
 roots reject stale results. Successful actions refresh repository data, source tabs, and directory
@@ -259,6 +293,20 @@ protocol details.
 
 ## Window and graphics
 
+`app/windows.rs` owns the secondary settings window and routes window-specific closing and keyboard
+actions. The Iced daemon opens the workspace explicitly and exits when that window closes. Settings
+reuses one window and keeps workspace navigation, tabs, and scroll positions intact. macOS and Linux
+keep native settings window controls. Windows uses the existing application caption and resize
+handles.
+
+On macOS, `app/native_menu.rs` projects localized workspace data into a native application menu.
+`infrastructure/native_menu.rs` retains Muda menu objects on the AppKit event-loop thread. A guarded
+100-millisecond subscription polls menu actions through Iced window callbacks. Menu installation
+changes only when its projected content changes. Menu replacement rejects obsolete item identifiers.
+Project actions resolve directory paths against the current space, preserving selection after
+project reordering. The native menu dependency applies only to macOS. Other platforms retain their
+sidebar controls.
+
 The display name is IWE Code. Embedded PNG pixels supply Windows and X11 window icons. Windows
 builds embed an ICO resource through `winresource`. macOS bundles include the ICNS icon. Linux
 packages include the PNG icon and desktop entry. The repository keeps the generated source artwork
@@ -277,8 +325,8 @@ the application header. `ui/window_chrome.rs` keeps these controls above dialogs
 and corner resize handles. Window tasks use safe Iced APIs. Resize events update the maximize icon.
 Maximized windows disable resize handles without replacing the content widget tree. Restored Windows
 windows reserve the right resize strip outside content. This keeps scrollbar clicks and wheel events
-outside that strip. Maximized windows return the strip's width to content. Layout tests exclude
-this strip from the expected content width on Windows. Other platforms retain the full window width.
+outside that strip. Maximized windows return the strip's width to content. Layout tests exclude this
+strip from the expected content width on Windows. Other platforms retain the full window width.
 
 On macOS, renderer layers anchor their contents at the top left instead of stretching the previous
 frame during resizing. AppKit requests redraws during live resizing. This policy preserves display

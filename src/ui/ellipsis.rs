@@ -13,6 +13,10 @@ use std::borrow::Cow;
 
 type Paragraph = <Renderer as text::Renderer>::Paragraph;
 
+pub(crate) fn measured_width(content: &str, size: f32) -> f32 {
+    paragraph(content, size).min_width()
+}
+
 pub(crate) fn text<'a, Message: 'a>(
     content: impl Into<Cow<'a, str>>,
     size: f32,
@@ -20,12 +24,25 @@ pub(crate) fn text<'a, Message: 'a>(
     Element::new(Ellipsis {
         content: content.into(),
         size,
+        shrink: false,
+    })
+}
+
+pub(crate) fn compact_text<'a, Message: 'a>(
+    content: impl Into<Cow<'a, str>>,
+    size: f32,
+) -> Element<'a, Message> {
+    Element::new(Ellipsis {
+        content: content.into(),
+        size,
+        shrink: true,
     })
 }
 
 struct Ellipsis<'a> {
     content: Cow<'a, str>,
     size: f32,
+    shrink: bool,
 }
 
 #[derive(Default)]
@@ -96,15 +113,33 @@ impl<Message> Widget<Message, Theme, Renderer> for Ellipsis<'_> {
         tree::State::new(State::default())
     }
     fn size(&self) -> Size<Length> {
-        Size::new(Length::Fill, Length::Shrink)
+        Size::new(
+            if self.shrink {
+                Length::Shrink
+            } else {
+                Length::Fill
+            },
+            Length::Shrink,
+        )
     }
     fn layout(&mut self, tree: &mut Tree, _: &Renderer, limits: &layout::Limits) -> layout::Node {
         let state = tree.state.downcast_mut::<State>();
         state.update(&self.content, limits.max().width, self.size);
         layout::Node::new(limits.resolve(
-            Length::Fill,
+            if self.shrink {
+                Length::Shrink
+            } else {
+                Length::Fill
+            },
             Length::Shrink,
-            Size::new(state.width, self.size * 1.3),
+            Size::new(
+                if self.shrink {
+                    state.paragraph.min_width()
+                } else {
+                    state.width
+                },
+                self.size * 1.3,
+            ),
         ))
     }
     fn draw(

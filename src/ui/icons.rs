@@ -43,9 +43,17 @@ pub(crate) enum Icon {
 }
 
 pub(crate) fn icon<'a, Message: 'a>(icon: Icon, color: Tone) -> Element<'a, Message> {
+    sized_icon(icon, color, 20.)
+}
+
+pub(crate) fn sized_icon<'a, Message: 'a>(
+    icon: Icon,
+    color: Tone,
+    size: f32,
+) -> Element<'a, Message> {
     canvas::Canvas::new(Drawing(icon, color))
-        .width(20)
-        .height(20)
+        .width(size)
+        .height(size)
         .into()
 }
 
@@ -62,6 +70,7 @@ impl<Message> canvas::Program<Message> for Drawing {
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
+        frame.scale(bounds.width.min(bounds.height) / 20.);
         let updating = matches!(self.0, Icon::Update);
         if updating {
             frame.fill(
@@ -107,16 +116,9 @@ impl<Message> canvas::Program<Message> for Drawing {
                 line(&[(5., 13.), (15., 13.)]);
             }
             Icon::Changes => {
-                line(&[
-                    (4., 2.),
-                    (13., 2.),
-                    (17., 6.),
-                    (17., 18.),
-                    (4., 18.),
-                    (4., 2.),
-                ]);
-                line(&[(7., 8.), (13., 8.)]);
-                line(&[(7., 12.), (13., 12.)]);
+                line(&[(1., 10.), (7., 10.)]);
+                line(&[(13., 10.), (19., 10.)]);
+                frame.stroke(&Path::circle(Point::new(10., 10.), 3.), stroke);
             }
             Icon::Update => {
                 line(&[(10., 5.), (10., 11.5)]);
@@ -135,13 +137,13 @@ impl<Message> canvas::Program<Message> for Drawing {
                     builder.move_to(Point::new(15., 3.));
                     builder.line_to(Point::new(15., 7.));
                     builder.bezier_curve_to(
-                        Point::new(15., 11.),
-                        Point::new(5., 8.),
-                        Point::new(5., 12.),
+                        Point::new(15., 10.),
+                        Point::new(12., 12.),
+                        Point::new(8., 12.),
                     );
-                    builder.move_to(Point::new(2., 9.));
-                    builder.line_to(Point::new(5., 12.));
-                    builder.line_to(Point::new(8., 9.));
+                    builder.move_to(Point::new(11., 9.));
+                    builder.line_to(Point::new(8., 12.));
+                    builder.line_to(Point::new(11., 15.));
                 });
                 let rounded = stroke
                     .with_line_cap(canvas::LineCap::Round)

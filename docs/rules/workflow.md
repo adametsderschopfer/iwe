@@ -31,3 +31,9 @@ Additional rules:
 - When an architectural rule must be broken, explain the trade-off before proceeding.
 - Never invent library APIs or claim unsupported functionality exists.
 - Prefer official documentation and examples matching installed dependency versions.
+
+## Commits and versions
+
+Follow [release-note rules](release-notes.md) for every commit or version request. Collect
+source-backed change items during commit preparation and include them with the implementation.
+Prepare the version's authored website release notes before creating its release tags.

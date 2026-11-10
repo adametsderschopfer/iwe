@@ -135,6 +135,13 @@ fn actions_validate_branch_capabilities_and_preserve_failed_drafts() {
     for message in ui.into_messages() {
         let _ = app.update(message);
     }
+    assert!(app.notifications.closing(&app.notifications.items[0]));
+    app.notifications
+        .update(crate::app::notifications::Event::Tick(
+            iced::time::Instant::now()
+                + crate::ui::theme::NOTIFICATION_SLIDE_DURATION
+                + crate::ui::theme::NOTIFICATION_SETTLE_DURATION,
+        ));
     assert!(app.notifications.items.is_empty());
     assert!(app.git_actions.dialog.is_some());
 }
@@ -259,6 +266,7 @@ fn long_branch_and_folder_names_remain_on_one_line() {
         .insert(format!("false/{folder}"));
     app.workspace.preferences.show_git = true;
     app.sync_panels();
+    app.panes = iced::widget::pane_grid::State::new(crate::app::Panel::Git).0;
     for width in [1080., 1440.] {
         let mut ui = iced_test::Simulator::with_size(
             iced::Settings {
@@ -279,7 +287,7 @@ fn long_branch_and_folder_names_remain_on_one_line() {
                 .unwrap()
                 .visible_bounds()
                 .unwrap();
-            assert_eq!(bounds.height, 30.);
+            assert!((bounds.height - 30.).abs() < 0.001);
             assert!(bounds.x + bounds.width <= panel.x + panel.width);
             assert!(ui.find(name.as_str()).is_err());
         }
@@ -292,12 +300,17 @@ fn long_branch_and_folder_names_remain_on_one_line() {
         let mut previous = None::<iced::Rectangle>;
         for id in ["git-fetch", "git-new-branch", "git-update", "git-push"] {
             let bounds = ui.find(Id::new(id)).unwrap().visible_bounds().unwrap();
-            assert!(bounds.y + bounds.height <= list.y);
-            assert!(bounds.x >= panel.x && bounds.x + bounds.width <= panel.x + panel.width);
+            assert!(bounds.x + bounds.width < panel.x);
+            let toolbar = ui
+                .find(Id::new("git-toolbar"))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            assert!(bounds.x >= toolbar.x && bounds.x + bounds.width <= toolbar.x + toolbar.width);
             if let Some(previous) = previous {
-                assert_eq!(bounds.y, previous.y);
-                assert_eq!(bounds.height, previous.height);
-                assert!(bounds.x > previous.x + previous.width);
+                assert_eq!(bounds.x, previous.x);
+                assert_eq!(bounds.width, previous.width);
+                assert!(bounds.y > previous.y + previous.height);
             }
             previous = Some(bounds);
         }
@@ -352,6 +365,7 @@ fn branch_toolbar_and_scrollbar_fit_the_minimum_pane_width() {
     }
     app.workspace.preferences.show_git = true;
     app.sync_panels();
+    app.panes = pane_grid::State::new(crate::app::Panel::Git).0;
     for appearance in [
         crate::domain::workspace::Appearance::Dark,
         crate::domain::workspace::Appearance::Light,
@@ -377,16 +391,18 @@ fn branch_toolbar_and_scrollbar_fit_the_minimum_pane_width() {
             .visible_bounds()
             .unwrap();
         assert!((list.x + list.width - panel.x - panel.width).abs() < 1.);
-        let first = ui
-            .find(Id::new("branch-refs/heads/main"))
+        let mut previous = ui
+            .find(Id::new("git-refresh"))
             .unwrap()
             .visible_bounds()
             .unwrap();
         for id in ["git-fetch", "git-new-branch", "git-update", "git-push"] {
             let bounds = ui.find(Id::new(id)).unwrap().visible_bounds().unwrap();
             assert!(bounds.width >= 20.);
-            assert!(bounds.x >= panel.x && bounds.x + bounds.width <= panel.x + panel.width);
-            assert!(bounds.y + bounds.height <= first.y);
+            assert!(bounds.x + bounds.width < panel.x);
+            assert_eq!(bounds.x, previous.x);
+            assert!(bounds.y > previous.y + previous.height);
+            previous = bounds;
         }
         if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
             ui.snapshot(&app.theme())

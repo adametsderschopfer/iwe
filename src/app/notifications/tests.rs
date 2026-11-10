@@ -10,6 +10,16 @@ fn all_results_expire_after_five_seconds() {
     assert_eq!(state.items.len(), 2);
     assert!((state.remaining(&state.items[0]) - 0.2).abs() < 0.001);
     state.update_at(Event::Tick(now + Duration::from_secs(5)), now);
+    assert_eq!(state.items.len(), 2);
+    assert!(state.items.iter().all(|item| state.closing(item)));
+    state.update_at(
+        Event::Tick(
+            now + Duration::from_secs(5)
+                + theme::NOTIFICATION_SLIDE_DURATION
+                + theme::NOTIFICATION_SETTLE_DURATION,
+        ),
+        now,
+    );
     assert!(state.items.is_empty());
 }
 
@@ -29,13 +39,27 @@ fn hovering_pauses_only_the_hovered_notification_and_its_progress() {
         None,
         now + Duration::from_secs(15),
     );
-    state.update_at(Event::Tick(now + Duration::from_secs(20)), now);
+    state.update_at(
+        Event::Tick(
+            now + Duration::from_secs(20)
+                + theme::NOTIFICATION_SLIDE_DURATION
+                + theme::NOTIFICATION_SETTLE_DURATION,
+        ),
+        now,
+    );
     assert_eq!(state.items.len(), 1);
     assert_eq!(state.items[0].id, id);
     assert!((state.remaining(&state.items[0]) - 0.2).abs() < 0.001);
     state.update_at(Event::Hover(id, false), now + Duration::from_secs(34));
     assert!((state.remaining(&state.items[0]) - 0.2).abs() < 0.001);
-    state.update_at(Event::Tick(now + Duration::from_secs(35)), now);
+    state.update_at(
+        Event::Tick(
+            now + Duration::from_secs(35)
+                + theme::NOTIFICATION_SLIDE_DURATION
+                + theme::NOTIFICATION_SETTLE_DURATION,
+        ),
+        now,
+    );
     assert!(state.items.is_empty());
 }
 
@@ -58,6 +82,11 @@ fn repeated_errors_coalesce_and_old_dismissals_cannot_close_new_results() {
     for id in ids {
         state.update_at(Event::Dismiss(id), now);
     }
+    assert!(state.items.iter().all(|item| state.closing(item)));
+    state.update_at(
+        Event::Tick(now + theme::NOTIFICATION_SLIDE_DURATION + theme::NOTIFICATION_SETTLE_DURATION),
+        now,
+    );
     assert!(state.items.is_empty());
 }
 
@@ -159,12 +188,115 @@ fn notification_cards_fit_all_languages_and_preserve_workspace_interactions() {
         for message in ui.into_messages() {
             let _ = app.update(message);
         }
+        assert!(
+            app.notifications
+                .closing(app.notifications.items.back().unwrap())
+        );
+        app.notifications.update(Event::Tick(
+            Instant::now()
+                + theme::NOTIFICATION_SLIDE_DURATION
+                + theme::NOTIFICATION_SETTLE_DURATION,
+        ));
         assert_eq!(app.notifications.items.len(), 2);
         let mut ui = iced_test::Simulator::with_size(settings(), (1080., 720.), app.view());
         ui.click(Id::new("nav-settings")).unwrap();
         for message in ui.into_messages() {
             let _ = app.update(message);
         }
-        assert_eq!(app.navigation, Navigation::Settings);
+        assert!(app.windows.settings.is_some());
+        assert_ne!(app.navigation, Navigation::Settings);
     }
+}
+
+#[test]
+fn dismissal_slides_before_releasing_space_and_ignores_hover_and_repeat_clicks() {
+    let now = Instant::now();
+    let mut state = State::default();
+    state.push(Kind::Success, Key::GitFetchDone, None, now);
+    let id = state.items[0].id;
+    state.update_at(Event::Hover(id, true), now);
+    state.update_at(Event::Dismiss(id), now);
+    state.update_at(
+        Event::Tick(now + theme::NOTIFICATION_SLIDE_DURATION / 2),
+        now,
+    );
+    let (slide, space) = state.motion(&state.items[0]);
+    assert!(slide > 0. && slide < 1.);
+    assert_eq!(space, 1.);
+    state.update_at(
+        Event::Hover(id, true),
+        now + theme::NOTIFICATION_SLIDE_DURATION / 2,
+    );
+    state.update_at(
+        Event::Dismiss(id),
+        now + theme::NOTIFICATION_SLIDE_DURATION / 2,
+    );
+    state.update_at(
+        Event::Tick(
+            now + theme::NOTIFICATION_SLIDE_DURATION + theme::NOTIFICATION_SETTLE_DURATION / 2,
+        ),
+        now,
+    );
+    let (slide, space) = state.motion(&state.items[0]);
+    assert_eq!(slide, 1.);
+    assert!(space > 0. && space < 1.);
+    state.update_at(
+        Event::Tick(now + theme::NOTIFICATION_SLIDE_DURATION + theme::NOTIFICATION_SETTLE_DURATION),
+        now,
+    );
+    assert!(state.items.is_empty());
+}
+
+#[test]
+fn closing_bottom_card_moves_upper_card_down_without_scaling() {
+    use crate::{
+        app::App,
+        i18n::{I18n, Language},
+    };
+    use iced::widget::Id;
+    use std::rc::Rc;
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    let now = Instant::now();
+    app.notifications
+        .push(Kind::Success, Key::GitFetchDone, None, now);
+    app.notifications
+        .push(Kind::Success, Key::GitUpdateDone, None, now);
+    let bounds = |app: &App, id| {
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
+        ui.find(Id::from(format!("notification-{id}")))
+            .unwrap()
+            .visible_bounds()
+            .unwrap()
+    };
+    let upper = bounds(&app, 1);
+    let lower = bounds(&app, 2);
+    app.notifications.update_at(Event::Dismiss(2), now);
+    app.notifications.update_at(
+        Event::Tick(now + theme::NOTIFICATION_SLIDE_DURATION / 2),
+        now,
+    );
+    assert_eq!(bounds(&app, 1), upper);
+    let departing = bounds(&app, 2);
+    assert!(departing.x > lower.x);
+    assert_eq!(departing.y, lower.y);
+    assert_eq!(departing.height, lower.height);
+    app.notifications.update_at(
+        Event::Tick(
+            now + theme::NOTIFICATION_SLIDE_DURATION + theme::NOTIFICATION_SETTLE_DURATION / 2,
+        ),
+        now,
+    );
+    let moving = bounds(&app, 1);
+    assert!(moving.y > upper.y);
+    assert_eq!(moving.height, upper.height);
+    assert_eq!(moving.width, upper.width);
+    app.notifications.update_at(
+        Event::Tick(now + theme::NOTIFICATION_SLIDE_DURATION + theme::NOTIFICATION_SETTLE_DURATION),
+        now,
+    );
+    let settled = bounds(&app, 1);
+    assert!(settled.y > moving.y);
+    assert_eq!(settled.height, upper.height);
+    assert_eq!(app.notifications.items.len(), 1);
 }

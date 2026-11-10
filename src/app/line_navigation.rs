@@ -7,7 +7,7 @@ use crate::{
     ui::code::{
         Document, LineChange,
         folding::{Row, SideRow},
-        selection::{Action, Lane, Position},
+        selection::{Action, Lane},
     },
 };
 use iced::{Task, widget::operation};
@@ -48,13 +48,16 @@ impl App {
                 if self.navigation != Navigation::Settings
                     && self.space_draft.is_none()
                     && self.auth_dialog.is_none()
-                    && self.git_actions.dialog.is_none()
+                    && !self.git_actions.has_dialog()
                     && self.preview().document.is_some()
                     && !self.preview().loading =>
             {
                 self.files.menu = None;
                 self.project_menu = None;
+                self.repository_menu = None;
+                self.space_menu = None;
                 self.git_actions.menu = None;
+                self.git_actions.bulk.menu = None;
                 self.file_request += 1;
                 self.line_navigation = Some(Dialog {
                     id: self.preview().id,
@@ -255,27 +258,9 @@ impl App {
             .iter()
             .map(|(text, _)| text.len())
             .sum();
-        preview.selection.update(
-            Action::Start(
-                lane,
-                Position {
-                    row: coordinate,
-                    byte: 0,
-                },
-            ),
-            &document,
-        );
-        preview.selection.update(
-            Action::Extend(
-                lane,
-                Position {
-                    row: coordinate,
-                    byte: length,
-                },
-            ),
-            &document,
-        );
-        preview.selection.update(Action::End, &document);
+        preview
+            .selection
+            .update(Action::Line(lane, coordinate, length), &document);
         true
     }
 }

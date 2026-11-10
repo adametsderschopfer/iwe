@@ -3,7 +3,10 @@
 
 import json
 import os
+from pathlib import Path
 import re
+import subprocess
+import sys
 
 
 platform = "all"
@@ -12,6 +15,11 @@ if os.environ["REF_TYPE"] == "tag":
     if not match:
         raise ValueError("Use a stable version tag, optionally prefixed with macos-, windows-, or linux-")
     platform = match.group(1) or "all"
+
+notes_command = [sys.executable, str(Path(__file__).with_name("release-notes.py")), "--check"]
+if os.environ["REF_TYPE"] == "tag":
+    notes_command.extend(["--version", match.group(2)])
+subprocess.run(notes_command, check=True)
 
 targets = [
     {"os": "macos-15", "target": "aarch64-apple-darwin", "platform": "macos-arm64"},

@@ -51,6 +51,17 @@ pub(crate) fn change_fill(color: Tone, theme: &Theme, opacity: f32) -> Color {
     color.resolve(theme).scale_alpha(opacity)
 }
 
+pub(crate) fn source_row(
+    theme: &Theme,
+    mut style: container::Style,
+    highlighted: bool,
+) -> container::Style {
+    if highlighted {
+        style.background = Some(CODE_SELECTION.resolve(theme).into());
+    }
+    style
+}
+
 pub(crate) fn unified_row(
     change: Option<crate::ui::code::LineChange>,
 ) -> impl Fn(&Theme) -> container::Style {
@@ -85,10 +96,22 @@ pub(crate) fn diff_row(
     }
 }
 
+pub(crate) const COMMIT_GRAPH_PADDING: f32 = 12.;
+pub(crate) const COMMIT_REPOSITORY_GRAPH_PADDING: f32 = 4.;
+pub(crate) const COMMIT_REPOSITORY_MAX_WIDTH: f32 = 160.;
+
 pub(crate) const SIDEBAR_WIDTH: f32 = 264.0;
+pub(crate) const SIDEBAR_SCROLL_GAP: f32 = 6.0;
+pub(crate) const SETTINGS_SIDEBAR_WIDTH: f32 = 220.0;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub(crate) const SETTINGS_HEADER_HEIGHT: f32 = 48.0;
 pub(crate) const NOTIFICATION_WIDTH: f32 = 380.0;
 pub(crate) const NOTIFICATION_INSET: f32 = 16.0;
 pub(crate) const NOTIFICATION_GAP: f32 = 8.0;
+pub(crate) const NOTIFICATION_SLIDE_DURATION: std::time::Duration =
+    std::time::Duration::from_millis(200);
+pub(crate) const NOTIFICATION_SETTLE_DURATION: std::time::Duration =
+    std::time::Duration::from_millis(200);
 pub(crate) const NOTIFICATION_PADDING: f32 = 14.0;
 pub(crate) const FILE_PANEL_TOOL_SIZE: f32 = 40.0;
 pub(crate) const FILE_PANEL_TOOL_INSET: f32 = 4.0;
@@ -104,6 +127,11 @@ pub(crate) const WINDOW_CONTROL_HEIGHT: f32 = 40.0;
 #[cfg(target_os = "windows")]
 pub(crate) const WINDOW_RESIZE_GRIP: f32 = 5.0;
 pub(crate) const COMMIT_DATE_WIDTH: f32 = 120.0;
+pub(crate) const COMMIT_HASH_WIDTH: f32 = 64.0;
+pub(crate) const HEADER_REPOSITORY_WIDTH: f32 = 220.0;
+pub(crate) const HEADER_REPOSITORY_MENU_WIDTH: f32 = 360.0;
+pub(crate) const HEADER_REPOSITORY_ROW_HEIGHT: f32 = 48.0;
+pub(crate) const HEADER_REPOSITORY_MENU_HEIGHT: f32 = 336.0;
 pub(crate) const CODE_SCROLLBAR_WIDTH: f32 = 20.0;
 pub(crate) const CODE_SCROLLBAR_THUMB_WIDTH: f32 = 10.0;
 pub(crate) const CODE_CHANGE_MARK_WIDTH: f32 = 4.0;
@@ -111,17 +139,32 @@ pub(crate) const CODE_CHANGE_MARK_MIN_HEIGHT: f32 = 3.0;
 pub(crate) const UNIFIED_NUMBER_MIN_WIDTH: f32 = 32.0;
 pub(crate) const UNIFIED_NUMBER_GAP: f32 = 6.0;
 pub(crate) const UNIFIED_GUTTER_PADDING: f32 = 8.0;
+pub(crate) const SOURCE_GUTTER_WIDTH: f32 = 91.0;
+pub(crate) const SOURCE_MARKERS_WIDTH: f32 = 35.0;
+pub(crate) const DIFF_GUTTER_WIDTH: f32 = 65.0;
+pub(crate) const DIFF_MARKERS_WIDTH: f32 = 11.0;
 pub(crate) const GIT_PANE_SPACING: f32 = 1.0;
 pub(crate) const GIT_PANE_MIN_SIZE: f32 = 120.0;
 pub(crate) const BRANCH_HEADER_INSET: f32 = 8.0;
-pub(crate) const BRANCH_TOOL_SIZE: f32 = 28.0;
-pub(crate) const BRANCH_TOOL_GAP: f32 = 4.0;
 pub(crate) const SIDEBAR_TOP_INSET: f32 = 32.0;
-pub(crate) const FILE_TAB_WIDTH: f32 = 200.0;
+pub(crate) const FILE_TAB_MIN_WIDTH: f32 = 200.0;
+pub(crate) const FILE_TAB_TEXT_SIZE: f32 = 12.0;
+pub(crate) const FILE_TAB_NAME_LIMIT: usize = 35;
+pub(crate) const FILE_TAB_ICON_WIDTH: f32 = 16.0;
+pub(crate) const FILE_TAB_LABEL_GAP: f32 = 6.0;
+pub(crate) const FILE_TAB_PADDING: f32 = 8.0;
+pub(crate) const FILE_TAB_CLOSE_WIDTH: f32 = 28.0;
+pub(crate) const FILE_TAB_END_GAP: f32 = 4.0;
+pub(crate) const FILE_TAB_TOOL_SIZE: f32 = 36.0;
+pub(crate) const FILE_TAB_TOOL_GAP: f32 = 6.0;
+pub(crate) const TAB_MENU_WIDTH: f32 = 380.0;
+pub(crate) const TAB_MENU_ROW_HEIGHT: f32 = 36.0;
+pub(crate) const TAB_MENU_MAX_HEIGHT: f32 = 324.0;
 pub(crate) const FILE_TREE_ROW_HEIGHT: f32 = 24.0;
 pub(crate) const FILE_TREE_TEXT_SIZE: f32 = 14.0;
 pub(crate) const FILE_TREE_INDENT: f32 = 20.0;
 pub(crate) const SPACE_PROJECT_HEIGHT: f32 = 56.0;
+pub(crate) const PROJECT_STATUS_ICON_SIZE: f32 = 16.0;
 pub(crate) const SPACE_PROJECT_GAP: f32 = 4.0;
 pub(crate) const PIPELINE_ROW_HEIGHT: f32 = 72.0;
 pub(crate) const PIPELINE_BADGE_SIZE: f32 = 30.0;

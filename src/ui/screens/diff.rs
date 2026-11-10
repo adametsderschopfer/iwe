@@ -206,6 +206,11 @@ fn line<'a>(
     height: f32,
 ) -> Element<'a, Message> {
     let size = app.workspace.preferences.code_size as f32;
+    let highlighted = app.preview().selection.highlights_line(
+        document,
+        side.into(),
+        cell.number.saturating_sub(1),
+    );
     let marker = change
         .map(|change| theme::line_change(change).resolve(&app.theme()))
         .unwrap_or(Color::TRANSPARENT);
@@ -250,15 +255,28 @@ fn line<'a>(
                 .align_x(Alignment::End),
         );
     }
-    container(row.push(code))
-        .width(Length::Fill)
-        .id(format!("diff-line-{}-{}", side.index(), cell.number))
-        .style(move |theme| container::Style {
-            background: change
-                .map(|change| theme::change_fill(theme::line_change(change), theme, 0.17).into()),
-            ..Default::default()
-        })
-        .into()
+    code::frozen_gutter::view(
+        container(row.push(code))
+            .width(Length::Fill)
+            .id(format!("diff-line-{}-{}", side.index(), cell.number))
+            .style(move |theme| {
+                theme::source_row(
+                    theme,
+                    container::Style {
+                        background: change.map(|change| {
+                            theme::change_fill(theme::line_change(change), theme, 0.17).into()
+                        }),
+                        ..Default::default()
+                    },
+                    highlighted,
+                )
+            }),
+        if app.workspace.preferences.line_numbers {
+            theme::DIFF_GUTTER_WIDTH
+        } else {
+            theme::DIFF_MARKERS_WIDTH
+        },
+    )
 }
 
 struct Connectors<'a> {

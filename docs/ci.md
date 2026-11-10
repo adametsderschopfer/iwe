@@ -64,9 +64,17 @@ systems can require confirmation when opening downloaded packages.
 ## Publish a version
 
 1. Update the package version in Cargo.toml and refresh Cargo.lock.
-2. Commit the release changes after local checks pass.
-3. Create platform tags, such as `macos-v0.1.12`, `windows-v0.1.12`, and `linux-v0.1.12`.
-4. Push the required platform tags to GitHub. Each tag publishes its own release independently.
+2. Prepare its authored release notes following [release-note rules](rules/release-notes.md).
+3. Commit the release changes and notes after the authorized checks pass.
+4. Create platform tags, such as `macos-v0.1.12`, `windows-v0.1.12`, and `linux-v0.1.12`.
+5. Push the required platform tags to GitHub. Each tag publishes its own release independently.
+6. Verify publication, then update the website's publication metadata through the authorized commit
+   workflow.
+
+Planning validates the release-note ledger. Version tags require a matching prepared or released
+version with authored items. Missing or incomplete notes stop release jobs before builds begin. The
+publication script renders the English GitHub release body from the website ledger and links to all
+three translations.
 
 The push starts CI for the tagged commit. Each platform tag requires that platform's checks, tests,
 and two architecture builds before publication. Formatting and dependency security remain mandatory.

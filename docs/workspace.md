@@ -16,9 +16,13 @@ unchanged. Removing a project only detaches its folder. The application never de
 The header shows **Space • Project** whenever a project is selected. Without a selected project, it
 shows only the space name. Settings keeps its own heading.
 
-Click the branch badge in the header to open Git history when its panel is closed. If Git history is
-already open, the branches block shows a blue outline for 700 milliseconds. Clicking again restarts
-that interval. The action preserves the selected branch and history filter.
+The header shows up to two repository badges with their current branches. Projects with more
+repositories show an arrow listing the remaining repository names and current branches. Click a
+repository badge or list entry to open Git history and reveal that repository's current branch. This
+selects its history filter without checking out a branch or changing project files. For a single
+repository, the badge preserves the selected history filter. If Git history is already open, the
+branches block shows a blue outline for 700 milliseconds. Clicking again restarts that interval.
+Escape or clicking outside closes the repository list.
 
 Right-click a file or directory in the project tree to open its context menu. Click **Copy** to copy
 its absolute path. Hover **Copy** to choose an absolute path or a path relative to its repository
@@ -54,9 +58,25 @@ Click a space heading or its arrow to collapse or expand its projects. Spaces co
 independently. Collapsing a space keeps its selected project open. The edit button remains
 available.
 
+Right-click a space heading to open **Edit space** and **Delete space**. The edit form also places
+**Delete space** at the left of its bottom action row. Deleting a space removes its saved project
+entries, including pinned entries, while preserving all project files on disk. Other spaces retain
+their project entries. Deleting the active space selects another available project or opens the
+empty workspace. Deleting another space preserves the active project and the remaining spaces'
+collapsed states.
+
 Empty space lists align their message with the **Spaces** heading.
 
-Space settings remain at the sidebar's right edge. Project rows contain no separate file button.
+Space settings remain at the sidebar's right edge. Project rows contain no separate file button. The
+space list reserves a separate scrollbar lane, with a gap before space controls and project rows.
+
+Projects with uncommitted files show a small gray change icon at the right of their sidebar row.
+Pinned projects use the same indicator. The **Uncommitted files** section uses the same
+circle-and-line icon. Changes include staged, unstaged, untracked, and deleted files within the
+project's discovered repositories. The selected project's existing three-second status refresh
+updates its indicator. Other projects refresh at startup and every ten seconds, with at most two
+simultaneous status reads. Repeated project directories share one result. Failed reads preserve the
+last known indicator.
 
 Hover hints use a consistent eight-pixel gap from their controls. Cursor-following hints keep the
 same gap above the pointer. Hints remain inside the window near its edges.
@@ -107,8 +127,10 @@ An unavailable repository does not hide other repositories. Refresh the project 
 
 Selecting a project starts a background directory index. Cached folders appear immediately while
 their listings refresh. Recently visited projects also retain their expanded folders in memory.
-Opening a folder prioritizes its refresh before speculative reads. Refresh keeps existing listings
-visible. A loading label appears only when an uncached request exceeds 350 milliseconds.
+Collapsing a folder also collapses all its nested folders. Reopening it leaves nested folders
+collapsed. Other folders retain their expanded state. Opening a folder prioritizes its refresh
+before speculative reads. Refresh keeps existing listings visible. A loading label appears only when
+an uncached request exceeds 350 milliseconds.
 
 The index stores names, paths, and entry types in the system cache directory. It survives
 application restarts. `IWE_DATA_DIR` places this cache under `cache/trees` inside the selected data
@@ -153,8 +175,9 @@ stay unwrapped and use horizontal scrolling.
 Press Command+L on macOS or Ctrl+G on Windows and Linux to open **Go to Line**. These shortcuts
 match [JetBrains defaults](https://blog.jetbrains.com/idea/2022/10/top-underrated-shortcuts/). Enter
 a positive line number and press Enter. The viewer reveals hidden lines, scrolls to the target, and
-selects its text. Invalid or missing numbers keep the dialog open with an explanation. Escape or
-**Cancel** closes the dialog. Settings lists the shortcut.
+selects its text. The highlight covers the full row width, including its line number. Clicking
+source text or pressing Escape clears the row highlight. Invalid or missing numbers keep the dialog
+open with an explanation. Escape or **Cancel** closes the dialog. Settings lists the shortcut.
 
 Side-by-side comparisons use the selected source column, defaulting to the current version when it
 exists. Deleted files default to their previous version. Unified comparisons prefer current source
@@ -182,18 +205,23 @@ the scroll range.
 
 Opened files appear in a compact tab strip with file icons and close buttons. Selecting an existing
 file reuses its tab and preserves horizontal and vertical scroll positions. Commit versions use
-separate tabs with revision identifiers. Hovering a tab shows its complete path and revision.
+separate tabs with revision identifiers. Hovering a tab shows its complete path and revision. Tab
+widths grow with their labels and reserve space for the close button. File names use at most 35
+characters, including the trailing ellipsis for longer names. Commit tabs retain a separate
+seven-character revision identifier after the file name.
 
 The tab strip scrolls horizontally when needed and reveals the selected tab. Closing the active tab
-selects its neighbor. Command+W closes the active tab on macOS. Ctrl+W closes the active tab on
-Windows and Linux. These shortcuts keep the application open, including when no tabs remain.
-Settings and modal dialogs block tab shortcuts. Middle-clicking a tab closes that tab.
-Command+Shift+T restores the last closed tab on macOS; Ctrl+Shift+T restores it on Windows and
-Linux. Repeated presses restore earlier closures, including commit versions, without duplicating
-open tabs. The latest 20 closed tabs retain their documents, scroll positions, and folded blocks in
-memory. Working files refresh after restoration. Settings lists both shortcuts. Refresh keeps tabs
-and closure history for the current project. Changing projects clears both. Closing the application
-clears this memory.
+selects its neighbor. When tabs exceed the available width, an arrow appears before the source-view
+controls. The arrow opens a scrollable list of all open files, including their commit identifiers
+when applicable. Choosing a file activates and reveals its existing tab. Escape or clicking outside
+closes the list. Command+W closes the active tab on macOS. Ctrl+W closes the active tab on Windows
+and Linux. These shortcuts keep the application open, including when no tabs remain. Settings and
+modal dialogs block tab shortcuts. Middle-clicking a tab closes that tab. Command+Shift+T restores
+the last closed tab on macOS; Ctrl+Shift+T restores it on Windows and Linux. Repeated presses
+restore earlier closures, including commit versions, without duplicating open tabs. The latest 20
+closed tabs retain their documents, scroll positions, and folded blocks in memory. Working files
+refresh after restoration. Settings lists both shortcuts. Refresh keeps tabs and closure history for
+the current project. Changing projects clears both. Closing the application clears this memory.
 
 The bottom bar shows the active file's full path. Clicking the path copies it to the clipboard. When
 no file is open, the bar shows the project path. Revision identifiers remain in commit tabs.
@@ -255,7 +283,9 @@ retain syntax colors. The line-number setting controls both gutter columns. Unch
 as clickable wave separators. Hover over a separator to see its line range.
 
 Source rows meet the tab strip and left edge without an outer inset. Line numbers and change markers
-use their own gutter. Space below the final line keeps the horizontal scrollbar clear.
+stay fixed at the left during horizontal scrolling. This applies to plain source and both comparison
+views. Vertical scrolling moves numbers with their corresponding source rows. Space below the final
+line keeps the horizontal scrollbar clear.
 
 Use the button beside the file tabs to collapse unchanged lines. Changed lines keep their original
 line numbers and colors. Click a collapsed range to expand that range. The button restores all lines
@@ -286,18 +316,29 @@ Right-click a branch for **Checkout**, **New branch from…**, **Update**, **Pus
 renaming, pushing, and deletion use dialogs. See [Git actions](git-actions.md) for operation
 behavior.
 
+Hold Command on macOS or Ctrl on Windows and Linux to select several branches or branch folders.
+Folders select their nested branches. The counter below the branch list shows the selected branch
+count. Right-click the selection for bulk push, delete, and pull. Each action opens a review dialog.
+An ordinary branch click or another workspace click clears selection. See
+[Git actions](git-actions.md#multiple-branches) for eligibility, confirmation, and retry behavior.
+
 Operation results appear in the lower-right corner without resizing workspace panels. Git
 operations, pipeline actions, sign-in, and sign-out report their results. Background refreshes do
 not announce successful reads. Errors opening links or saving workspace data also appear here.
 
 The application shows up to three notifications. Repeated identical results replace their previous
-notification. All notifications disappear after five seconds. A shrinking bar shows their remaining
-time. Hovering pauses only that notification and its bar. Moving away resumes its remaining time.
-Other notifications continue counting down. Each notification also has a close button. Pipeline
-confirmations describe accepted requests, not completed jobs.
+notification. After five seconds, each notification slides right out of the window over 200
+milliseconds. The notifications above then move down over 200 milliseconds. Closing a notification
+uses the same animation. A shrinking bar shows their remaining time. Hovering pauses only that
+notification and its bar. Moving away resumes its remaining time. Other notifications continue
+counting down. Each notification also has a close button. Pipeline confirmations describe accepted
+requests, not completed jobs.
 
 For one repository, opening or refreshing a project selects the checked-out branch and shows its
 history. Detached checkouts show history from HEAD.
+
+Repository labels in history fit their text and sit close to the graph. Long labels truncate within
+160 pixels. Hovering a label shows the complete repository path.
 
 For multiple repositories, history initially includes references from every repository. Colored
 labels identify each commit's repository. Branches appear under separate repository headings.
@@ -310,8 +351,10 @@ expand it. Each heading shows a small expansion arrow. Groups collapse independe
 the selected reference and nested folder states. Selecting a lightweight or annotated tag shows its
 commit history without checking it out.
 
-Git refresh and hide controls occupy a vertical toolbar to the left of the branches. A vertical
-separator divides the toolbar from the branches. Commit search remains above the history.
+The vertical toolbar to the left of branches contains refresh, fetch, new branch, update, and push.
+A vertical separator divides the toolbar from the branches. Commit search remains above the history.
+The toolbar scrolls independently when panel height is limited. The toolbar has no hide-panel
+button.
 
 The local group starts expanded. Remote branches, tags, and nested branch folders start collapsed
 when a project opens or refreshes. Their arrows expand each group independently.
@@ -323,10 +366,16 @@ order. Remote groups use the same branch-before-folder ordering. Selecting a his
 change this order.
 
 History loads 250 commits at a time. Scrolling near the bottom loads the next page until the oldest
-local commit. Pages share a fixed revision snapshot. Refresh includes new commits and changed
-references. A failed page keeps loaded history and offers a retry. Search loads remaining pages in
-the background. Clearing search stops further background loading. Only visible rows and nearby rows
-become widgets.
+local commit. IWE Code caches the initial history page and repository metadata for eight recently
+opened projects in memory. Returning to a cached project immediately restores its branches, initial
+history, selected branch, and expanded groups. The application refreshes that snapshot in the
+background without replacing it with an empty loading view. Temporary refresh failures retain the
+snapshot and show an error notification. If Git confirms that the project is no longer a repository,
+the application discards its snapshot. The cache does not survive application restarts. Additional
+history pages retain the existing paging behavior. Pages share a fixed revision snapshot. Refresh
+includes new commits and changed references. A failed page keeps loaded history and offers a retry.
+Search loads remaining pages in the background. Clearing search stops further background loading.
+Only visible rows and nearby rows become widgets.
 
 The combined history compares commit timestamps while preserving each repository's ancestry order.
 Identical hashes in different repositories remain separate entries. The graph uses actual parent
@@ -341,6 +390,10 @@ Commit titles follow the active graph lanes in each row. Wider sections elsewher
 space before titles. Author and date columns remain aligned. Dates include hours and minutes in the
 format `YYYY-MM-DD HH:MM`, using the author's recorded time zone. The selected commit's details show
 the same timestamp.
+
+Each history row shows a gray seven-character commit identifier after its title. Click the
+identifier to copy the full commit identifier without changing the selected commit. Hover over the
+identifier to see the full value and the copy action.
 
 ## Pipelines
 
@@ -432,25 +485,40 @@ its result. Switching directories also cancels pending authorization. See
 
 ## Layout and settings
 
-The gear at the bottom left opens settings. Tabs separate General, Code, Panels, Keyboard shortcuts,
-and About. General selects English, Russian, Spanish, or the system language. Language changes apply
-immediately. General also switches between **Dark** and **Light** appearance. Dark remains the
-default. Appearance changes apply immediately to panels, dialogs, source code, and both diff views.
-The choice survives restarts. Switching themes preserves open files and scroll positions. Code
-adjusts the source font size and line numbers. Opening Git closes pipelines. Opening pipelines
-closes Git. Both panels can remain hidden. Drag the horizontal divider to resize the visible panel.
+The gear at the bottom left opens settings in a separate window. Reopening settings focuses the
+existing window. Closing settings keeps the workspace open. Settings changes apply to both windows
+immediately. Command+, on macOS or Ctrl+, on Windows and Linux also opens settings. A persistent
+left navigation column lists General, Code, Panels, Keyboard shortcuts, and About. The selected
+section appears on the right with its own heading and scrollable controls. On macOS, an opaque
+application header covers the titlebar area while preserving native window controls. The header
+supports dragging and double-clicking to maximize or restore the settings window. General selects
+English, Russian, Spanish, or the system language. Language changes apply immediately. General also
+switches between **Dark** and **Light** appearance. Dark remains the default. Appearance changes
+apply immediately to panels, dialogs, source code, and both diff views. The choice survives
+restarts. Switching themes preserves open files and scroll positions. Code adjusts the source font
+size and line numbers. Opening Git closes pipelines. Opening pipelines closes Git. Both panels can
+remain hidden. Drag the horizontal divider to resize the visible panel.
+
+On macOS, the **IWE Code** application menu includes **Settings**, **Spaces**, and **Projects**.
+**Spaces** includes **New space** and each saved space. **Projects** groups projects by their space.
+Choosing a space or project brings the workspace window forward. The menu follows language and
+workspace changes. Modal dialogs disable workspace navigation in the menu. Windows and Linux retain
+their existing sidebar controls.
 
 Preferences and projects are saved automatically in the system configuration directory. Writes
 replace the previous configuration atomically. A damaged configuration is preserved without
 automatic overwriting. Set `IWE_DATA_DIR` to use a separate configuration directory for development.
 `IWE_LANG` overrides system language when the saved preference is **System**.
 
-Keyboard shortcuts:
+Keyboard shortcuts use two groups in settings: **Code** and **Tabs**.
 
-| Shortcut                 | Action                          |
-| ------------------------ | ------------------------------- |
-| Command/Ctrl + W         | Close the active file tab       |
-| Command/Ctrl + Shift + T | Reopen the last closed file tab |
+| Group | macOS               | Windows and Linux | Action                          |
+| ----- | ------------------- | ----------------- | ------------------------------- |
+| Code  | Command + L         | Ctrl + G          | Go to a source line             |
+| Code  | Command + C         | Ctrl + C          | Copy selected source text       |
+| Code  | Command + A         | Ctrl + A          | Select all source text          |
+| Tabs  | Command + W         | Ctrl + W          | Close the active file tab       |
+| Tabs  | Command + Shift + T | Ctrl + Shift + T  | Reopen the last closed file tab |
 
 ## Application updates
 

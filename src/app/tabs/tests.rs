@@ -858,6 +858,36 @@ fn switching_tabs_reuses_documents_and_restores_both_scroll_axes() {
 }
 
 #[test]
+fn wide_commit_tab_keeps_its_label_clear_of_the_close_button() {
+    use iced::widget::Id;
+    let mut app = app();
+    let filename = format!("{}.vue", "W".repeat(40));
+    let id = open(&mut app, &filename);
+    app.preview_mut().revision = Some("51ad1920123456789".into());
+    let label = crate::ui::tab_label::label(&filename, app.preview().revision.as_deref());
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings {
+            default_font: theme::font(),
+            ..iced::Settings::default()
+        },
+        (1920., 720.),
+        app.view(),
+    );
+    let text = ui.find(label.as_str()).unwrap().visible_bounds().unwrap();
+    let close_id = Id::from(format!("close-file-tab-{id}"));
+    let close = ui.find(close_id.clone()).unwrap().visible_bounds().unwrap();
+    assert!(
+        text.x + text.width < close.x,
+        "The commit label must not cover the close button"
+    );
+    ui.click(close_id).unwrap();
+    assert!(
+        ui.into_messages()
+            .any(|message| matches!(message, Message::CloseTab(target) if target == id))
+    );
+}
+
+#[test]
 fn middle_click_closes_only_its_tab_and_wheel_scrolling_keeps_tabs() {
     use iced::{Event, mouse, widget::Id};
     let mut app = app();
@@ -1265,7 +1295,12 @@ async fn switching_tabs_restores_widget_offsets_and_reveals_overflowed_tabs() {
         .collect();
     let mut ids = Vec::new();
     for number in 0..8 {
-        let path = root.join(format!("file_{number}.rs"));
+        let name = if number % 2 == 0 {
+            format!("{}_file_{number}.rs", "W".repeat(32))
+        } else {
+            format!("file_{number}.rs")
+        };
+        let path = root.join(name);
         std::fs::write(&path, &source).unwrap();
         let _ = app.open_file(path);
         let id = app.preview().id;
@@ -1332,5 +1367,51 @@ async fn switching_tabs_restores_widget_offsets_and_reveals_overflowed_tabs() {
         for message in messages {
             let _ = app.update(message);
         }
+    }
+}
+
+#[test]
+fn overflow_arrow_lists_open_tabs_and_selects_a_hidden_file_in_every_language() {
+    use iced::widget::Id;
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = App::new(Rc::new(I18n::new(language)));
+        app.loaded = true;
+        app.workspace
+            .create_space("Work".into(), vec![PathBuf::from("project")]);
+        let first = open(&mut app, "first.rs");
+        {
+            let mut ui =
+                iced_test::Simulator::with_size(diff_settings(), (1080., 720.), app.view());
+            assert!(ui.find(Id::new("open-tabs")).is_err());
+        }
+        let mut ids = vec![first];
+        for index in 1..12 {
+            ids.push(open(&mut app, &format!("file-{index}.rs")));
+        }
+        {
+            let mut ui =
+                iced_test::Simulator::with_size(diff_settings(), (6000., 720.), app.view());
+            assert!(ui.find(Id::new("open-tabs")).is_err());
+        }
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1080., 720.), app.view());
+        ui.click(Id::new("open-tabs")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert!(app.tabs.menu.is_some());
+        let target = ids[4];
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1080., 720.), app.view());
+        ui.click(Id::from(format!("open-file-tab-{target}")))
+            .unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert_eq!(app.preview().id, target);
+        assert_eq!(app.tabs.files.len(), ids.len());
+        assert!(app.tabs.menu.is_none());
+        let _ = app.update(Message::OpenTabMenu(iced::Point::new(500., 100.)));
+        let _ = app.update(Message::DismissDialog);
+        assert!(app.tabs.menu.is_none());
+        assert_eq!(app.preview().id, target);
     }
 }

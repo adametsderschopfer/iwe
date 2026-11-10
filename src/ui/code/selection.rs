@@ -45,6 +45,7 @@ pub(crate) enum Action {
     Extend(Lane, Position),
     End,
     All(Lane),
+    Line(Lane, usize, usize),
     Clear,
 }
 
@@ -54,6 +55,7 @@ pub(crate) struct Selection {
     anchor: Option<Position>,
     focus: Option<Position>,
     dragging: bool,
+    highlighted_row: Option<usize>,
     fingerprint: Option<[u8; 32]>,
     pub revision: u64,
 }
@@ -62,6 +64,12 @@ impl Selection {
     pub(crate) fn lane(&self) -> Option<Lane> {
         self.lane
     }
+    pub(crate) fn highlights_line(&self, document: &Document, lane: Lane, row: usize) -> bool {
+        self.fingerprint == Some(document.fingerprint)
+            && self.lane == Some(lane)
+            && self.highlighted_row == Some(row)
+    }
+
     pub(crate) fn update(&mut self, action: Action, document: &Document) {
         if self.fingerprint != Some(document.fingerprint) {
             *self = Self {
@@ -70,7 +78,17 @@ impl Selection {
             };
         }
         self.fingerprint = Some(document.fingerprint);
+        if !matches!(action, Action::End) {
+            self.highlighted_row = None;
+        }
         match action {
+            Action::Line(lane, row, length) => {
+                self.lane = Some(lane);
+                self.anchor = Some(Position { row, byte: 0 });
+                self.focus = Some(Position { row, byte: length });
+                self.dragging = false;
+                self.highlighted_row = Some(row);
+            }
             Action::Start(lane, position) => {
                 self.lane = Some(lane);
                 self.anchor = Some(position);

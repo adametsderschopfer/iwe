@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { releases, type Messages } from '~/i18n'
+import type { Locale, Messages } from '~/i18n'
+import { releaseNotesPath } from '~/release-notes'
 import {
   detectPlatform,
   type DetectedPlatform,
@@ -7,7 +8,7 @@ import {
   type DesktopArchitecture,
 } from '~/utils/platform'
 
-defineProps<{ messages: Messages }>()
+withDefaults(defineProps<{ messages: Messages; locale?: Locale }>(), { locale: 'en' })
 const version = '0.1.11'
 const downloadBase = 'https://github.com/adametsderschopfer/iwe-code/releases/download'
 const platforms = [
@@ -152,9 +153,9 @@ onMounted(async () => {
         </p>
       </ScrollReveal>
     </div>
-    <a class="release-link" :href="releases"
+    <NuxtLink class="release-link" :to="releaseNotesPath(locale, version)"
       >{{ messages.download.release }} <SiteIcon name="arrow"
-    /></a>
+    /></NuxtLink>
   </section>
 </template>
 

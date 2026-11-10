@@ -29,4 +29,5 @@ pub(crate) enum Error {
     MissingUpstream,
     Dirty,
     CurrentBranch,
+    BranchInWorktree,
 }

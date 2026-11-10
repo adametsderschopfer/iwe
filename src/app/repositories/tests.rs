@@ -200,6 +200,24 @@ fn grouped_branches_changes_and_commit_badges_show_both_repositories() {
                 .is_ok()
             );
         }
+        let mut badge_widths = Vec::new();
+        for name in ["backend", "front"] {
+            let suffix = format!("{}-{}", root(name).display(), key(name).id);
+            let badge = ui
+                .find(Id::from(format!("commit-repository-{suffix}")))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            let graph = ui
+                .find(Id::from(format!("commit-graph-{suffix}")))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            assert!((badge.x - graph.x - graph.width - 8.).abs() < 0.1);
+            assert!(badge.width <= theme::COMMIT_REPOSITORY_MAX_WIDTH);
+            badge_widths.push(badge.width);
+        }
+        assert!(badge_widths[0] > badge_widths[1]);
         if language == Language::Russian
             && let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from)
         {
@@ -290,6 +308,170 @@ fn discovering_another_repository_keeps_both_branch_groups_visible() {
                 root(name).display()
             )))
             .is_ok()
+        );
+    }
+}
+
+#[test]
+fn revisiting_a_project_restores_git_before_refresh_and_rejects_stale_responses() {
+    let mut app = fixture();
+    app.project_directory = app.workspace.directory().cloned();
+    app.expanded_branch_folders.insert("false/feature".into());
+    app.expanded_branch_folders.remove("false");
+    let initial = app.repository.as_ref().unwrap().clone();
+    let initial_branch = app.branch.clone();
+    // Later history pages must not replace the cached initial page and its cursor.
+    app.repository
+        .as_mut()
+        .unwrap()
+        .commits
+        .push(initial.commits[0].clone());
+    let old_generation = app.generation;
+    let old_request = app.repo_request;
+    app.workspace.add_project(0, PathBuf::from("other"));
+    let _ = app.load_directory();
+    assert!(app.repository.is_none());
+    let _ = app.update(Message::RepositoryLoaded(
+        old_generation,
+        old_request,
+        Ok(initial.clone()),
+    ));
+    assert!(app.repository.is_none());
+    app.workspace.select_project(0, 0);
+    let _ = app.load_directory();
+    assert!(app.loading);
+    assert_eq!(
+        app.repository.as_ref().unwrap().commits.len(),
+        initial.commits.len()
+    );
+    assert_eq!(
+        app.repository.as_ref().unwrap().active_root,
+        initial.active_root
+    );
+    assert_eq!(app.branch, initial_branch);
+    assert!(app.expanded_branch_folders.contains("false/feature"));
+    assert!(!app.expanded_branch_folders.contains("false"));
+    assert!(app.repository_error.is_none());
+    let mut refreshed = initial;
+    refreshed.commits[0].commit.subject = "Fresh history".into();
+    let _ = app.update(Message::RepositoryLoaded(
+        app.generation,
+        app.repo_request,
+        Ok(refreshed),
+    ));
+    assert!(!app.loading);
+    assert_eq!(
+        app.repository.as_ref().unwrap().commits[0].commit.subject,
+        "Fresh history"
+    );
+    let _ = app.update(Message::RepositoryLoaded(
+        app.generation,
+        app.repo_request,
+        Err(crate::domain::Failure::Read),
+    ));
+    assert!(app.repository_error.is_none());
+    assert_eq!(
+        app.repository.as_ref().unwrap().commits[0].commit.subject,
+        "Fresh history"
+    );
+    let _ = app.update(Message::RepositoryLoaded(
+        app.generation,
+        app.repo_request,
+        Err(crate::domain::Failure::NotRepository),
+    ));
+    assert!(app.repository.is_none());
+    app.workspace.select_project(0, 1);
+    let _ = app.load_directory();
+    app.workspace.select_project(0, 0);
+    let _ = app.load_directory();
+    assert!(app.repository.is_none());
+}
+
+#[test]
+fn header_shows_two_repositories_and_lists_the_rest_with_their_current_branches() {
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = fixture();
+        app.i18n = Rc::new(I18n::new(language));
+        {
+            let mut ui = iced_test::Simulator::with_size(
+                iced::Settings {
+                    default_font: theme::font(),
+                    ..Default::default()
+                },
+                (1080., 720.),
+                app.view(),
+            );
+            assert!(ui.find("backend: main").unwrap().visible_bounds().is_some());
+            assert!(ui.find("front: main").unwrap().visible_bounds().is_some());
+            assert!(ui.find(Id::new("window-repositories-menu")).is_err());
+        }
+        for name in ["jobs", "worker", "tools"] {
+            let mut repo = app.repository.as_ref().unwrap().repositories[0].clone();
+            repo.root = root(name);
+            repo.head = "dev".into();
+            repo.branches[0].name = "dev".into();
+            repo.branches[0].reference = "refs/heads/dev".into();
+            app.repository.as_mut().unwrap().repositories.push(repo);
+        }
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings {
+                default_font: theme::font(),
+                ..Default::default()
+            },
+            (1080., 720.),
+            app.view(),
+        );
+        assert!(ui.find(Id::new("window-branch-button")).is_ok());
+        assert!(ui.find(Id::new("window-branch-button-1")).is_ok());
+        assert!(ui.find(Id::new("window-branch-button-2")).is_err());
+        ui.click(Id::new("window-repositories-menu")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert!(app.repository_menu.is_some());
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings {
+                default_font: theme::font(),
+                ..Default::default()
+            },
+            (1080., 720.),
+            app.view(),
+        );
+        for index in 2..5 {
+            assert!(
+                ui.find(Id::from(format!("header-repository-menu-{index}")))
+                    .unwrap()
+                    .visible_bounds()
+                    .is_some()
+            );
+        }
+        ui.click(Id::new("header-repository-menu-2")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert!(app.repository_menu.is_none());
+        assert_eq!(
+            app.branch,
+            Some(BranchKey {
+                root: root("jobs"),
+                reference: "refs/heads/dev".into()
+            })
+        );
+        assert!(app.workspace.preferences.show_git);
+        assert!(
+            app.expanded_branch_folders
+                .contains(&format!("repo:{}", root("jobs").display()))
+        );
+        assert!(!app.git_actions.pending);
+        assert!(!app.git_actions.has_dialog());
+        assert_eq!(
+            app.repository
+                .as_ref()
+                .unwrap()
+                .get(&root("jobs"))
+                .unwrap()
+                .head,
+            "dev"
         );
     }
 }

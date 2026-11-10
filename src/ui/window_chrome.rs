@@ -1,7 +1,7 @@
 //! Compose Windows caption controls and resize handles through safe Iced APIs.
 
 use crate::{
-    app::{App, Message},
+    app::{App, Message, windows::Event},
     i18n::Key,
     ui::{
         icons::{Icon, icon},
@@ -17,7 +17,24 @@ use iced::{
 };
 
 pub(crate) fn overlay<'a>(app: &'a App, content: Element<'a, Message>) -> Element<'a, Message> {
-    let edge = if app.window_maximized {
+    compose(app, content, None, app.window_maximized)
+}
+
+pub(crate) fn settings_overlay<'a>(
+    app: &'a App,
+    content: Element<'a, Message>,
+    id: window::Id,
+) -> Element<'a, Message> {
+    compose(app, content, Some(id), app.windows.maximized)
+}
+
+fn compose<'a>(
+    app: &'a App,
+    content: Element<'a, Message>,
+    target: Option<window::Id>,
+    maximized: bool,
+) -> Element<'a, Message> {
+    let edge = if maximized {
         0.
     } else {
         theme::WINDOW_RESIZE_GRIP
@@ -31,7 +48,7 @@ pub(crate) fn overlay<'a>(app: &'a App, content: Element<'a, Message>) -> Elemen
         .height(Length::Fill)
         .style(theme::surface)
         .into();
-    let caption = container(controls(app))
+    let caption = container(controls(app, target, maximized))
         .padding(iced::Padding {
             top: 8.,
             right: 24. + edge,
@@ -46,12 +63,13 @@ pub(crate) fn overlay<'a>(app: &'a App, content: Element<'a, Message>) -> Elemen
             .width(Length::Fill)
             .height(Length::Fill)
             .into(),
-        app.window_maximized,
+        maximized,
+        target,
     )
 }
 
-fn controls(app: &App) -> Element<'_, Message> {
-    let (symbol, label) = if app.window_maximized {
+fn controls(app: &App, target: Option<window::Id>, maximized: bool) -> Element<'_, Message> {
+    let (symbol, label) = if maximized {
         (Icon::Restore, Key::RestoreWindow)
     } else {
         (Icon::Maximize, Key::MaximizeWindow)
@@ -61,10 +79,24 @@ fn controls(app: &App) -> Element<'_, Message> {
             app,
             Icon::Minimize,
             Key::MinimizeWindow,
-            Message::MinimizeWindow
+            target.map_or(Message::MinimizeWindow, |id| Message::Window(
+                Event::Minimize(id)
+            ))
         ),
-        control(app, symbol, label, Message::ToggleWindowMaximized),
-        control(app, Icon::Close, Key::CloseWindow, Message::CloseWindow),
+        control(
+            app,
+            symbol,
+            label,
+            target.map_or(Message::ToggleWindowMaximized, |id| Message::Window(
+                Event::ToggleMaximized(id)
+            ))
+        ),
+        control(
+            app,
+            Icon::Close,
+            Key::CloseWindow,
+            target.map_or(Message::CloseWindow, |id| Message::Window(Event::Close(id)))
+        ),
     ]
     .into()
 }
@@ -83,7 +115,11 @@ fn control(app: &App, symbol: Icon, label: Key, message: Message) -> Element<'_,
     .into()
 }
 
-fn resize_edges(content: Element<'_, Message>, maximized: bool) -> Element<'_, Message> {
+fn resize_edges(
+    content: Element<'_, Message>,
+    maximized: bool,
+    target: Option<window::Id>,
+) -> Element<'_, Message> {
     use window::Direction;
     let grip = Length::Fixed(if maximized {
         0.
@@ -158,7 +194,9 @@ fn resize_edges(content: Element<'_, Message>, maximized: bool) -> Element<'_, M
         ),
     ] {
         let handle = mouse_area(container(space()).width(width).height(height))
-            .on_press(Message::ResizeWindow(direction))
+            .on_press(target.map_or(Message::ResizeWindow(direction), |id| {
+                Message::Window(Event::Resize(id, direction))
+            }))
             .interaction(cursor);
         layers.push(
             container(handle)

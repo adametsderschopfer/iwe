@@ -61,6 +61,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
     } else {
         base
     };
+    let base = super::git_bulk::overlay(app, base);
     let Some(dialog) = &app.git_actions.dialog else {
         return base;
     };

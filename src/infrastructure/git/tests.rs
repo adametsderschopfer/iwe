@@ -283,3 +283,37 @@ async fn updating_a_branch_in_another_worktree_is_rejected() {
     );
     assert_eq!(command(&root, &["rev-parse", "main"]), before);
 }
+
+#[tokio::test]
+async fn deleting_a_branch_reports_its_linked_worktree_and_succeeds_after_switching() {
+    let dir = repository();
+    let root = dir.path().to_path_buf();
+    let other = tempfile::tempdir().unwrap();
+    command(&root, &["branch", "feature/linked"]);
+    command(&root, &["branch", "feature/other"]);
+    command(
+        &root,
+        &[
+            "worktree",
+            "add",
+            other.path().to_str().unwrap(),
+            "feature/linked",
+        ],
+    );
+    let operation = Operation::Delete("refs/heads/feature/linked".into());
+    assert_eq!(
+        execute(root.clone(), operation.clone()).await,
+        Err(Error::BranchInWorktree)
+    );
+    assert_eq!(
+        command(other.path(), &["branch", "--show-current"]),
+        "feature/linked"
+    );
+    command(other.path(), &["switch", "feature/other"]);
+    assert_eq!(execute(root.clone(), operation).await, Ok(()));
+    assert!(
+        !command(&root, &["branch", "--format=%(refname)"])
+            .lines()
+            .any(|line| line == "refs/heads/feature/linked")
+    );
+}

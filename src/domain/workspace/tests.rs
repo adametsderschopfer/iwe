@@ -186,3 +186,21 @@ fn legacy_panel_preferences_keep_only_one_panel_open() {
     workspace.normalize();
     assert!(workspace.preferences.show_pipelines);
 }
+
+#[test]
+fn removing_spaces_preserves_other_selections_and_selects_a_remaining_project() {
+    let mut workspace = Workspace::default();
+    workspace.create_space("First".into(), vec![PathBuf::from("first")]);
+    workspace.create_space("Second".into(), vec![PathBuf::from("second")]);
+    workspace.create_space("Third".into(), vec![PathBuf::from("third")]);
+    assert!(workspace.remove_space(0));
+    assert_eq!(workspace.selected_space, Some(1));
+    assert_eq!(workspace.directory(), Some(&PathBuf::from("third")));
+    assert!(workspace.remove_space(1));
+    assert_eq!(workspace.directory(), Some(&PathBuf::from("second")));
+    assert!(workspace.remove_space(0));
+    assert!(workspace.spaces.is_empty());
+    assert_eq!(workspace.selected_space, None);
+    assert_eq!(workspace.selected_project, None);
+    assert!(!workspace.remove_space(0));
+}

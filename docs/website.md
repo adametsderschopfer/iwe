@@ -60,11 +60,24 @@ The screenshots come from existing Iced rendering tests with fictional fixture p
 the actual application interface in English. The website opens in English by default. Regenerate the
 screenshots when the illustrated interface changes.
 
+`app::tests::render_website_screenshots_when_requested` renders the four website views from
+fictional English fixtures. Set `IWE_RENDER_DIR` to a new temporary directory and run that exact
+rendering target when authorized. Convert its PNG outputs to the four existing
+`public/images/*-en.webp` files with lossless `cwebp` encoding. Keep the current image dimensions
+and inspect every capture before replacing website assets. This rendering target does not read
+project files, contact providers, or authenticate accounts. Respect explicit user restrictions on
+compiling or running tests before invoking it.
+
 All website bitmap images use lossless WebP, including the product icon. Generated-page tests reject
 other bitmap formats in the published files.
 
 `DownloadSection.vue` links to verified packages from release `0.1.11`. Update its version when
-selecting a newer release. The release-notes link always opens the latest release.
+selecting a newer release. The release-notes link opens that download version's page on the website.
+
+The download cards use Apple, Windows, and Tux SVG paths from
+[Bootstrap Icons v1.13.1](https://github.com/twbs/icons/tree/v1.13.1). The website embeds these
+paths locally and uses the card text color. The MIT license remains in
+`website/licenses/bootstrap-icons.txt`.
 
 The download section detects desktop systems in the browser after the page loads. It moves the
 matching system first and highlights its card. Explicit browser architecture hints select a matching
@@ -78,6 +91,32 @@ Selected sections appear once when they enter the viewport. The reveal uses CSS 
 content immediately. Content remains visible without JavaScript or observer support. The image
 reveal clips its image, while the observed container remains unclipped. Browser regression tests
 cover scrolling, navigation links, reduced motion, and keyboard focus.
+
+## Release notes
+
+The header and footer link to `/releases/`, `/ru/releases/`, or `/es/releases/`. Each version has
+its own page beneath that route, such as `/ru/releases/0.1.12/`. Language links preserve the
+selected version. Unknown versions return the localized error page. Nuxt explicitly prerenders every
+version and language for GitHub Pages.
+
+`app/release-notes/releases.json` contains authored changes, translations, and inspected source
+references. The index includes public releases and identified historical development versions. The
+`unreleased` page marks current drafts as unpublished. Source references remain authoring metadata,
+outside the displayed change text. Publication dates and package links appear only when verified.
+Platform releases share one version page.
+
+Follow [release-note rules](rules/release-notes.md) on every commit and version request. Commit
+preparation collects items under `unreleased`. Version preparation moves reviewed items into the
+matching version record. CI validates that record before release builds. GitHub publication uses the
+same authored notes instead of generated commit titles.
+
+## License
+
+The footer links to `/license/`, `/ru/license/`, or `/es/license/`. Each page localizes its
+introduction and navigation while displaying the original English license. `LicensePage.vue` imports
+the root `LICENSE` as raw text. Do not maintain a separate copy or rewrite its legal text. Language
+links preserve the license page. Nuxt explicitly prerenders all three routes for GitHub Pages. The
+website workflow also runs when the root `LICENSE` changes.
 
 ## Dependency security
 

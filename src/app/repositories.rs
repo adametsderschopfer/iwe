@@ -11,6 +11,60 @@ use crate::{
 use iced::{Task, widget::operation};
 
 impl App {
+    pub(super) fn reveal_repository_branches(&mut self, root: std::path::PathBuf) -> Task<Message> {
+        let Some(repo) = self.repository.as_ref().and_then(|repos| repos.get(&root)) else {
+            return Task::none();
+        };
+        let branch = repo
+            .branches
+            .iter()
+            .find(|branch| branch.current)
+            .map(|branch| crate::domain::repository::project::BranchKey {
+                root: root.clone(),
+                reference: branch.reference.clone(),
+            });
+        self.repository_menu = None;
+        self.expanded_branch_folders
+            .insert(format!("repo:{}", root.display()));
+        self.expanded_branch_folders
+            .insert(format!("{}:false", root.display()));
+        self.expanded_branch_folders.insert("false".into());
+        let history = if let Some(branch) = branch {
+            self.update(Message::SelectBranch(branch))
+        } else {
+            Task::none()
+        };
+        Task::batch([history, self.update(Message::RevealGitBranches)])
+    }
+
+    pub(super) fn cache_repository(&mut self) {
+        if let (Some(root), Some(repository)) =
+            (self.workspace.directory(), self.repository.as_ref())
+        {
+            self.repository_cache.insert(
+                root.clone(),
+                super::repository_cache::Snapshot {
+                    repository: repository.clone(),
+                    branch: self.branch.clone(),
+                    folders: self.expanded_branch_folders.clone(),
+                },
+            );
+        }
+    }
+
+    pub(super) fn restore_cached_repository(&mut self) -> bool {
+        let Some(root) = self.workspace.directory().cloned() else {
+            return false;
+        };
+        let Some(snapshot) = self.repository_cache.get(&root) else {
+            return false;
+        };
+        self.repository = Some(snapshot.repository);
+        self.branch = snapshot.branch;
+        self.expanded_branch_folders = snapshot.folders;
+        true
+    }
+
     pub(super) fn load_repository(&mut self) -> Task<Message> {
         let Some(path) = self.workspace.directory().cloned() else {
             return Task::none();

@@ -131,5 +131,36 @@
     "title": "This page is unavailable.",
     "description": "Return to the IWE Code website to continue.",
     "back": "Go to the homepage"
+  },
+  "releaseNotes": {
+    "label": "Release notes",
+    "title": "Every version. Every change.",
+    "metaTitle": "Release notes — IWE Code",
+    "description": "Follow public releases and earlier development versions. Find new features, improvements, and fixes for each version.",
+    "allVersions": "All versions",
+    "versions": "Versions",
+    "upcoming": "Not released yet",
+    "preview": "These changes have not been released. The list may change before publication.",
+    "github": "GitHub release",
+    "changes": "View changes",
+    "status": {
+      "released": "Released",
+      "development": "Development version",
+      "prepared": "Release preview"
+    },
+    "categories": {
+      "added": "New",
+      "changed": "Improved",
+      "fixed": "Fixed",
+      "maintenance": "Maintenance"
+    }
+  },
+  "license": {
+    "label": "License",
+    "title": "Apache License 2.0",
+    "metaTitle": "License — IWE Code",
+    "description": "IWE Code is licensed under the Apache License, Version 2.0. Read the original license text below.",
+    "fullText": "Full license text",
+    "source": "View the license on GitHub"
   }
 }

@@ -6,8 +6,8 @@ use crate::{
     i18n::{FluentArgs, Key},
     ui::{
         changed_tree, code, context_menu, file_icons,
-        icons::{Icon, icon},
-        reorder, resize, theme,
+        icons::{Icon, icon, sized_icon},
+        reorder, resize, tab_label, theme,
     },
 };
 use iced::{
@@ -64,6 +64,9 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .height(Length::Fill)
     .style(theme::surface)
     .into();
+    let base = super::header_repositories::overlay(app, base);
+    let base = super::tab_menu::overlay(app, base);
+    let base = crate::ui::branch_selection::watch(base, !app.branch_selection.selected.is_empty());
     let base = super::space_form::overlay(
         app,
         auth::overlay(
@@ -118,45 +121,8 @@ fn header(app: &App) -> Element<'_, Message> {
     ]
     .spacing(12)
     .align_y(Alignment::Center);
-    if let Some(repo) = app.active_repository()
-        && !is_settings
-    {
-        heading = heading.push(tooltip::view(
-            container(
-                button(
-                    row![
-                        icon(Icon::Branch, theme::MUTED),
-                        text(if repo.head.is_empty() {
-                            app.i18n.text(Key::DetachedHead)
-                        } else if app
-                            .repository
-                            .as_ref()
-                            .is_some_and(|repos| repos.repositories.len() > 1)
-                        {
-                            short(
-                                &format!(
-                                    "{}: {}",
-                                    repo.root.file_name().unwrap_or_default().to_string_lossy(),
-                                    repo.head
-                                ),
-                                32,
-                            )
-                        } else {
-                            short(&repo.head, 24)
-                        })
-                        .size(12)
-                    ]
-                    .spacing(6)
-                    .align_y(Alignment::Center),
-                )
-                .on_press(Message::RevealGitBranches)
-                .padding([4, 10])
-                .style(theme::branch_badge),
-            )
-            .id("window-branch-button"),
-            text(app.i18n.text(Key::ShowBranches)).size(12),
-            tooltip::Position::Bottom,
-        ));
+    if !is_settings && app.repository.is_some() {
+        heading = heading.push(super::header_repositories::controls(app));
     }
     let action = if is_settings {
         icon_button(
@@ -306,7 +272,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     body = body.push(navigation).push(space().height(8));
     {
         for (space_index, group) in app.workspace.spaces.iter().enumerate() {
-            body = body.push(
+            body = body.push(context_menu::trigger(
                 container(
                     row![
                         button(
@@ -357,7 +323,8 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                 .id(format!("space-group-{space_index}"))
                 .padding([3, 0])
                 .width(Length::Fill),
-            );
+                move |point| Message::SpaceMenu(space_index, point),
+            ));
             if app.collapsed_spaces.contains(&space_index) {
                 continue;
             }
@@ -479,6 +446,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     container(column![
         scrollable(body)
             .id("project-browser")
+            .spacing(theme::SIDEBAR_SCROLL_GAP)
             .style(theme::scroll)
             .height(Length::Fill),
         space().height(16),
@@ -664,23 +632,34 @@ fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element
                 .style(theme::FAINT.text()),
         );
     }
+    let mut contents = row![
+        icon(
+            Icon::Folder,
+            if active { theme::TEXT } else { theme::MUTED }
+        ),
+        title.width(Length::Fill),
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center);
+    if app.project_has_changes(&project.directory) {
+        contents = contents.push(tooltip::view(
+            container(sized_icon(
+                Icon::Changes,
+                theme::MUTED,
+                theme::PROJECT_STATUS_ICON_SIZE,
+            ))
+            .id(format!("project-changes-{space_index}-{project_index}")),
+            text(app.i18n.text(Key::WorkingChanges)).size(12),
+            tooltip::Position::Right,
+        ));
+    }
     let entry = tooltip::view(
         container(
-            button(
-                row![
-                    icon(
-                        Icon::Folder,
-                        if active { theme::TEXT } else { theme::MUTED }
-                    ),
-                    title.width(Length::Fill)
-                ]
-                .spacing(10)
-                .align_y(Alignment::Center),
-            )
-            .padding([9, 12])
-            .width(Length::Fill)
-            .style(theme::action(active))
-            .on_press(Message::SelectProject(space_index, project_index)),
+            button(contents)
+                .padding([9, 12])
+                .width(Length::Fill)
+                .style(theme::action(active))
+                .on_press(Message::SelectProject(space_index, project_index)),
         )
         .id(format!("space-project-{space_index}-{project_index}"))
         .width(Length::Fill),
@@ -694,6 +673,7 @@ fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element
 }
 
 fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Message> {
+    let base = space_menu(app, base);
     let Some((space, path, point)) = &app.project_menu else {
         return base;
     };
@@ -757,6 +737,50 @@ fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Mes
             .into()
         },
         Message::CloseProjectMenu,
+    )
+}
+
+fn space_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Message> {
+    let Some((index, point)) = app.space_menu else {
+        return base;
+    };
+    if index >= app.workspace.spaces.len() {
+        return base;
+    }
+    context_menu::overlay(
+        base,
+        point,
+        iced::Size::new(340., 104.),
+        move || {
+            column![
+                container(
+                    button(text(app.i18n.text(Key::EditSpace)).size(14))
+                        .padding([10, 12])
+                        .width(Length::Fill)
+                        .style(theme::action(false))
+                        .on_press(Message::Space(crate::app::spaces::Message::Edit(index)))
+                )
+                .id("space-menu-edit"),
+                container(
+                    button(
+                        text(app.i18n.text(Key::DeleteSpace))
+                            .size(14)
+                            .style(theme::GIT_REMOVED.text())
+                    )
+                    .padding([10, 12])
+                    .width(Length::Fill)
+                    .style(theme::action(false))
+                    .on_press_maybe(
+                        (!app.git_actions.pending && !app.picking)
+                            .then_some(Message::Space(crate::app::spaces::Message::Delete(index)))
+                    )
+                )
+                .id("space-menu-delete"),
+            ]
+            .spacing(4)
+            .into()
+        },
+        Message::CloseSpaceMenu,
     )
 }
 
@@ -967,6 +991,44 @@ fn file_tree<'a>(
 }
 
 fn file_tabs(app: &App) -> Element<'_, Message> {
+    responsive(move |size| file_tabs_bar(app, size.width))
+        .height(theme::FILE_TABS_HEIGHT)
+        .into()
+}
+
+fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
+    let ready = app.preview().error.is_none() && !app.preview().loading;
+    let comparison = ready
+        && app
+            .preview()
+            .document
+            .as_ref()
+            .is_some_and(|document| document.comparison.is_some());
+    let folding = ready
+        && app
+            .preview()
+            .document
+            .as_ref()
+            .is_some_and(|document| document.can_fold());
+    let controls = usize::from(comparison) + usize::from(folding);
+    let tabs_width: f32 = app
+        .tabs
+        .files
+        .iter()
+        .filter(|preview| !preview.title.is_empty())
+        .map(|preview| {
+            tab_label::width(&tab_label::label(
+                &preview.title,
+                preview.revision.as_deref(),
+            ))
+        })
+        .sum();
+    let remaining = (available_width
+        - theme::FILE_TAB_TOOL_GAP
+        - controls as f32 * (theme::FILE_TAB_TOOL_SIZE + theme::FILE_TAB_TOOL_GAP))
+        .max(0.);
+    let overflow = tabs_width > remaining + 0.5;
+
     let tabs = app
         .tabs
         .files
@@ -974,15 +1036,8 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
         .filter(|preview| !preview.title.is_empty())
         .map(|preview| {
             let active = preview.id == app.preview().id;
-            let filename = Path::new(&preview.title)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or(&preview.title);
-            let label = if let Some(revision) = &preview.revision {
-                format!("{} · {}", short(filename, 12), short(revision, 7))
-            } else {
-                short(filename, 22)
-            };
+            let label = tab_label::label(&preview.title, preview.revision.as_deref());
+            let width = tab_label::width(&label);
             let mut description = if let Some(revision) = &preview.revision {
                 format!("{}\n{}", preview.title, revision)
             } else {
@@ -1000,14 +1055,17 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                     button(
                         row![
                             file_icons::file(Path::new(&preview.title)),
-                            text(label).size(12).wrapping(text::Wrapping::None),
+                            text(label)
+                                .size(theme::FILE_TAB_TEXT_SIZE)
+                                .shaping(text::Shaping::Advanced)
+                                .wrapping(text::Wrapping::None),
                         ]
-                        .spacing(6)
+                        .spacing(theme::FILE_TAB_LABEL_GAP)
                         .height(Length::Fill)
                         .align_y(Alignment::Center),
                     )
                     .on_press(Message::SelectTab(preview.id))
-                    .padding([7, 8])
+                    .padding([7., theme::FILE_TAB_PADDING])
                     .width(Length::Fill)
                     .height(theme::FILE_TABS_HEIGHT - 2.)
                     .style(theme::file_tab_button),
@@ -1022,7 +1080,7 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                     button(icon(Icon::Close, theme::FAINT))
                         .on_press(Message::CloseTab(preview.id))
                         .padding(4)
-                        .width(28)
+                        .width(theme::FILE_TAB_CLOSE_WIDTH)
                         .height(28)
                         .style(theme::action(false)),
                 )
@@ -1032,13 +1090,14 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
             );
             mouse_area(
                 container(column![
-                    row![select, close, space().width(4)].align_y(Alignment::Center),
+                    row![select, close, space().width(theme::FILE_TAB_END_GAP)]
+                        .align_y(Alignment::Center),
                     container(space())
                         .height(2)
                         .width(Length::Fill)
                         .style(theme::file_tab_indicator(active)),
                 ])
-                .width(theme::FILE_TAB_WIDTH)
+                .width(width)
                 .style(theme::file_tab(active)),
             )
             .on_middle_press(Message::CloseTab(preview.id))
@@ -1054,15 +1113,26 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
             .height(theme::FILE_TABS_HEIGHT)
             .style(theme::scroll),
     ]
+    .spacing(theme::FILE_TAB_TOOL_GAP)
     .align_y(Alignment::Center);
-    if app.preview().error.is_none()
-        && !app.preview().loading
-        && app
-            .preview()
-            .document
-            .as_ref()
-            .is_some_and(|document| document.comparison.is_some())
-    {
+    if overflow {
+        bar = bar.push(tooltip::view(
+            context_menu::anchored(
+                container(
+                    button(container(icon(Icon::Down, theme::MUTED)).center(Length::Fill))
+                        .width(theme::FILE_TAB_TOOL_SIZE)
+                        .height(theme::FILE_TAB_TOOL_SIZE)
+                        .padding(8)
+                        .style(theme::action(app.tabs.menu.is_some())),
+                )
+                .id("open-tabs"),
+                Message::OpenTabMenu,
+            ),
+            text(app.i18n.text(Key::OpenTabs)).size(12),
+            tooltip::Position::Bottom,
+        ));
+    }
+    if comparison {
         let split = app.workspace.preferences.diff_view == DiffView::SideBySide;
         bar = bar.push(
             container(tooltip::view(
@@ -1078,9 +1148,9 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                     .center(Length::Fill),
                 )
                 .padding(8)
-                .width(36)
-                .height(theme::FILE_TABS_HEIGHT)
-                .style(theme::icon_action(split))
+                .width(theme::FILE_TAB_TOOL_SIZE)
+                .height(theme::FILE_TAB_TOOL_SIZE)
+                .style(theme::action(split))
                 .on_press(Message::ToggleDiffView(app.preview().id)),
                 text(app.i18n.text(if split {
                     Key::DiffUnified
@@ -1093,14 +1163,7 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
             .id("toggle-diff-view"),
         );
     }
-    if app.preview().error.is_none()
-        && !app.preview().loading
-        && app
-            .preview()
-            .document
-            .as_ref()
-            .is_some_and(|document| document.can_fold())
-    {
+    if folding {
         let collapsed = app.preview().folding.collapsed;
         bar = bar.push(
             container(tooltip::view(
@@ -1116,9 +1179,9 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
                     .center(Length::Fill),
                 )
                 .padding(8)
-                .width(36)
-                .height(theme::FILE_TABS_HEIGHT)
-                .style(theme::icon_action(collapsed))
+                .width(theme::FILE_TAB_TOOL_SIZE)
+                .height(theme::FILE_TAB_TOOL_SIZE)
+                .style(theme::action(collapsed))
                 .on_press(Message::ToggleUnchanged(app.preview().id)),
                 text(app.i18n.text(if collapsed {
                     Key::ExpandUnchanged
@@ -1133,6 +1196,10 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
     }
     container(bar)
         .id("file-tabs-header")
+        .padding(iced::Padding {
+            right: theme::FILE_TAB_TOOL_GAP,
+            ..iced::Padding::ZERO
+        })
         .height(theme::FILE_TABS_HEIGHT)
         .style(theme::sidebar)
         .into()
@@ -1225,6 +1292,11 @@ fn preview(app: &App) -> Element<'_, Message> {
                     {
                         return unified::line(app, document, line, index, height);
                     }
+                    let highlighted = app.preview().selection.highlights_line(
+                        document,
+                        code::selection::Lane::Unified,
+                        index,
+                    );
                     let spans = &document.lines[index];
                     let code = code::selection::line(
                         app,
@@ -1272,20 +1344,32 @@ fn preview(app: &App) -> Element<'_, Message> {
                         Some(code::LineChange::Removed) => "−",
                         None => "",
                     };
-                    container(
-                        line.push(
-                            text(sign)
-                                .font(Font::MONOSPACE)
-                                .size(size)
-                                .line_height(1.65)
-                                .color(color)
-                                .width(12),
+                    code::frozen_gutter::view(
+                        container(
+                            line.push(
+                                text(sign)
+                                    .font(Font::MONOSPACE)
+                                    .size(size)
+                                    .line_height(1.65)
+                                    .color(color)
+                                    .width(12),
+                            )
+                            .push(code),
                         )
-                        .push(code),
+                        .width(Length::Fill)
+                        .style(move |theme| {
+                            theme::source_row(
+                                theme,
+                                theme::diff_row(info.change)(theme),
+                                highlighted,
+                            )
+                        }),
+                        if app.workspace.preferences.line_numbers {
+                            theme::SOURCE_GUTTER_WIDTH
+                        } else {
+                            theme::SOURCE_MARKERS_WIDTH
+                        },
                     )
-                    .width(Length::Fill)
-                    .style(theme::diff_row(info.change))
-                    .into()
                 });
                 let scroll = scrollable(
                     container(column![
@@ -1519,7 +1603,7 @@ pub(super) fn divider<'a>() -> Element<'a, Message> {
         .into()
 }
 
-fn vertical_divider<'a>() -> Element<'a, Message> {
+pub(super) fn vertical_divider<'a>() -> Element<'a, Message> {
     container(space())
         .width(1)
         .height(Length::Fill)

@@ -143,15 +143,37 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         )
         .id("space-add-project"),
     );
-    let actions = row![
-        space().width(Length::Fill),
+    let mut actions = iced::widget::Row::new()
+        .spacing(8)
+        .align_y(Alignment::Center);
+    if let Some(index) = draft.editing {
+        actions = actions.push(
+            container(
+                button(
+                    text(app.i18n.text(Key::DeleteSpace))
+                        .size(14)
+                        .style(theme::GIT_REMOVED.text()),
+                )
+                .padding([10, 18])
+                .style(theme::secondary)
+                .on_press_maybe(
+                    (!app.picking && !app.git_actions.pending)
+                        .then_some(Message::Space(spaces::Message::Delete(index))),
+                ),
+            )
+            .id("space-delete"),
+        );
+    }
+    let actions = actions.extend([
+        space().width(Length::Fill).into(),
         container(
             button(text(app.i18n.text(Key::Cancel)).size(14))
                 .padding([10, 18])
                 .style(theme::secondary)
-                .on_press(Message::Space(spaces::Message::Cancel))
+                .on_press(Message::Space(spaces::Message::Cancel)),
         )
-        .id("space-cancel"),
+        .id("space-cancel")
+        .into(),
         container(
             button(
                 text(app.i18n.text(if draft.editing.is_some() {
@@ -159,18 +181,18 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                 } else {
                     Key::CreateSpace
                 }))
-                .size(14)
+                .size(14),
             )
             .padding([10, 18])
             .style(theme::primary)
             .on_press_maybe(
                 (!app.picking && !draft.name.trim().is_empty())
-                    .then_some(Message::Space(spaces::Message::Create))
-            )
+                    .then_some(Message::Space(spaces::Message::Create)),
+            ),
         )
-        .id("space-create"),
-    ]
-    .spacing(8);
+        .id("space-create")
+        .into(),
+    ]);
     let content = column![
         text(app.i18n.text(if draft.editing.is_some() {
             Key::EditSpace

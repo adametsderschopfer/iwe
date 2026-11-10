@@ -9,8 +9,9 @@ identify the owning repository. **Fetch all remotes** visits every discovered re
 repository receives its own completion notification. Other actions affect only the selected branch's
 repository.
 
-The branch toolbar places equally sized action buttons above the branch tree. It stays visible while
-the tree scrolls. The scrollbar reaches the panel's right edge without covering branch names.
+The update icon separates its incoming arrow from the branch line so both remain clear at toolbar
+size. The branch toolbar places equally sized action buttons above the branch tree. It stays visible
+while the tree scrolls. The scrollbar reaches the panel's right edge without covering branch names.
 
 | Action            | Behavior                                                                                      |
 | ----------------- | --------------------------------------------------------------------------------------------- |
@@ -30,9 +31,35 @@ files. Creating a branch without switching can preserve existing working changes
 Creation and renaming validate branch names before changing references. Checkout does not overwrite
 an existing local tracking branch or ignored local files. Push never forces updates or implicitly
 includes annotated tags. Selected pushes and remote deletions disable configured repository
-mirroring. Local deletion rejects the current branch and branches Git considers unmerged. Remote
-deletion explicitly identifies its remote effect in the confirmation dialog. Tags cannot be updated,
-renamed, pushed, or deleted through these branch controls.
+mirroring. Local deletion rejects the current branch and branches Git considers unmerged. Branches
+open in another working copy receive a specific error. Switch that copy to another branch before
+retrying deletion. Remote deletion explicitly identifies its remote effect in the confirmation
+dialog. Tags cannot be updated, renamed, pushed, or deleted through these branch controls.
+
+## Multiple branches
+
+Hold Command on macOS or Ctrl on Windows and Linux while clicking branches to toggle their
+selection. Clicking a folder with that modifier toggles all its nested branches, including hidden
+branches. Repository and local or remote groups support the same selection. Tags do not participate.
+The counter below the branch list shows the number of unique selected branches. Selection does not
+change the history filter. An ordinary branch click clears selection and filters history as before.
+Other workspace clicks, Escape, project changes, and focus loss clear selection.
+
+Right-click a selected branch or folder to show only **Push selected branches**, **Delete selected
+branches**, and **Pull selected branches**. An action requires every selected branch to support it.
+Push requires local branches and a configured remote. Delete excludes the current branch. Remove
+that branch from selection before deleting the remaining branches.
+
+Every batch opens a confirmation dialog with its branch list and repository names. Push offers a
+remote selector for each repository and preserves branch names. Deletion describes remote effects
+when remote branches are selected. Existing deletion safeguards still apply. Pull uses the same
+update behavior as the individual branch action.
+
+The batch executes sequentially in each branch's owning repository. One pending batch blocks other
+Git writes. Completion reports success and failure counts. Failed branches remain in the dialog with
+their individual errors. Confirm again to retry only those failed branches. Completed branches never
+enter that retry. Project generations and request identifiers reject obsolete completions. No batch
+operation starts without confirmation.
 
 Pending actions disable further Git actions. Failures retain dialog inputs and never retry the
 operation automatically. Refresh repository state before retrying an ambiguous failure. Subprocesses

@@ -1,7 +1,11 @@
 use super::workspace::{center_message, divider, icon_button, short};
 use crate::ui::tooltip;
 use crate::{
-    app::{App, GitPanel, Message, Panel, error_key},
+    app::{
+        App, GitPanel, Message,
+        branch_selection::{Event as SelectionEvent, Target as SelectionTarget},
+        error_key,
+    },
     domain::repository::{Branch, ReferenceKind, project::BranchKey},
     i18n::Key,
     ui::{
@@ -53,18 +57,28 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         center_message(app, Key::Loading)
     };
     let tools = container(
-        column![
-            icon_button(app, Icon::Refresh, Key::Refresh, Message::Refresh, false),
-            icon_button(
-                app,
-                Icon::Close,
-                Key::HidePanel,
-                Message::TogglePanel(Panel::Git),
-                false,
-            ),
-        ]
-        .spacing(theme::FILE_PANEL_TOOL_INSET)
-        .width(theme::FILE_PANEL_TOOL_SIZE),
+        scrollable(
+            column![
+                container(icon_button(
+                    app,
+                    Icon::Refresh,
+                    Key::Refresh,
+                    Message::Refresh,
+                    false
+                ))
+                .id("git-refresh"),
+                branch_tools(app),
+            ]
+            .spacing(theme::FILE_PANEL_TOOL_INSET)
+            .width(theme::FILE_PANEL_TOOL_SIZE),
+        )
+        .id("git-toolbar-scroll")
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::hidden(),
+        ))
+        .width(theme::FILE_PANEL_TOOL_SIZE)
+        .height(Length::Fill)
+        .style(theme::scroll),
     )
     .id("git-toolbar")
     .padding(theme::FILE_PANEL_TOOL_INSET)
@@ -167,204 +181,33 @@ fn header(app: &App, width: f32) -> Element<'_, Message> {
     header.into()
 }
 
-fn branches(app: &App, width: f32) -> Element<'_, Message> {
-    let mut items = Column::new().spacing(6).width(Length::Fill);
-    if let Some(repos) = &app.repository {
-        let multiple = repos.repositories.len() > 1;
-        if multiple {
-            items = items.push(
-                button(text(app.i18n.text(Key::AllRepositories)).size(12))
-                    .on_press(Message::AllRepositories)
-                    .padding([6, 8])
-                    .width(Length::Fill)
-                    .style(theme::action(app.branch.is_none())),
-            );
-        }
-        for (index, repo) in repos.repositories.iter().enumerate() {
-            let indent = if multiple { 10. } else { 0. };
-            if multiple {
-                let group = format!("repo:{}", repo.root.display());
-                let expanded = app.expanded_branch_folders.contains(&group);
-                items = items.push(
-                    button(
-                        row![
-                            file_icons::chevron(expanded),
-                            icon(Icon::Branch, theme::repository_color(index)),
-                            ellipsis::text(
-                                repo.root
-                                    .file_name()
-                                    .unwrap_or_default()
-                                    .to_string_lossy()
-                                    .into_owned(),
-                                12.
-                            )
-                        ]
-                        .spacing(6)
-                        .align_y(Alignment::Center),
-                    )
-                    .padding([6, 4])
-                    .width(Length::Fill)
-                    .style(theme::action(false))
-                    .on_press(Message::ToggleBranchFolder(group)),
-                );
-                if !expanded {
-                    continue;
-                }
-            }
-            for (kind, group, label) in [
-                (ReferenceKind::Local, "false", Key::LocalBranches),
-                (ReferenceKind::Remote, "true", Key::RemoteBranches),
-                (ReferenceKind::Tag, "tags", Key::Tags),
-            ] {
-                let mut branches: Vec<_> = repo
-                    .branches
-                    .iter()
-                    .filter(|branch| branch.kind == kind)
-                    .collect();
-                branches.sort_by_key(|branch| branch_order(branch));
-                if branches.is_empty() {
-                    continue;
-                }
-                let group = if multiple {
-                    format!("{}:{group}", repo.root.display())
-                } else {
-                    group.to_owned()
-                };
-                let collapsed = !app.expanded_branch_folders.contains(&group);
-                items = items.push(
-                    button(
-                        row![
-                            space().width(indent),
-                            file_icons::chevron(!collapsed),
-                            container(ellipsis::text(app.i18n.text(label), 11.)).style(|theme| {
-                                container::Style {
-                                    text_color: Some(theme::FAINT.resolve(theme)),
-                                    ..Default::default()
-                                }
-                            }),
-                        ]
-                        .spacing(4)
-                        .align_y(Alignment::Center),
-                    )
-                    .on_press(Message::ToggleBranchFolder(group.clone()))
-                    .width(Length::Fill)
-                    .padding([6, 4])
-                    .style(theme::action(false)),
-                );
-                if collapsed {
-                    continue;
-                }
-                let mut previous: Vec<&str> = Vec::new();
-                for branch in branches {
-                    let components: Vec<_> = if branch.current {
-                        vec![branch.name.as_str()]
-                    } else {
-                        branch.name.split('/').collect()
-                    };
-                    let folders = &components[..components.len().saturating_sub(1)];
-                    let common = folders
-                        .iter()
-                        .zip(&previous)
-                        .take_while(|(a, b)| a == b)
-                        .count();
-                    let mut hidden = false;
-                    for (depth, folder) in folders.iter().enumerate() {
-                        let visual_depth = depth.min(5);
-                        let path = format!("{group}/{}", folders[..=depth].join("/"));
-                        let collapsed = !app.expanded_branch_folders.contains(&path);
-                        if depth >= common {
-                            items = items.push(
-                                button(
-                                    row![
-                                        space().width(indent + (visual_depth * 10) as f32),
-                                        icon(
-                                            if collapsed { Icon::Right } else { Icon::Down },
-                                            theme::FAINT
-                                        ),
-                                        icon(Icon::Folder, theme::MUTED),
-                                        ellipsis::text(*folder, 12.)
-                                    ]
-                                    .spacing(3)
-                                    .align_y(Alignment::Center),
-                                )
-                                .on_press(Message::ToggleBranchFolder(path))
-                                .width(Length::Fill)
-                                .padding([3, 0])
-                                .style(theme::action(false)),
-                            );
-                        }
-                        if collapsed {
-                            hidden = true;
-                            break;
-                        }
-                    }
-                    previous = folders.to_vec();
-                    if hidden {
-                        continue;
-                    }
-                    let key = BranchKey {
-                        root: repo.root.clone(),
-                        reference: branch.reference.clone(),
-                    };
-                    let active = app.branch.as_ref() == Some(&key);
-                    let line = row![
-                        space().width(indent + (folders.len().min(5) * 10) as f32),
-                        icon(
-                            if kind == ReferenceKind::Tag {
-                                Icon::Tag
-                            } else {
-                                Icon::Branch
-                            },
-                            if branch.current {
-                                theme::GREEN
-                            } else {
-                                theme::MUTED
-                            }
-                        ),
-                        ellipsis::text(components.last().copied().unwrap_or(&branch.name), 12.)
-                    ]
-                    .spacing(7)
-                    .align_y(Alignment::Center);
-                    items = items.push(tooltip::view(
-                        context_menu::trigger(
-                            container(
-                                button(line)
-                                    .width(Length::Fill)
-                                    .padding([5, 6])
-                                    .style(theme::action(active))
-                                    .on_press(Message::SelectBranch(key.clone())),
-                            )
-                            .id(if multiple {
-                                format!("branch-{}-{}", repo.root.display(), branch.reference)
-                            } else {
-                                format!("branch-{}", branch.reference)
-                            })
-                            .width(Length::Fill),
-                            move |position| {
-                                Message::Git(crate::app::git_actions::Message::Menu(
-                                    key.clone(),
-                                    position,
-                                ))
-                            },
-                        ),
-                        text(&branch.name).size(12),
-                        tooltip::Position::Right,
-                    ));
-                }
-            }
-        }
-        for (root, error) in &repos.failures {
-            items = items.push(
-                text(format!(
-                    "{} · {}",
-                    root.file_name().unwrap_or_default().to_string_lossy(),
-                    app.i18n.text(error_key(*error))
-                ))
-                .size(11)
-                .style(theme::YELLOW.text()),
-            );
-        }
-    }
+fn selectable_group<'a>(
+    app: &App,
+    target: SelectionTarget,
+    content: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    let menu_target = target.clone();
+    let selectable = app
+        .repository
+        .as_ref()
+        .is_some_and(|repos| !target.keys(repos).is_empty());
+    context_menu::trigger(
+        crate::ui::branch_selection::target(
+            content,
+            app.branch_selection.command() && selectable,
+            target,
+        ),
+        move |point| Message::BranchSelection(SelectionEvent::Menu(menu_target.clone(), point)),
+    )
+}
+
+fn group_selected(app: &App, target: &SelectionTarget) -> bool {
+    app.repository
+        .as_ref()
+        .is_some_and(|repos| app.branch_selection.covers(&target.keys(repos)))
+}
+
+fn branch_tools(app: &App) -> Element<'_, Message> {
     use crate::app::git_actions::{Action, Message as GitMessage};
     let selected = app.branch.as_ref().and_then(|key| {
         app.repository
@@ -375,9 +218,8 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
             .find(|branch| branch.reference == key.reference)
             .map(|branch| (key, branch))
     });
-    let tool_size = theme::BRANCH_TOOL_SIZE
-        .min((width - theme::BRANCH_HEADER_INSET * 2. - theme::BRANCH_TOOL_GAP * 3.) / 4.);
-    let mut tools = Row::new().spacing(theme::BRANCH_TOOL_GAP);
+    let tool_size = theme::FILE_PANEL_TOOL_SIZE;
+    let mut tools = Column::new().spacing(theme::FILE_PANEL_TOOL_INSET);
     for (id, symbol, key, message) in [
         (
             "git-fetch",
@@ -412,7 +254,7 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
             container(
                 button(container(icon(symbol, theme::MUTED)).center(Length::Fill))
                     .width(tool_size)
-                    .height(theme::BRANCH_TOOL_SIZE)
+                    .height(tool_size)
                     .padding(0)
                     .style(theme::action(false))
                     .on_press_maybe(message.filter(|_| !app.git_actions.pending)),
@@ -422,16 +264,248 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
             tooltip::Position::Right,
         ));
     }
-    let header = container(
-        column![
-            text(app.i18n.text(Key::Branches))
+    container(tools)
+        .id("git-branch-tools")
+        .width(theme::FILE_PANEL_TOOL_SIZE)
+        .into()
+}
+
+fn branches(app: &App, width: f32) -> Element<'_, Message> {
+    let mut items = Column::new().spacing(6).width(Length::Fill);
+    if let Some(repos) = &app.repository {
+        let multiple = repos.repositories.len() > 1;
+        if multiple {
+            items = items.push(
+                button(text(app.i18n.text(Key::AllRepositories)).size(12))
+                    .on_press(Message::AllRepositories)
+                    .padding([6, 8])
+                    .width(Length::Fill)
+                    .style(theme::action(app.branch.is_none())),
+            );
+        }
+        for (index, repo) in repos.repositories.iter().enumerate() {
+            let indent = if multiple { 10. } else { 0. };
+            if multiple {
+                let group = format!("repo:{}", repo.root.display());
+                let expanded = app.expanded_branch_folders.contains(&group);
+                let target = SelectionTarget::Group {
+                    root: repo.root.clone(),
+                    kind: None,
+                    prefix: None,
+                };
+                let selected = group_selected(app, &target);
+                items = items.push(selectable_group(
+                    app,
+                    target,
+                    button(
+                        row![
+                            file_icons::chevron(expanded),
+                            icon(Icon::Branch, theme::repository_color(index)),
+                            ellipsis::text(
+                                repo.root
+                                    .file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .into_owned(),
+                                12.
+                            )
+                        ]
+                        .spacing(6)
+                        .align_y(Alignment::Center),
+                    )
+                    .padding([6, 4])
+                    .width(Length::Fill)
+                    .style(theme::action(selected))
+                    .on_press(Message::ToggleBranchFolder(group)),
+                ));
+                if !expanded {
+                    continue;
+                }
+            }
+            for (kind, group, label) in [
+                (ReferenceKind::Local, "false", Key::LocalBranches),
+                (ReferenceKind::Remote, "true", Key::RemoteBranches),
+                (ReferenceKind::Tag, "tags", Key::Tags),
+            ] {
+                let mut branches: Vec<_> = repo
+                    .branches
+                    .iter()
+                    .filter(|branch| branch.kind == kind)
+                    .collect();
+                branches.sort_by_key(|branch| branch_order(branch));
+                if branches.is_empty() {
+                    continue;
+                }
+                let group = if multiple {
+                    format!("{}:{group}", repo.root.display())
+                } else {
+                    group.to_owned()
+                };
+                let collapsed = !app.expanded_branch_folders.contains(&group);
+                let target = SelectionTarget::Group {
+                    root: repo.root.clone(),
+                    kind: Some(kind),
+                    prefix: None,
+                };
+                let selected = group_selected(app, &target);
+                items = items.push(selectable_group(
+                    app,
+                    target,
+                    button(
+                        row![
+                            space().width(indent),
+                            file_icons::chevron(!collapsed),
+                            container(ellipsis::text(app.i18n.text(label), 11.)).style(|theme| {
+                                container::Style {
+                                    text_color: Some(theme::FAINT.resolve(theme)),
+                                    ..Default::default()
+                                }
+                            }),
+                        ]
+                        .spacing(4)
+                        .align_y(Alignment::Center),
+                    )
+                    .on_press(Message::ToggleBranchFolder(group.clone()))
+                    .width(Length::Fill)
+                    .padding([6, 4])
+                    .style(theme::action(selected)),
+                ));
+                if collapsed {
+                    continue;
+                }
+                let mut previous: Vec<&str> = Vec::new();
+                for branch in branches {
+                    let components: Vec<_> = if branch.current {
+                        vec![branch.name.as_str()]
+                    } else {
+                        branch.name.split('/').collect()
+                    };
+                    let folders = &components[..components.len().saturating_sub(1)];
+                    let common = folders
+                        .iter()
+                        .zip(&previous)
+                        .take_while(|(a, b)| a == b)
+                        .count();
+                    let mut hidden = false;
+                    for (depth, folder) in folders.iter().enumerate() {
+                        let visual_depth = depth.min(5);
+                        let path = format!("{group}/{}", folders[..=depth].join("/"));
+                        let collapsed = !app.expanded_branch_folders.contains(&path);
+                        if depth >= common {
+                            let target = SelectionTarget::Group {
+                                root: repo.root.clone(),
+                                kind: Some(kind),
+                                prefix: Some(format!("{}/", folders[..=depth].join("/"))),
+                            };
+                            let selected = group_selected(app, &target);
+                            items = items.push(selectable_group(
+                                app,
+                                target,
+                                button(
+                                    row![
+                                        space().width(indent + (visual_depth * 10) as f32),
+                                        icon(
+                                            if collapsed { Icon::Right } else { Icon::Down },
+                                            theme::FAINT
+                                        ),
+                                        icon(Icon::Folder, theme::MUTED),
+                                        ellipsis::text(*folder, 12.)
+                                    ]
+                                    .spacing(3)
+                                    .align_y(Alignment::Center),
+                                )
+                                .on_press(Message::ToggleBranchFolder(path))
+                                .width(Length::Fill)
+                                .padding([3, 0])
+                                .style(theme::action(selected)),
+                            ));
+                        }
+                        if collapsed {
+                            hidden = true;
+                            break;
+                        }
+                    }
+                    previous = folders.to_vec();
+                    if hidden {
+                        continue;
+                    }
+                    let key = BranchKey {
+                        root: repo.root.clone(),
+                        reference: branch.reference.clone(),
+                    };
+                    let active = if app.branch_selection.selected.is_empty() {
+                        app.branch.as_ref() == Some(&key)
+                    } else {
+                        app.branch_selection.selected.contains(&key)
+                    };
+                    let line = row![
+                        space().width(indent + (folders.len().min(5) * 10) as f32),
+                        icon(
+                            if kind == ReferenceKind::Tag {
+                                Icon::Tag
+                            } else {
+                                Icon::Branch
+                            },
+                            if branch.current {
+                                theme::GREEN
+                            } else {
+                                theme::MUTED
+                            }
+                        ),
+                        ellipsis::text(components.last().copied().unwrap_or(&branch.name), 12.)
+                    ]
+                    .spacing(7)
+                    .align_y(Alignment::Center);
+                    items = items.push(tooltip::view(
+                        context_menu::trigger(
+                            crate::ui::branch_selection::target(
+                                container(
+                                    button(line)
+                                        .width(Length::Fill)
+                                        .padding([5, 6])
+                                        .style(theme::action(active))
+                                        .on_press(Message::SelectBranch(key.clone())),
+                                )
+                                .id(if multiple {
+                                    format!("branch-{}-{}", repo.root.display(), branch.reference)
+                                } else {
+                                    format!("branch-{}", branch.reference)
+                                })
+                                .width(Length::Fill),
+                                app.branch_selection.command() && kind != ReferenceKind::Tag,
+                                SelectionTarget::Branch(key.clone()),
+                            ),
+                            move |position| {
+                                Message::Git(crate::app::git_actions::Message::Menu(
+                                    key.clone(),
+                                    position,
+                                ))
+                            },
+                        ),
+                        text(&branch.name).size(12),
+                        tooltip::Position::Right,
+                    ));
+                }
+            }
+        }
+        for (root, error) in &repos.failures {
+            items = items.push(
+                text(format!(
+                    "{} · {}",
+                    root.file_name().unwrap_or_default().to_string_lossy(),
+                    app.i18n.text(error_key(*error))
+                ))
                 .size(11)
-                .style(theme::FAINT.text()),
-            tools,
-        ]
-        .spacing(theme::BRANCH_TOOL_GAP),
+                .style(theme::YELLOW.text()),
+            );
+        }
+    }
+    let header = container(
+        text(app.i18n.text(Key::Branches))
+            .size(11)
+            .style(theme::FAINT.text()),
     )
-    .id("git-branch-tools")
+    .id("git-branches-heading")
     .width(Length::Fill)
     .padding(theme::BRANCH_HEADER_INSET);
     let list = scrollable(container(items).padding(iced::Padding {
@@ -445,7 +519,24 @@ fn branches(app: &App, width: f32) -> Element<'_, Message> {
     .width(Length::Fill)
     .height(Length::Fill)
     .style(theme::scroll);
-    let content = container(column![header, list])
+    let mut contents = column![header, list];
+    if !app.branch_selection.selected.is_empty() {
+        contents = contents.push(column![
+            divider(),
+            container(
+                text(super::git_bulk::count(
+                    app,
+                    app.branch_selection.selected.len()
+                ))
+                .size(12)
+                .style(theme::MUTED.text())
+            )
+            .id("branch-selection-count")
+            .padding([8, 12])
+            .width(Length::Fill),
+        ]);
+    }
+    let content = container(contents)
         .width(width)
         .height(Length::Fill)
         .style(theme::surface);
@@ -532,15 +623,21 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
         .height(Length::Fill)
         .into();
     }
+    let graph_padding = if repo.repositories.len() > 1 {
+        theme::COMMIT_REPOSITORY_GRAPH_PADDING
+    } else {
+        theme::COMMIT_GRAPH_PADDING
+    };
     let widest_graph = if query.is_empty() {
         matching
             .iter()
-            .map(|commit| graph::width(&commit.commit.graph))
+            .map(|commit| graph::width(&commit.commit.graph, graph_padding))
             .fold(0., f32::max)
     } else {
         68.
     };
-    let table_width = available_width.max(widest_graph + 372. + theme::COMMIT_DATE_WIDTH);
+    let table_width = available_width
+        .max(widest_graph + 372. + theme::COMMIT_DATE_WIDTH + theme::COMMIT_HASH_WIDTH + 8.);
     let start = (((app.history_scroll_y - 28.).max(0.) / 30.) as usize)
         .saturating_sub(8)
         .min(matching.len());
@@ -551,13 +648,19 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
         let key = entry.key();
         let selected = app.selected_commit.as_ref() == Some(&key);
         let graph_width = if query.is_empty() {
-            graph::width(&commit.graph)
+            graph::width(&commit.graph, graph_padding)
         } else {
             68.
         };
         let subject_width = table_width - graph_width - 140. - theme::COMMIT_DATE_WIDTH - 36.;
         let graph: Element<'_, Message> = if query.is_empty() {
-            graph::view(&commit.graph, graph_width)
+            container(graph::view(&commit.graph, graph_width))
+                .id(format!(
+                    "commit-graph-{}-{}",
+                    entry.root.display(),
+                    commit.id
+                ))
+                .into()
         } else {
             text(&commit.id[..7])
                 .font(Font::MONOSPACE)
@@ -566,7 +669,14 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                 .width(68)
                 .into()
         };
-        let has_refs = !commit.refs.is_empty() && subject_width > 270.;
+        let reference_space = 270.
+            + theme::COMMIT_HASH_WIDTH
+            + if repo.repositories.len() > 1 {
+                theme::COMMIT_REPOSITORY_MAX_WIDTH + 8.
+            } else {
+                0.
+            };
+        let has_refs = !commit.refs.is_empty() && subject_width > reference_space;
         let active = if entry.root == repo.active_root {
             app.active_pipelines(&commit.id)
         } else {
@@ -580,7 +690,7 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                 .position(|member| member.root == entry.root)
                 .unwrap_or_default();
             subject = subject.push(tooltip::view(
-                container(ellipsis::text(
+                container(ellipsis::compact_text(
                     entry
                         .root
                         .file_name()
@@ -589,7 +699,12 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                         .into_owned(),
                     10.,
                 ))
-                .width(78)
+                .id(format!(
+                    "commit-repository-{}-{}",
+                    entry.root.display(),
+                    commit.id
+                ))
+                .max_width(theme::COMMIT_REPOSITORY_MAX_WIDTH)
                 .padding([2, 5])
                 .style(move |theme| iced::widget::container::Style {
                     text_color: Some(theme::repository_color(index).resolve(theme)),
@@ -620,8 +735,58 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                 tooltip::Position::Top,
             ));
         }
+        let hash = tooltip::view(
+            container(
+                button(
+                    text(commit.id.chars().take(7).collect::<String>())
+                        .font(Font::MONOSPACE)
+                        .size(11)
+                        .style(theme::FAINT.text())
+                        .wrapping(text::Wrapping::None),
+                )
+                .on_press(Message::CopyCommitId(commit.id.clone()))
+                .padding([3, 4])
+                .width(theme::COMMIT_HASH_WIDTH)
+                .style(theme::action(false)),
+            )
+            .id(format!(
+                "copy-commit-id-{}-{}",
+                entry.root.display(),
+                commit.id
+            )),
+            column![
+                text(app.i18n.text(Key::CopyCommitId)).size(12),
+                text(&commit.id).size(11).font(Font::MONOSPACE),
+            ]
+            .spacing(4),
+            tooltip::Position::Bottom,
+        );
+        let natural_width =
+            ellipsis::measured_width(&commit.subject, 13.).ceil() + theme::COMMIT_HASH_WIDTH + 8.;
+        let title = container(
+            container(
+                row![
+                    tooltip::view(
+                        ellipsis::text(&commit.subject, 13.),
+                        text(format!(
+                            "{}\n{} · {}",
+                            commit.subject, commit.author, commit.id
+                        ))
+                        .size(12),
+                        tooltip::Position::Bottom,
+                    ),
+                    hash
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+                .width(Length::Fill),
+            )
+            .width(Length::Fill)
+            .max_width(natural_width),
+        )
+        .width(Length::Fill);
         let mut subject = subject
-            .push(ellipsis::text(&commit.subject, 13.))
+            .push(title)
             .spacing(8)
             .align_y(Alignment::Center)
             .width(subject_width);
@@ -654,19 +819,13 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
         .spacing(8)
         .align_y(Alignment::Center)
         .height(30);
-        rows = rows.push(tooltip::view(
+        rows = rows.push(
             button(item)
                 .on_press(Message::SelectCommit(key))
                 .width(Length::Fill)
                 .padding([0, 6])
                 .style(theme::action(selected)),
-            text(format!(
-                "{}\n{} · {}",
-                commit.subject, commit.author, commit.id
-            ))
-            .size(12),
-            tooltip::Position::Bottom,
-        ));
+        );
     }
     rows = rows.push(space().height((matching.len() - end) as f32 * 30.));
     let heading = row![

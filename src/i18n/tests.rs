@@ -63,8 +63,12 @@ fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
                 Key::UpdateAvailable => {
                     args.set("version", "0.1.11");
                 }
-                Key::FileCount => {
+                Key::FileCount | Key::BranchesSelected => {
                     args.set("count", 3);
+                }
+                Key::GitBulkResult => {
+                    args.set("success", 2);
+                    args.set("failed", 1);
                 }
                 Key::UnchangedLines => {
                     args.set("start", 1);

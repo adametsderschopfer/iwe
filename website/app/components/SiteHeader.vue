@@ -1,8 +1,18 @@
 <script setup lang="ts">
-import { languages, repository, type Locale, type Messages } from '~/i18n'
+import { languages, licensePath, repository, type Locale, type Messages } from '~/i18n'
+import { releaseNotesPath } from '~/release-notes'
 
-defineProps<{ messages: Messages; locale: Locale }>()
+const props = withDefaults(
+  defineProps<{
+    messages: Messages
+    locale: Locale
+    section?: 'home' | 'releases' | 'license'
+    releaseVersion?: string
+  }>(),
+  { section: 'home', releaseVersion: undefined },
+)
 const base = useRuntimeConfig().app.baseURL
+const homeHref = computed(() => `${base}${props.locale === 'en' ? '' : `${props.locale}/`}`)
 </script>
 
 <template>
@@ -17,8 +27,17 @@ const base = useRuntimeConfig().app.baseURL
       <span>IWE <span class="brand-code">Code</span></span>
     </NuxtLink>
     <nav class="main-nav" :aria-label="messages.nav.features">
-      <a href="#features">{{ messages.nav.features }}</a>
-      <a href="#workflow">{{ messages.nav.workflow }}</a>
+      <a :href="section === 'home' ? '#features' : `${homeHref}#features`">{{
+        messages.nav.features
+      }}</a>
+      <a :href="section === 'home' ? '#workflow' : `${homeHref}#workflow`">{{
+        messages.nav.workflow
+      }}</a>
+      <NuxtLink
+        :to="releaseNotesPath(locale)"
+        :aria-current="section === 'releases' ? 'page' : undefined"
+        >{{ messages.releaseNotes.label }}</NuxtLink
+      >
       <a :href="repository">GitHub <SiteIcon name="arrow" /></a>
     </nav>
     <div class="header-actions">
@@ -26,16 +45,24 @@ const base = useRuntimeConfig().app.baseURL
         <NuxtLink
           v-for="language in languages"
           :key="language.code"
-          :to="language.path"
+          :to="
+            section === 'releases'
+              ? releaseNotesPath(language.code, releaseVersion)
+              : section === 'license'
+                ? licensePath(language.code)
+                : language.path
+          "
           :lang="language.code"
           :aria-label="language.name"
           :aria-current="locale === language.code ? 'page' : undefined"
           >{{ language.label }}</NuxtLink
         >
       </nav>
-      <a class="button button-small header-download" href="#download">{{
-        messages.nav.download
-      }}</a>
+      <a
+        class="button button-small header-download"
+        :href="section === 'home' ? '#download' : `${homeHref}#download`"
+        >{{ messages.nav.download }}</a
+      >
     </div>
   </header>
 </template>
@@ -45,7 +72,7 @@ const base = useRuntimeConfig().app.baseURL
   display: flex;
   align-items: center;
   min-height: 96px;
-  gap: 48px;
+  gap: 32px;
   border-bottom: 1px solid var(--line);
 }
 .brand {
@@ -63,7 +90,7 @@ const base = useRuntimeConfig().app.baseURL
 }
 .main-nav {
   display: flex;
-  gap: 28px;
+  gap: 20px;
   font-size: 13px;
   color: var(--muted);
 }

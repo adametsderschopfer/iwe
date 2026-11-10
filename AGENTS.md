@@ -18,6 +18,7 @@ Build a native Rust workspace with Iced.
   explicitly.
 - Use Make, Cargo, and dprint. Do not introduce Node.js or npm.
 - Keep documentation current in the same change.
+- Collect release-note items on commit requests. Prepare version notes before creating release tags.
 - Keep technical details out of the interface. Follow
   [user-facing content rules](docs/rules/user-facing-content.md).
 - Store every application text in i18n catalogs. Maintain English, Russian, and Spanish translations
@@ -46,6 +47,7 @@ Read additional rules for the task:
 
 | Task                                                               | Required rules                                     |
 | ------------------------------------------------------------------ | -------------------------------------------------- |
+| Prepare a commit, version, release, or website release notes       | [Release notes](docs/rules/release-notes.md)       |
 | Change code, modules, dependencies, or architecture                | [Architecture](docs/rules/architecture.md)         |
 | Change Iced state, messages, views, styling, or animation          | [Iced and interface design](docs/rules/iced-ui.md) |
 | Add or change application text or language behavior                | [Internationalization](docs/rules/i18n.md)         |

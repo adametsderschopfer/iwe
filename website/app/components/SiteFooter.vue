@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { releases, repository, type Messages } from '~/i18n'
+import { licensePath, releases, repository, type Locale, type Messages } from '~/i18n'
+import { releaseNotesPath } from '~/release-notes'
 
-defineProps<{ messages: Messages }>()
+withDefaults(defineProps<{ messages: Messages; locale?: Locale }>(), { locale: 'en' })
 </script>
 
 <template>
@@ -12,7 +13,9 @@ defineProps<{ messages: Messages }>()
     </div>
     <nav class="footer-nav" :aria-label="messages.footer.source">
       <a :href="repository">{{ messages.footer.source }}</a>
+      <NuxtLink :to="releaseNotesPath(locale)">{{ messages.releaseNotes.label }}</NuxtLink>
       <a :href="releases">{{ messages.footer.releases }}</a>
+      <NuxtLink :to="licensePath(locale)">{{ messages.license.label }}</NuxtLink>
     </nav>
     <p class="developer">
       {{ messages.footer.developer }}

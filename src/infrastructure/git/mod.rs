@@ -245,6 +245,13 @@ pub(crate) async fn execute(root: PathBuf, operation: Operation) -> Result<(), E
                 if current.trim() == source {
                     return Err(Error::CurrentBranch);
                 }
+                let worktrees = run(&root, &["worktree", "list", "--porcelain", "-z"]).await?;
+                if worktrees
+                    .split('\0')
+                    .any(|field| field.strip_prefix("branch ") == Some(source.as_str()))
+                {
+                    return Err(Error::BranchInWorktree);
+                }
                 run(&root, &["branch", "--delete", "--", local]).await?;
             } else if source.starts_with("refs/remotes/") {
                 let (remote, branch) = remote_branch(&root, &source).await?;

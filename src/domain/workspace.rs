@@ -245,6 +245,23 @@ impl Workspace {
         true
     }
 
+    pub(crate) fn remove_space(&mut self, index: usize) -> bool {
+        if index >= self.spaces.len() {
+            return false;
+        }
+        self.spaces.remove(index);
+        match self.selected_space {
+            Some(selected) if selected == index => {
+                self.selected_space = None;
+                self.selected_project = None;
+            }
+            Some(selected) if selected > index => self.selected_space = Some(selected - 1),
+            _ => {}
+        }
+        self.normalize();
+        true
+    }
+
     pub(crate) fn move_project(&mut self, space: usize, from: usize, to: usize) -> bool {
         let Some(group) = self.spaces.get_mut(space) else {
             return false;

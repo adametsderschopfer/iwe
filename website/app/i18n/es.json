@@ -131,5 +131,36 @@
     "title": "Esta página no está disponible.",
     "description": "Vuelve al sitio web de IWE Code para continuar.",
     "back": "Ir al inicio"
+  },
+  "releaseNotes": {
+    "label": "Notas de versión",
+    "title": "Cada versión. Cada cambio.",
+    "metaTitle": "Notas de versión — IWE Code",
+    "description": "Consulta los lanzamientos y las versiones de desarrollo anteriores. Encuentra novedades, mejoras y correcciones de cada versión.",
+    "allVersions": "Todas las versiones",
+    "versions": "Versiones",
+    "upcoming": "Aún sin publicar",
+    "preview": "Estos cambios todavía no se han publicado. La lista puede cambiar antes del lanzamiento.",
+    "github": "Lanzamiento en GitHub",
+    "changes": "Ver cambios",
+    "status": {
+      "released": "Publicado",
+      "development": "Versión de desarrollo",
+      "prepared": "Vista previa"
+    },
+    "categories": {
+      "added": "Novedades",
+      "changed": "Mejoras",
+      "fixed": "Correcciones",
+      "maintenance": "Mantenimiento"
+    }
+  },
+  "license": {
+    "label": "Licencia",
+    "title": "Apache License 2.0",
+    "metaTitle": "Licencia — IWE Code",
+    "description": "IWE Code se distribuye bajo la Apache License, Version 2.0. A continuación se muestra el texto original de la licencia.",
+    "fullText": "Texto completo de la licencia",
+    "source": "Ver la licencia en GitHub"
   }
 }

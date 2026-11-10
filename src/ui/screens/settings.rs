@@ -13,18 +13,20 @@ use iced::{
 pub(crate) fn view(app: &App) -> Element<'_, Message> {
     let t = |key| app.i18n.text(key);
     let preferences = &app.workspace.preferences;
-    let mut tabs = row![].spacing(4);
-    for (tab, key, id) in [
+    let mut tabs = column![].spacing(4);
+    let sections = [
         (SettingsTab::General, Key::General, "general"),
         (SettingsTab::Code, Key::Code, "code"),
         (SettingsTab::Panels, Key::Panels, "panels"),
         (SettingsTab::Shortcuts, Key::KeyboardShortcuts, "shortcuts"),
         (SettingsTab::About, Key::About, "about"),
-    ] {
+    ];
+    for &(tab, key, id) in &sections {
         tabs = tabs.push(
             container(
                 button(text(t(key)).size(13))
                     .padding([8, 12])
+                    .width(Length::Fill)
                     .on_press(Message::SelectSettingsTab(tab))
                     .style(theme::action(app.settings_tab == tab)),
             )
@@ -125,33 +127,45 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .spacing(16)
         .into(),
         SettingsTab::Shortcuts => column![
-            setting(
-                t(Key::GoToLine),
-                t(Key::GoToLineDescription),
-                shortcut_badge("Command + L", "Ctrl + G"),
+            shortcut_group(
+                t(Key::Code),
+                "settings-shortcuts-code",
+                vec![
+                    setting(
+                        t(Key::GoToLine),
+                        t(Key::GoToLineDescription),
+                        shortcut_badge("Command + L", "Ctrl + G"),
+                    ),
+                    setting(
+                        t(Key::CopyCodeSelection),
+                        t(Key::CopyCodeSelectionDescription),
+                        shortcut_badge("Command + C", "Ctrl + C"),
+                    ),
+                    setting(
+                        t(Key::SelectAllCode),
+                        t(Key::SelectAllCodeDescription),
+                        shortcut_badge("Command + A", "Ctrl + A"),
+                    ),
+                ],
             ),
-            setting(
-                t(Key::CopyCodeSelection),
-                t(Key::CopyCodeSelectionDescription),
-                shortcut_badge("Command + C", "Ctrl + C"),
-            ),
-            setting(
-                t(Key::SelectAllCode),
-                t(Key::SelectAllCodeDescription),
-                shortcut_badge("Command + A", "Ctrl + A"),
-            ),
-            setting(
-                t(Key::CloseTab),
-                t(Key::CloseActiveTabDescription),
-                shortcut_badge("Command + W", "Ctrl + W"),
-            ),
-            setting(
-                t(Key::ReopenClosedTab),
-                t(Key::ReopenClosedTabDescription),
-                shortcut_badge("Command + Shift + T", "Ctrl + Shift + T"),
+            shortcut_group(
+                t(Key::ShortcutTabs),
+                "settings-shortcuts-tabs",
+                vec![
+                    setting(
+                        t(Key::CloseTab),
+                        t(Key::CloseActiveTabDescription),
+                        shortcut_badge("Command + W", "Ctrl + W"),
+                    ),
+                    setting(
+                        t(Key::ReopenClosedTab),
+                        t(Key::ReopenClosedTabDescription),
+                        shortcut_badge("Command + Shift + T", "Ctrl + Shift + T"),
+                    ),
+                ],
             ),
         ]
-        .spacing(16)
+        .spacing(24)
         .into(),
         SettingsTab::About => column![
             setting(
@@ -167,21 +181,32 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .spacing(24)
         .into(),
     };
-    column![
+    let heading = sections
+        .iter()
+        .find(|(tab, _, _)| *tab == app.settings_tab)
+        .map_or(Key::General, |(_, key, _)| *key);
+    let navigation = container(
+        scrollable(tabs.padding(12))
+            .style(theme::scroll)
+            .height(Length::Fill),
+    )
+    .id("settings-navigation")
+    .width(theme::SETTINGS_SIDEBAR_WIDTH)
+    .height(Length::Fill)
+    .style(theme::sidebar);
+    let content = column![
         container(
             column![
-                text(t(Key::Settings)).size(28).font(theme::semibold()),
+                container(text(t(heading)).size(24).font(theme::semibold()))
+                    .id("settings-section-heading"),
                 text(t(Key::SettingsDescription))
-                    .size(15)
+                    .size(14)
                     .style(theme::MUTED.text()),
-                tabs,
                 divider(),
             ]
-            .spacing(16)
-            .max_width(760)
+            .spacing(12)
         )
-        .padding([24, 40])
-        .center_x(Length::Fill),
+        .padding([24, 24]),
         scrollable(
             container(
                 column![
@@ -193,7 +218,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 .spacing(24)
                 .max_width(760)
             )
-            .padding([0, 40])
+            .padding([0, 24])
             .center_x(Length::Fill)
         )
         .id("settings-content")
@@ -201,6 +226,27 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         .height(Length::Fill),
     ]
     .height(Length::Fill)
+    .width(Length::Fill);
+    row![navigation, super::workspace::vertical_divider(), content]
+        .height(Length::Fill)
+        .width(Length::Fill)
+        .into()
+}
+
+fn shortcut_group<'a>(
+    title: String,
+    id: &'static str,
+    shortcuts: Vec<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    container(
+        column![
+            text(title).size(17).font(theme::semibold()),
+            column(shortcuts).spacing(8),
+        ]
+        .spacing(8),
+    )
+    .id(id)
+    .width(Length::Fill)
     .into()
 }
 
@@ -223,7 +269,7 @@ fn setting<'a>(
     description: String,
     control: Element<'a, Message>,
 ) -> Element<'a, Message> {
-    row![
+    column![
         column![
             text(title).size(15),
             text(description)
@@ -235,8 +281,8 @@ fn setting<'a>(
         .width(Length::Fill),
         control
     ]
-    .spacing(24)
-    .align_y(Alignment::Center)
+    .spacing(12)
+    .width(Length::Fill)
     .padding([12, 0])
     .into()
 }

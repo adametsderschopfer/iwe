@@ -1,5 +1,6 @@
 //! Keep screen composition separate from application state.
 
+pub(crate) mod branch_selection;
 pub(crate) mod branding;
 pub(crate) mod changed_tree;
 pub(crate) mod code;
@@ -12,6 +13,7 @@ pub(crate) mod notifications;
 pub(crate) mod reorder;
 pub(crate) mod resize;
 pub(crate) mod screens;
+pub(crate) mod tab_label;
 pub(crate) mod theme;
 pub(crate) mod tooltip;
 

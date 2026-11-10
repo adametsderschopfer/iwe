@@ -119,7 +119,11 @@ impl App {
     pub(super) fn toggle_folder(&mut self, path: PathBuf) -> Task<Message> {
         self.files.selected_path = Some(path.clone());
         if self.expanded.remove(&path) {
-            self.files.loading.remove(&path);
+            self.expanded
+                .retain(|directory| !directory.starts_with(&path));
+            self.files
+                .loading
+                .retain(|directory| !directory.starts_with(&path));
             return Task::none();
         }
         self.expanded.insert(path.clone());
@@ -155,7 +159,7 @@ impl App {
             Event::OpenMenu(path, point)
                 if self.space_draft.is_none()
                     && self.auth_dialog.is_none()
-                    && self.git_actions.dialog.is_none() =>
+                    && !self.git_actions.has_dialog() =>
             {
                 if self
                     .workspace
@@ -163,6 +167,7 @@ impl App {
                     .is_some_and(|root| path.is_absolute() && path.starts_with(root))
                 {
                     self.project_menu = None;
+                    self.space_menu = None;
                     self.git_actions.menu = None;
                     self.files.selected_path = Some(path.clone());
                     self.files.menu = Some(Menu {

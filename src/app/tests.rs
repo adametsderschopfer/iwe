@@ -142,6 +142,33 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
                     .visible_bounds()
                     .is_some()
             );
+            if tab == SettingsTab::Shortcuts {
+                let code = ui
+                    .find(iced::widget::Id::new("settings-shortcuts-code"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                let tabs = ui
+                    .find(iced::widget::Id::new("settings-shortcuts-tabs"))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap();
+                assert!(code.y + code.height <= tabs.y);
+                for (key, group) in [
+                    (Key::GoToLine, code),
+                    (Key::CopyCodeSelection, code),
+                    (Key::SelectAllCode, code),
+                    (Key::CloseTab, tabs),
+                ] {
+                    let bounds = ui
+                        .find(app.i18n.text(key))
+                        .unwrap()
+                        .visible_bounds()
+                        .unwrap();
+                    assert!(group.contains(bounds.center()));
+                }
+                assert!(ui.find(app.i18n.text(Key::ShortcutTabs)).is_ok());
+            }
             if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
                 ui.snapshot(&Theme::Dark)
                     .unwrap()
@@ -586,13 +613,13 @@ fn tab_shortcuts_support_keyboard_layouts_without_extra_shortcuts() {
         assert!(shortcut(event("w", key::Code::KeyW, modifiers, false)).is_none());
     }
     assert!(shortcut(event("w", key::Code::KeyW, Modifiers::COMMAND, true)).is_none());
-    for (name, code) in [
-        ("1", key::Code::Digit1),
-        ("2", key::Code::Digit2),
-        (",", key::Code::Comma),
-    ] {
+    for (name, code) in [("1", key::Code::Digit1), ("2", key::Code::Digit2)] {
         assert!(shortcut(event(name, code, Modifiers::COMMAND, false)).is_none());
     }
+    assert!(matches!(
+        shortcut(event(",", key::Code::Comma, Modifiers::COMMAND, false)),
+        Some(Message::Navigate(Navigation::Settings))
+    ));
     for key in [key::Named::F5, key::Named::Tab] {
         assert!(shortcut(iced_test::simulator::press_key(key, None)).is_none());
     }
@@ -1843,6 +1870,16 @@ fn commit_titles_follow_the_graph_in_each_row() {
         let mut ui = iced_test::Simulator::with_size(ui_settings(), size, state.view());
         let heading = ui.find("Commit").unwrap().visible_bounds().unwrap();
         let recent = ui.find("Recent change").unwrap().visible_bounds().unwrap();
+        let hash = ui
+            .find(iced::widget::Id::from(format!("copy-commit-id--{}", id(1))))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let gap = hash.x - recent.x - recent.width;
+        assert!(
+            (0.0..=10.0).contains(&gap),
+            "The hash must follow the commit title closely"
+        );
         let merged = ui.find("Merge feature").unwrap().visible_bounds().unwrap();
         let shared = ui.find("Shared history").unwrap().visible_bounds().unwrap();
         assert!(
@@ -1892,7 +1929,8 @@ fn sidebar_navigation_fits_and_routes_in_every_screen_and_language() {
         let app = application(Rc::new(I18n::new(language)));
         let (mut state, _) = app.boot();
         state.loaded = true;
-        let settings = Program::window(&app).unwrap();
+        assert!(Program::window(&app).is_none());
+        let settings = windows::main_settings();
         for size in [settings.size, settings.min_size.unwrap()] {
             for current in [
                 Navigation::Projects,
@@ -1936,9 +1974,10 @@ fn welcome_and_settings_fit_supported_window_sizes_in_every_language() {
     for language in [Language::English, Language::Russian, Language::Spanish] {
         let app = application(Rc::new(I18n::new(language)));
         let (mut state, _) = app.boot();
-        let settings = Program::window(&app).unwrap();
+        assert!(Program::window(&app).is_none());
+        let settings = windows::main_settings();
         assert_eq!(settings.decorations, !cfg!(target_os = "windows"));
-        assert!(settings.exit_on_close_request);
+        assert!(!settings.exit_on_close_request);
         assert_eq!(settings.transparent, cfg!(target_os = "macos"));
         for size in [settings.size, settings.min_size.unwrap()] {
             for (navigation, key) in [
@@ -1971,7 +2010,8 @@ fn header_moves_the_window_without_capturing_action_buttons() {
     for language in [Language::English, Language::Russian, Language::Spanish] {
         let app = application(Rc::new(I18n::new(language)));
         let (mut state, _) = app.boot();
-        let settings = Program::window(&app).unwrap();
+        assert!(Program::window(&app).is_none());
+        let settings = windows::main_settings();
         for size in [settings.size, settings.min_size.unwrap()] {
             for navigation in [
                 Navigation::Projects,
@@ -2670,4 +2710,468 @@ fn empty_preview_preserves_space_creation_and_project_selection_guidance() {
         assert!(ui.find(app.i18n.text(Key::ChooseProject)).is_ok());
         assert!(ui.find(Id::new("preview-empty-action")).is_err());
     }
+}
+
+#[tokio::test]
+async fn history_hash_click_copies_the_full_identifier_without_selecting_the_commit() {
+    use crate::domain::repository::{Commit, GraphRow};
+    use iced::{futures::StreamExt, widget::Id};
+    use iced_test::runtime::{Action, clipboard, task};
+
+    let hash = "51ad19201234567890123456789012345678901234";
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut state = App::new(Rc::new(I18n::new(language)));
+        state.loaded = true;
+        state.panes = pane_grid::State::new(Panel::Git).0;
+        state.repository = Some(
+            Repository {
+                root: PathBuf::new(),
+                head: "main".into(),
+                branches: Vec::new(),
+                remotes: Vec::new(),
+                remote: None,
+                next_history: None,
+                commits: vec![Commit {
+                    id: hash.into(),
+                    parents: Vec::new(),
+                    subject: "A long commit title ".repeat(30),
+                    author: "Author".into(),
+                    date: "2026-11-10 12:00".into(),
+                    timestamp: 0,
+                    refs: "HEAD -> main".into(),
+                    graph: GraphRow::default(),
+                }],
+            }
+            .into(),
+        );
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), state.view());
+        assert!(ui.find("51ad192").unwrap().visible_bounds().is_some());
+        assert!(ui.find("Author").unwrap().visible_bounds().is_some());
+        let hash_bounds = ui
+            .find(Id::from(format!("copy-commit-id--{hash}")))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let pointer = hash_bounds.center();
+        ui.point_at(pointer);
+        ui.simulate([iced::Event::Mouse(iced::mouse::Event::CursorMoved {
+            position: pointer,
+        })]);
+        // Tooltip overlays do not expose their text through widget operations.
+        // Inspect the rendered overlay leaves to catch nested, simultaneous hints.
+        use iced::advanced::{Layout, Shell, layout, mouse, widget::Tree};
+        use iced_test::core::renderer::Headless;
+        let renderer = iced::Renderer::new(iced::Font::DEFAULT, 16.into(), Some("tiny-skia"))
+            .await
+            .unwrap();
+        for (pointer, multiline) in [
+            (hash_bounds.center(), false),
+            (
+                iced::Point::new(hash_bounds.x - 20., hash_bounds.center_y()),
+                true,
+            ),
+        ] {
+            let mut view = state.view();
+            let mut tree = Tree::new(&view);
+            let size = iced::Size::new(1080., 720.);
+            let node = view.as_widget_mut().layout(
+                &mut tree,
+                &renderer,
+                &layout::Limits::new(iced::Size::ZERO, size),
+            );
+            view.as_widget_mut().update(
+                &mut tree,
+                &iced::Event::Mouse(iced::mouse::Event::CursorMoved { position: pointer }),
+                Layout::new(&node),
+                mouse::Cursor::Available(pointer),
+                &renderer,
+                &mut iced_test::core::clipboard::Null,
+                &mut Shell::new(&mut Vec::new()),
+                &iced::Rectangle::with_size(size),
+            );
+            let mut overlay = view
+                .as_widget_mut()
+                .overlay(
+                    &mut tree,
+                    Layout::new(&node),
+                    &renderer,
+                    &iced::Rectangle::with_size(size),
+                    iced::Vector::ZERO,
+                )
+                .expect("hover opens one hint");
+            let overlay_node = overlay.as_overlay_mut().layout(&renderer, size);
+            fn leaves(node: &layout::Node) -> Vec<iced::Rectangle> {
+                if node.children().is_empty() {
+                    vec![node.bounds()]
+                } else {
+                    node.children().iter().flat_map(leaves).collect()
+                }
+            }
+            let hints = leaves(&overlay_node);
+            assert_eq!(
+                hints.len(),
+                if multiline { 1 } else { 2 },
+                "title and hash hints must not overlap"
+            );
+            assert_eq!(hints[0].height > 30., multiline);
+        }
+        ui.click(Id::from(format!("copy-commit-id--{hash}")))
+            .unwrap();
+        let messages = ui.into_messages().collect::<Vec<_>>();
+        assert!(matches!(messages.as_slice(), [Message::CopyCommitId(id)] if id == hash));
+        let mut stream =
+            task::into_stream(state.update(messages.into_iter().next().unwrap())).unwrap();
+        match stream.next().await.unwrap() {
+            Action::Clipboard(clipboard::Action::Write { contents, .. }) => {
+                assert_eq!(contents, hash)
+            }
+            action => panic!("Expected a clipboard write, got {action:?}"),
+        }
+        assert!(state.selected_commit.is_none());
+    }
+}
+
+#[test]
+fn render_website_screenshots_when_requested() {
+    use crate::domain::{
+        changes::{FileChange, FileStatus, Worktree},
+        jobs::{Details, Job, Stage},
+        repository::{Branch, ReferenceKind, Remote},
+    };
+    use std::collections::BTreeMap;
+    let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) else {
+        return;
+    };
+    let mut app = history_state(12, false);
+    let root = PathBuf::from("/workspace/northstar");
+    let frontend = root.join("frontend");
+    let backend = root.join("backend");
+    app.workspace = crate::domain::workspace::Workspace::default();
+    app.workspace.create_space(
+        "Product".into(),
+        vec![root.clone(), PathBuf::from("/workspace/design-system")],
+    );
+    app.workspace.spaces[0].projects[0].name = "Northstar".into();
+    app.workspace.spaces[0].projects[1].name = "Design system".into();
+    app.workspace.select_project(0, 0);
+    app.project_directory = Some(root.clone());
+    app.navigation = Navigation::Files;
+    let subjects = [
+        "Keep project context when switching workspaces",
+        "Add clear empty states to the dashboard",
+        "Improve keyboard navigation",
+        "Show repository branches in the header",
+        "Polish the activity timeline",
+        "Keep line numbers visible while scrolling",
+        "Add workflow summaries",
+        "Simplify project navigation",
+        "Improve source comparisons",
+        "Add reusable status cards",
+        "Organize dashboard sections",
+        "Create the project workspace",
+    ];
+    let repositories = app.repository.as_mut().unwrap();
+    let hashes: BTreeMap<_, _> = repositories
+        .commits
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            (
+                entry.commit.id.clone(),
+                format!("{:08x}{:032x}", (index + 1) * 0x01a2b3c4usize, index + 1),
+            )
+        })
+        .collect();
+    for (index, entry) in repositories.commits.iter_mut().enumerate() {
+        entry.root = frontend.clone();
+        entry.commit.id = hashes[&entry.commit.id].clone();
+        entry.commit.parents = entry
+            .commit
+            .parents
+            .iter()
+            .filter_map(|parent| hashes.get(parent).cloned())
+            .collect();
+        entry.commit.subject = subjects[index].into();
+        entry.commit.author = if index % 3 == 0 {
+            "Alex Morgan"
+        } else {
+            "Sam Rivera"
+        }
+        .into();
+        entry.commit.date = format!("2026-11-09 {:02}:20", 18 - index);
+        entry.commit.refs = match index {
+            0 => "HEAD -> feature/workspace",
+            3 => "main, origin/main",
+            _ => "",
+        }
+        .into();
+    }
+    crate::domain::repository::project::assign_graph(&mut repositories.commits, Vec::new());
+    let first_hash = repositories.commits[0].commit.id.clone();
+    let first = &mut repositories.repositories[0];
+    first.root = frontend.clone();
+    first.head = "feature/workspace".into();
+    first.remote = Remote::parse("https://github.com/example/northstar.git");
+    first.branches = [
+        (
+            "feature/workspace",
+            "refs/heads/feature/workspace",
+            true,
+            ReferenceKind::Local,
+        ),
+        ("main", "refs/heads/main", false, ReferenceKind::Local),
+        (
+            "origin/main",
+            "refs/remotes/origin/main",
+            false,
+            ReferenceKind::Remote,
+        ),
+    ]
+    .map(|(name, reference, current, kind)| Branch {
+        name: name.into(),
+        reference: reference.into(),
+        current,
+        kind,
+    })
+    .into();
+    let mut second = first.clone();
+    second.root = backend.clone();
+    second.head = "main".into();
+    second.branches = vec![Branch {
+        name: "main".into(),
+        reference: "refs/heads/main".into(),
+        current: true,
+        kind: ReferenceKind::Local,
+    }];
+    repositories.repositories.push(second);
+    repositories.active_root = frontend.clone();
+    app.branch = Some(BranchKey {
+        root: frontend.clone(),
+        reference: "refs/heads/feature/workspace".into(),
+    });
+    app.expanded_branch_folders = [
+        format!("repo:{}", frontend.display()),
+        format!("{}:false", frontend.display()),
+        format!("repo:{}", backend.display()),
+        format!("{}:false", backend.display()),
+    ]
+    .into();
+    let entries = |directory: &std::path::Path, names: &[(&str, bool)]| {
+        names
+            .iter()
+            .map(|(name, folder)| FileEntry {
+                path: directory.join(name),
+                name: (*name).into(),
+                directory: *folder,
+            })
+            .collect()
+    };
+    app.tree.insert(
+        root.clone(),
+        entries(
+            &root,
+            &[
+                ("backend", true),
+                ("frontend", true),
+                ("docs", true),
+                ("README.md", false),
+            ],
+        ),
+    );
+    app.tree.insert(
+        frontend.clone(),
+        entries(
+            &frontend,
+            &[
+                ("src", true),
+                ("tests", true),
+                ("package.json", false),
+                ("tsconfig.json", false),
+            ],
+        ),
+    );
+    let src = frontend.join("src");
+    app.tree.insert(
+        src.clone(),
+        entries(
+            &src,
+            &[
+                ("components", true),
+                ("App.tsx", false),
+                ("Dashboard.tsx", false),
+                ("styles.css", false),
+            ],
+        ),
+    );
+    app.expanded
+        .extend([root.clone(), frontend.clone(), src.clone()]);
+    let before = r#"import { useState } from 'react';
+import { ActivityList } from './components/ActivityList';
+import { ProjectCard } from './components/ProjectCard';
+
+const sections = ['Overview', 'Projects', 'Activity'];
+
+export function App() {
+  const [selected, setSelected] = useState('Overview');
+  const projects = [
+    { name: 'Website', status: 'Ready', changes: 3 },
+    { name: 'Design system', status: 'In progress', changes: 2 },
+  ];
+
+  return (
+    <main className="workspace">
+      <header className="workspace-header">
+        <h1>Your workspace</h1>
+        <p>Keep your projects and their history together.</p>
+      </header>
+
+      <nav aria-label="Workspace sections">
+        {sections.map((section) => (
+          <button key={section} onClick={() => setSelected(section)}>
+            {section}
+          </button>
+        ))}
+      </nav>
+
+      <section aria-label={selected}>
+        {projects.map((project) => (
+          <ProjectCard key={project.name} project={project} />
+        ))}
+        <ActivityList limit={5} />
+      </section>
+    </main>
+  );
+}
+"#;
+    let after = before
+        .replace("useState('Overview')", "useState('Projects')")
+        .replace("Your workspace", "Your projects, together")
+        .replace("limit={5}", "limit={10}");
+    for (path, content, extension) in [
+        (
+            root.join("README.md"),
+            "# Northstar\n\nA clear workspace for projects and their history.\n",
+            "md",
+        ),
+        (
+            src.join("Dashboard.tsx"),
+            "export function Dashboard() {\n  return <section>Project activity</section>;\n}\n",
+            "tsx",
+        ),
+        (src.join("App.tsx"), before, "tsx"),
+    ] {
+        let _ = app.open_file(path);
+        let _ = app.finish_preview(
+            app.preview().id,
+            Ok(Document::new(content.into(), extension)),
+        );
+    }
+    app.changes.loaded = true;
+    app.changes.status = Worktree::new(
+        &root,
+        [
+            (src.join("App.tsx"), FileStatus::Modified),
+            (src.join("Dashboard.tsx"), FileStatus::Added),
+            (root.join("README.md"), FileStatus::Untracked),
+        ]
+        .into_iter()
+        .map(|(path, status)| {
+            (
+                path,
+                FileChange {
+                    status,
+                    original: None,
+                },
+            )
+        })
+        .collect(),
+    );
+    app.changes.status.roots = vec![frontend.clone(), backend.clone()];
+    app.files.selected_path = Some(src.join("App.tsx"));
+    let capture = |app: &App, name: &str, size: (f32, f32)| {
+        let mut ui = iced_test::Simulator::with_size(ui_settings(), size, app.view());
+        ui.snapshot(&Theme::Dark)
+            .unwrap()
+            .matches_image(output.join(name))
+            .unwrap();
+    };
+    app.workspace.preferences.show_git = false;
+    app.workspace.preferences.show_pipelines = false;
+    app.sync_panels();
+    capture(&app, "workspace-en", (1440., 1000.));
+    app.workspace.preferences.show_git = true;
+    app.panes = pane_grid::State::new(Panel::Git).0;
+    capture(&app, "history-en", (1440., 920.));
+    app.workspace.preferences.show_git = false;
+    app.sync_panels();
+    app.file_panel = FilePanel::Changes;
+    let _ = app.finish_preview(
+        app.preview().id,
+        Ok(Document::from_source(
+            crate::domain::changes::Source {
+                text: after,
+                previous: Some(before.into()),
+                ..Default::default()
+            },
+            "tsx",
+        )),
+    );
+    capture(&app, "comparison-en", (1440., 920.));
+    app.pipelines = PipelineState::Ready(
+        subjects
+            .iter()
+            .take(6)
+            .enumerate()
+            .map(|(index, title)| Pipeline {
+                id: 1042 - index as u64,
+                number: Some(1042 - index as u64),
+                title: (*title).into(),
+                branch: if index < 2 {
+                    "feature/workspace"
+                } else {
+                    "main"
+                }
+                .into(),
+                commit: Some(first_hash.clone()),
+                status: if index == 0 { "in_progress" } else { "success" }.into(),
+                date: format!("2026-11-09T{:02}:20:00Z", 18 - index),
+                url: format!(
+                    "https://github.com/example/northstar/actions/runs/{}",
+                    1042 - index
+                ),
+            })
+            .collect(),
+    );
+    if let PipelineState::Ready(runs) = &app.pipelines {
+        for (index, run) in runs.iter().enumerate() {
+            let mut entry = jobs::overview::Entry::default();
+            entry.details = Some(Details {
+                stages: vec![Stage {
+                    name: None,
+                    provider_status: None,
+                    jobs: ["Format", "Lint", "Types", "Tests", "Build"]
+                        .iter()
+                        .enumerate()
+                        .map(|(job, name)| Job {
+                            id: job as u64 + 1,
+                            name: (*name).into(),
+                            status: if index == 0 && job == 4 {
+                                "in_progress"
+                            } else {
+                                "success"
+                            }
+                            .into(),
+                            url: run.url.clone(),
+                            actions: Vec::new(),
+                        })
+                        .collect(),
+                }],
+                cancelable: false,
+            });
+            app.jobs.overview.entries.insert(run.id, entry);
+        }
+    }
+    app.workspace.preferences.show_pipelines = true;
+    app.panes = pane_grid::State::new(Panel::Pipelines).0;
+    capture(&app, "pipelines-en", (1080., 720.));
 }

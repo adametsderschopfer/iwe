@@ -67,6 +67,9 @@ impl App {
                 self.changes.error = result.as_ref().err().copied();
                 match result {
                     Ok(status) => {
+                        if let Some(root) = self.workspace.directory().cloned() {
+                            self.remember_project_changes(root, &status);
+                        }
                         let previous = std::mem::replace(&mut self.changes.status, status);
                         let mut folders = BTreeSet::new();
                         for path in previous
@@ -96,7 +99,12 @@ impl App {
                             Task::batch(folders.into_iter().map(|path| self.refresh_folder(path)));
                         return Task::batch([refresh, self.refresh_preview()]);
                     }
-                    Err(Failure::NotRepository | Failure::MissingTool) => {
+                    Err(error @ (Failure::NotRepository | Failure::MissingTool)) => {
+                        if error == Failure::NotRepository
+                            && let Some(root) = self.workspace.directory().cloned()
+                        {
+                            self.remember_project_changes(root, &Worktree::default());
+                        }
                         self.changes.status = Worktree::default();
                         self.changes.disabled = true;
                     }

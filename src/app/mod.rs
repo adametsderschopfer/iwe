@@ -1,17 +1,23 @@
 //! Coordinate asynchronous reads, workspace state, and the native window.
 
 pub(crate) mod auth;
+pub(crate) mod branch_selection;
 pub(crate) mod changes;
 pub(crate) mod files;
 pub(crate) mod git_actions;
 pub(crate) mod jobs;
 pub(crate) mod line_navigation;
+#[cfg(target_os = "macos")]
+mod native_menu;
 pub(crate) mod notifications;
 mod pipeline_cache;
+pub(crate) mod project_changes;
 mod repositories;
+mod repository_cache;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
 pub(crate) mod updates;
+pub(crate) mod windows;
 
 use crate::domain::{
     Failure,
@@ -22,11 +28,9 @@ use crate::domain::{
     workspace::{Appearance, FileEntry, FilePanel, Workspace},
 };
 use crate::i18n::{I18n, Key, Language};
-use crate::infrastructure::{pipelines, window_effect, workspace};
+use crate::infrastructure::{pipelines, workspace};
 use crate::ui::{code::Document, screens, theme};
-use iced::{
-    Element, Program, Size, Subscription, Task, Theme, keyboard, widget::pane_grid, window,
-};
+use iced::{Element, Program, Subscription, Task, Theme, keyboard, widget::pane_grid, window};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
@@ -40,12 +44,16 @@ pub(crate) fn run(i18n: Rc<I18n>) -> iced::Result {
 
 fn application(
     i18n: Rc<I18n>,
-) -> iced::Application<impl Program<State = App, Message = Message, Theme = Theme>> {
-    iced::application(
+) -> iced::Daemon<impl Program<State = App, Message = Message, Theme = Theme>> {
+    iced::daemon(
         move || {
+            let mut app = App::new(Rc::clone(&i18n));
+            let (id, open) = window::open(windows::main_settings());
+            app.window_id = Some(id);
             (
-                App::new(Rc::clone(&i18n)),
+                app,
                 Task::batch([
+                    open.map(Message::WindowOpened),
                     Task::perform(workspace::load(), Message::Loaded),
                     Task::done(Message::Update(updates::Event::Automatic(
                         updates::Trigger::Periodic,
@@ -54,30 +62,19 @@ fn application(
             )
         },
         App::update,
-        App::view,
+        App::view_window,
     )
-    .title(|state: &App| state.i18n.text(Key::AppTitle))
-    .window(window::Settings {
-        size: Size::new(1440.0, 920.0),
-        min_size: Some(Size::new(1080.0, 720.0)),
-        position: window::Position::Centered,
-        icon: crate::ui::branding::window_icon(),
-        transparent: cfg!(target_os = "macos"),
-        decorations: !cfg!(target_os = "windows"),
-        #[cfg(target_os = "macos")]
-        platform_specific: window::settings::PlatformSpecific {
-            title_hidden: true,
-            titlebar_transparent: true,
-            fullsize_content_view: true,
-        },
-        ..window::Settings::default()
-    })
+    .title(App::window_title)
     .subscription(|app| {
         Subscription::batch([
             app.change_subscription(),
+            app.project_change_subscription(),
             iced::time::every(std::time::Duration::from_secs(60))
                 .map(|_| Message::Update(updates::Event::Automatic(updates::Trigger::Periodic))),
-            window::events().filter_map(|(_, event)| match event {
+            window::events().filter_map(|(id, event)| match event {
+                window::Event::Unfocused => Some(Message::BranchSelection(
+                    branch_selection::Event::Unfocused(id),
+                )),
                 window::Event::Focused => Some(Message::Update(updates::Event::Automatic(
                     updates::Trigger::Focused,
                 ))),
@@ -86,12 +83,23 @@ fn application(
             app.pipeline_subscription(),
             app.jobs_subscription(),
             app.notifications.subscription().map(Message::Notification),
-            window::open_events().map(Message::WindowOpened),
+            window::close_requests().map(|id| Message::Window(windows::Event::Close(id))),
+            window::close_events().map(|id| Message::Window(windows::Event::Closed(id))),
+            #[cfg(target_os = "macos")]
+            app.native_menu_subscription(),
             window_state_subscription(),
-            iced::event::listen_with(|event, _, _| shortcut(event)),
+            iced::event::listen_with(|event, _, id| {
+                if let iced::Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) = event {
+                    Some(Message::BranchSelection(
+                        branch_selection::Event::Modifiers(id, modifiers),
+                    ))
+                } else {
+                    shortcut(event).map(|message| Message::WindowShortcut(id, Box::new(message)))
+                }
+            }),
         ])
     })
-    .theme(App::theme)
+    .theme(|app: &App, _| app.theme())
     .default_font(theme::font())
     .style(|state, theme| theme::application_style(state.glass_ready, theme))
 }
@@ -133,7 +141,11 @@ fn shortcut(event: iced::Event) -> Option<Message> {
     let line_character = if cfg!(target_os = "macos") { "l" } else { "g" };
     let go_to_line = physical_key == keyboard::key::Physical::Code(line_key)
         || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case(line_character));
-    if go_to_line && modifiers == keyboard::Modifiers::COMMAND {
+    let settings = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::Comma)
+        || matches!(&key, keyboard::Key::Character(character) if character == ",");
+    if settings && modifiers == keyboard::Modifiers::COMMAND {
+        Some(Message::Navigate(Navigation::Settings))
+    } else if go_to_line && modifiers == keyboard::Modifiers::COMMAND {
         Some(Message::GoToLine(line_navigation::Event::Open))
     } else if close && modifiers == keyboard::Modifiers::COMMAND {
         Some(Message::CloseActiveTab)
@@ -209,10 +221,15 @@ pub(crate) struct App {
     pub file_panel_visible: bool,
     pub git_actions: git_actions::State,
     pub project_menu: Option<(usize, PathBuf, iced::Point)>,
+    pub space_menu: Option<(usize, iced::Point)>,
+    pub repository_menu: Option<iced::Point>,
     pub collapsed_worktree_folders: BTreeSet<String>,
     pub changes: changes::State,
+    repository_cache: repository_cache::Cache,
+    pub project_changes: project_changes::State,
     pub tabs: tabs::State,
     pub branch: Option<BranchKey>,
+    pub branch_selection: branch_selection::State,
     pub branch_attention: Option<u64>,
     branch_attention_request: u64,
     pub query: String,
@@ -236,6 +253,9 @@ pub(crate) struct App {
     pub picking: bool,
     pub loaded: bool,
     window_id: Option<window::Id>,
+    pub(crate) windows: windows::State,
+    #[cfg(target_os = "macos")]
+    native_menu: native_menu::State,
     pub window_maximized: bool,
     glass_ready: bool,
     generation: u64,
@@ -260,10 +280,17 @@ pub(crate) struct App {
 #[derive(Debug, Clone)]
 pub(crate) enum Message {
     WindowOpened(window::Id),
+    Window(windows::Event),
+    WindowShortcut(window::Id, Box<Message>),
+    #[cfg(target_os = "macos")]
+    NativeMenu(native_menu::Event),
     Update(updates::Event),
     DragWindow,
     ToggleWindowMaximized,
     RevealGitBranches,
+    RevealRepositoryBranches(PathBuf),
+    OpenRepositoryMenu(iced::Point),
+    CloseRepositoryMenu,
     ClearBranchAttention(u64),
     WindowMaximized(bool),
     #[cfg(target_os = "windows")]
@@ -281,7 +308,10 @@ pub(crate) enum Message {
     SelectSettingsTab(SettingsTab),
     Space(spaces::Message),
     Git(git_actions::Message),
+    BranchSelection(branch_selection::Event),
     ProjectMenu(usize, PathBuf, iced::Point),
+    SpaceMenu(usize, iced::Point),
+    CloseSpaceMenu,
     TogglePinned,
     RemoveProjectFromSpace,
     CloseProjectMenu,
@@ -304,6 +334,7 @@ pub(crate) enum Message {
     ToggleWorktreeFolder(String),
     Files(files::Event),
     Worktree(changes::Event),
+    ProjectChanges(project_changes::Event),
     OpenFile(PathBuf),
     GoToLine(line_navigation::Event),
     CodeSelection(u64, crate::ui::code::selection::Action),
@@ -336,6 +367,9 @@ pub(crate) enum Message {
     SetCodeSize(u16),
     SetLineNumbers(bool),
     CopyPath,
+    OpenTabMenu(iced::Point),
+    CloseTabMenu,
+    CopyCommitId(String),
     SelectTab(u64),
     CloseTab(u64),
     CloseActiveTab,
@@ -386,10 +420,15 @@ impl App {
             file_panel_visible: true,
             git_actions: git_actions::State::default(),
             project_menu: None,
+            space_menu: None,
+            repository_menu: None,
             collapsed_worktree_folders: BTreeSet::new(),
             changes: changes::State::default(),
+            repository_cache: repository_cache::Cache::default(),
+            project_changes: project_changes::State::default(),
             tabs: tabs::State::default(),
             branch: None,
+            branch_selection: branch_selection::State::default(),
             branch_attention: None,
             branch_attention_request: 0,
             query: String::new(),
@@ -417,6 +456,9 @@ impl App {
             update_schedule: updates::Schedule::default(),
             loaded: false,
             window_id: None,
+            windows: windows::State::default(),
+            #[cfg(target_os = "macos")]
+            native_menu: native_menu::State::default(),
             window_maximized: false,
             glass_ready: false,
             generation: 0,
@@ -456,13 +498,14 @@ impl App {
         if (self.auth_dialog.is_some()
             || self.line_navigation.is_some()
             || self.space_draft.is_some()
-            || self.git_actions.dialog.is_some())
+            || self.git_actions.has_dialog())
             && matches!(
                 message,
                 Message::Navigate(_)
                     | Message::SelectSettingsTab(_)
                     | Message::SelectProject(_, _)
                     | Message::RevealGitBranches
+                    | Message::RevealRepositoryBranches(_)
                     | Message::RemoveProjectFromSpace
                     | Message::SelectFilePanel(_)
                     | Message::ToggleFilePanel(_)
@@ -472,6 +515,7 @@ impl App {
                     | Message::SelectBranch(_)
                     | Message::AllRepositories
                     | Message::SelectCommit(_)
+                    | Message::CopyCommitId(_)
                     | Message::SelectTab(_)
                     | Message::CloseTab(_)
                     | Message::CloseActiveTab
@@ -491,19 +535,73 @@ impl App {
             return Task::none();
         }
         match message {
+            Message::OpenTabMenu(point)
+                if self.space_draft.is_none()
+                    && self.auth_dialog.is_none()
+                    && !self.git_actions.has_dialog() =>
+            {
+                self.space_menu = None;
+                self.project_menu = None;
+                self.files.menu = None;
+                self.git_actions.menu = None;
+                self.git_actions.bulk.menu = None;
+                self.tabs.menu = Some(point);
+                self.repository_menu = None;
+            }
+            Message::CloseTabMenu => self.tabs.menu = None,
+            Message::OpenRepositoryMenu(point)
+                if self.space_draft.is_none()
+                    && self.auth_dialog.is_none()
+                    && self.line_navigation.is_none()
+                    && !self.git_actions.has_dialog()
+                    && self
+                        .repository
+                        .as_ref()
+                        .is_some_and(|repos| repos.repositories.len() > 2) =>
+            {
+                self.tabs.menu = None;
+                self.space_menu = None;
+                self.project_menu = None;
+                self.files.menu = None;
+                self.git_actions.menu = None;
+                self.git_actions.bulk.menu = None;
+                self.repository_menu = Some(point);
+            }
+            Message::CloseRepositoryMenu => self.repository_menu = None,
+            Message::RevealRepositoryBranches(root) => {
+                return self.reveal_repository_branches(root);
+            }
+            Message::ProjectChanges(event) => return self.update_project_changes(event),
             Message::Update(event) => return self.update_release(event),
             Message::GoToLine(event) => return self.update_line_navigation(event),
             Message::Git(message) => return self.update_git(message),
+            Message::BranchSelection(event) => return self.update_branch_selection(event),
             Message::ProjectMenu(space, path, point)
                 if self.space_draft.is_none()
                     && self.auth_dialog.is_none()
-                    && self.git_actions.dialog.is_none() =>
+                    && !self.git_actions.has_dialog() =>
             {
+                self.space_menu = None;
                 self.git_actions.menu = None;
                 self.files.menu = None;
                 self.project_menu = Some((space, path, point));
             }
             Message::CloseProjectMenu => self.project_menu = None,
+            Message::SpaceMenu(index, point)
+                if self.loaded
+                    && !self.picking
+                    && self.space_draft.is_none()
+                    && self.auth_dialog.is_none()
+                    && !self.git_actions.has_dialog()
+                    && index < self.workspace.spaces.len() =>
+            {
+                self.project_menu = None;
+                self.git_actions.menu = None;
+                self.git_actions.bulk.menu = None;
+                self.files.menu = None;
+                self.space_menu = Some((index, point));
+            }
+            Message::CloseSpaceMenu => self.space_menu = None,
             Message::RemoveProjectFromSpace => return self.remove_project_from_space(),
             Message::TogglePinned => {
                 if let Some((space, path, _)) = self.project_menu.take()
@@ -518,12 +616,21 @@ impl App {
                     return self.save();
                 }
             }
-            Message::WindowOpened(id) => {
-                self.window_id = Some(id);
-                return Task::batch([
-                    window::run(id, window_effect::apply).map(Message::GlassConfigured),
-                    window::is_maximized(id).map(Message::WindowMaximized),
-                ]);
+            Message::WindowOpened(id) => return self.window_opened(id),
+            Message::Window(event) => return self.update_window(event),
+            #[cfg(target_os = "macos")]
+            Message::NativeMenu(event) => return self.update_native_menu(event),
+            Message::WindowShortcut(id, message) => {
+                if self.windows.settings == Some(id) {
+                    return match *message {
+                        Message::CloseActiveTab => self.update_window(windows::Event::Close(id)),
+                        Message::Navigate(Navigation::Settings) => self.open_settings(),
+                        _ => Task::none(),
+                    };
+                }
+                if self.window_id == Some(id) {
+                    return self.update(*message);
+                }
             }
             Message::DragWindow => {
                 return self.window_id.map_or_else(Task::none, window::drag);
@@ -535,6 +642,11 @@ impl App {
                 });
             }
             Message::WindowMaximized(maximized) => self.window_maximized = maximized,
+            #[cfg(target_os = "windows")]
+            Message::WindowResized(id) if self.windows.settings == Some(id) => {
+                return window::is_maximized(id)
+                    .map(|value| Message::Window(windows::Event::Maximized(value)));
+            }
             #[cfg(target_os = "windows")]
             Message::WindowResized(id) if self.window_id == Some(id) => {
                 return window::is_maximized(id).map(Message::WindowMaximized);
@@ -574,7 +686,12 @@ impl App {
                     }
                 }
                 self.apply_language();
-                return Task::batch([self.load_directory(), self.save(), dialog]);
+                return Task::batch([
+                    self.load_directory(),
+                    self.refresh_project_changes(),
+                    self.save(),
+                    dialog,
+                ]);
             }
             Message::Saved(result) => {
                 self.saving = false;
@@ -592,16 +709,24 @@ impl App {
                     return self.restart_after_save(true);
                 }
             }
+            Message::Navigate(Navigation::Settings) => return self.open_settings(),
             Message::Navigate(navigation) => {
                 self.navigation = navigation;
                 self.jobs.overview.popup = None;
-                if navigation != Navigation::Settings {
-                    return self.refresh_pipeline_overviews(false);
-                }
+                return self.refresh_pipeline_overviews(false);
             }
             Message::SelectSettingsTab(tab) => self.settings_tab = tab,
             Message::Space(message) => return self.update_space(message),
             Message::DismissDialog => {
+                if self.repository_menu.take().is_some() {
+                    return Task::none();
+                }
+                if self.tabs.menu.take().is_some() {
+                    return Task::none();
+                }
+                if self.space_menu.take().is_some() {
+                    return Task::none();
+                }
                 if self.line_navigation.take().is_some() {
                     return Task::none();
                 }
@@ -609,11 +734,17 @@ impl App {
                     return Task::none();
                 }
                 self.project_menu = None;
-                if self.git_actions.menu.is_some() || self.git_actions.dialog.is_some() {
+                if self.git_actions.menu.is_some()
+                    || self.git_actions.bulk.menu.is_some()
+                    || self.git_actions.has_dialog()
+                {
                     return self.update_git(git_actions::Message::Close);
                 }
                 if self.space_draft.is_some() {
                     return self.update_space(spaces::Message::Cancel);
+                }
+                if !self.branch_selection.selected.is_empty() {
+                    return self.update_branch_selection(branch_selection::Event::Clear);
                 }
                 if self.auth_dialog.is_none() && self.jobs.overview.popup.take().is_some() {
                     return Task::none();
@@ -679,6 +810,9 @@ impl App {
                 let reload_pipelines = std::mem::take(&mut self.pipeline_reload_after_repository);
                 match result {
                     Ok(mut repo) => {
+                        if repo.repositories.len() <= 2 {
+                            self.repository_menu = None;
+                        }
                         let multiple = repo.repositories.len() > 1;
                         for member in &mut repo.repositories {
                             if let Some(remote) = member.remote.as_mut()
@@ -729,8 +863,10 @@ impl App {
                                     )
                                 });
                         }
+                        self.branch_selection.prune(&repo);
                         self.repository = Some(repo);
                         self.repository_error = None;
+                        self.cache_repository();
                         self.sync_panels();
                         let pipeline_task = if (self.workspace.preferences.show_pipelines
                             || self.workspace.preferences.show_git)
@@ -748,14 +884,21 @@ impl App {
                         return Task::batch([pipeline_task, history_task]);
                     }
                     Err(error) => {
-                        self.repository_error = Some(error);
+                        self.repository_error = self.repository.is_none().then_some(error);
                         if error == Failure::NotRepository {
+                            self.repository_menu = None;
+                            if let Some(root) = self.workspace.directory() {
+                                self.repository_cache.remove(root);
+                            }
+                            self.repository_error = Some(error);
                             self.reset_jobs();
                             self.repository = None;
                             self.pipelines = PipelineState::Idle;
                             self.account_username = None;
                             self.pipeline_request += 1;
                             self.pipeline_refreshing = false;
+                        } else if self.repository.is_some() {
+                            self.notifications.error(error_key(error), None);
                         }
                         self.sync_panels();
                     }
@@ -815,6 +958,7 @@ impl App {
                 return self.finish_preview(request, result);
             }
             Message::SelectBranch(reference) => {
+                self.branch_selection.selected.clear();
                 if self
                     .repository
                     .as_ref()
@@ -833,6 +977,7 @@ impl App {
                 return self.load_repository();
             }
             Message::AllRepositories => {
+                self.branch_selection.selected.clear();
                 self.branch = None;
                 self.close_commit_files();
                 return self.load_repository();
@@ -853,6 +998,7 @@ impl App {
                 }
             }
             Message::ToggleBranchFolder(path) => {
+                self.branch_selection.selected.clear();
                 if !self.expanded_branch_folders.remove(&path) {
                     self.expanded_branch_folders.insert(path);
                 }
@@ -1028,6 +1174,7 @@ impl App {
                     return iced::clipboard::write(path.to_string_lossy().into_owned());
                 }
             }
+            Message::CopyCommitId(id) => return iced::clipboard::write(id),
             Message::SelectTab(id) => return self.select_tab(id),
             Message::CloseTab(id) => return self.close_tab(id),
             Message::ToggleUnchanged(id) => return self.toggle_unchanged(id),
@@ -1076,10 +1223,22 @@ impl App {
     }
 
     fn load_directory(&mut self) -> Task<Message> {
+        self.repository_menu = None;
+        if let Some(root) = self.project_directory.as_ref() {
+            self.repository_cache.remember_folders(
+                root,
+                &self.branch,
+                &self.expanded_branch_folders,
+            );
+        }
+        self.tabs.menu = None;
+        self.branch_selection.selected.clear();
+        self.git_actions.bulk.menu = None;
         self.branch_attention = None;
         self.line_navigation = None;
         self.git_actions.menu = None;
         self.project_menu = None;
+        self.space_menu = None;
         let directory = self.workspace.directory().cloned();
         let same_project = self.project_directory == directory;
         self.project_directory = directory;
@@ -1104,7 +1263,9 @@ impl App {
         self.query.clear();
         self.close_commit_files();
         self.expanded_branch_folders = BTreeSet::from(["false".to_owned()]);
-        if let Some(repos) = &self.repository
+        let restored_git = !same_project && self.restore_cached_repository();
+        if !restored_git
+            && let Some(repos) = &self.repository
             && repos.repositories.len() > 1
         {
             for repo in &repos.repositories {
