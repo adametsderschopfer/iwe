@@ -609,7 +609,7 @@
     "version": "0.1.14",
     "status": "released",
     "publishedAt": "2026-11-10T08:24:14Z",
-    "tags": ["macos-v0.1.14", "windows-v0.1.14", "linux-v0.1.14"],
+    "tags": ["macos-v0.1.14", "windows-v0.1.14", "linux-v0.1.14", "v0.1.14"],
     "source": "dff73cb720480042e7346cd8ca2f633cc1b6ef61",
     "items": [
       {
