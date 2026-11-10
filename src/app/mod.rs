@@ -11,6 +11,7 @@ pub(crate) mod line_navigation;
 mod native_menu;
 pub(crate) mod notifications;
 mod pipeline_cache;
+pub(crate) mod project_add;
 pub(crate) mod project_changes;
 mod repositories;
 mod repository_cache;
@@ -244,6 +245,9 @@ pub(crate) struct App {
     pub jobs: jobs::State,
     pub auth_dialog: Option<auth::Dialog>,
     pub space_draft: Option<spaces::Draft>,
+    pub project_add: Option<project_add::Draft>,
+    pub copied_commit: Option<String>,
+    copy_request: u64,
     pub line_navigation: Option<line_navigation::Dialog>,
     pub account_username: Option<String>,
     pub disconnecting: bool,
@@ -307,6 +311,7 @@ pub(crate) enum Message {
     Navigate(Navigation),
     SelectSettingsTab(SettingsTab),
     Space(spaces::Message),
+    ProjectAdd(project_add::Message),
     Git(git_actions::Message),
     BranchSelection(branch_selection::Event),
     ProjectMenu(usize, PathBuf, iced::Point),
@@ -370,6 +375,8 @@ pub(crate) enum Message {
     OpenTabMenu(iced::Point),
     CloseTabMenu,
     CopyCommitId(String),
+    CommitIdCopied(u64, String),
+    ClearCopiedCommit(u64),
     SelectTab(u64),
     CloseTab(u64),
     CloseActiveTab,
@@ -443,6 +450,9 @@ impl App {
             jobs: jobs::State::default(),
             auth_dialog: None,
             space_draft: None,
+            project_add: None,
+            copied_commit: None,
+            copy_request: 0,
             line_navigation: None,
             account_username: None,
             disconnecting: false,
@@ -497,6 +507,7 @@ impl App {
         }
         if (self.auth_dialog.is_some()
             || self.line_navigation.is_some()
+            || self.project_add.is_some()
             || self.space_draft.is_some()
             || self.git_actions.has_dialog())
             && matches!(
@@ -537,6 +548,7 @@ impl App {
         match message {
             Message::OpenTabMenu(point)
                 if self.space_draft.is_none()
+                    && self.project_add.is_none()
                     && self.auth_dialog.is_none()
                     && !self.git_actions.has_dialog() =>
             {
@@ -551,6 +563,7 @@ impl App {
             Message::CloseTabMenu => self.tabs.menu = None,
             Message::OpenRepositoryMenu(point)
                 if self.space_draft.is_none()
+                    && self.project_add.is_none()
                     && self.auth_dialog.is_none()
                     && self.line_navigation.is_none()
                     && !self.git_actions.has_dialog()
@@ -578,6 +591,7 @@ impl App {
             Message::BranchSelection(event) => return self.update_branch_selection(event),
             Message::ProjectMenu(space, path, point)
                 if self.space_draft.is_none()
+                    && self.project_add.is_none()
                     && self.auth_dialog.is_none()
                     && !self.git_actions.has_dialog() =>
             {
@@ -591,6 +605,7 @@ impl App {
                 if self.loaded
                     && !self.picking
                     && self.space_draft.is_none()
+                    && self.project_add.is_none()
                     && self.auth_dialog.is_none()
                     && !self.git_actions.has_dialog()
                     && index < self.workspace.spaces.len() =>
@@ -717,6 +732,7 @@ impl App {
             }
             Message::SelectSettingsTab(tab) => self.settings_tab = tab,
             Message::Space(message) => return self.update_space(message),
+            Message::ProjectAdd(message) => return self.update_project_add(message),
             Message::DismissDialog => {
                 if self.repository_menu.take().is_some() {
                     return Task::none();
@@ -739,6 +755,9 @@ impl App {
                     || self.git_actions.has_dialog()
                 {
                     return self.update_git(git_actions::Message::Close);
+                }
+                if self.project_add.is_some() {
+                    return self.update_project_add(project_add::Message::Cancel);
                 }
                 if self.space_draft.is_some() {
                     return self.update_space(spaces::Message::Cancel);
@@ -1174,7 +1193,23 @@ impl App {
                     return iced::clipboard::write(path.to_string_lossy().into_owned());
                 }
             }
-            Message::CopyCommitId(id) => return iced::clipboard::write(id),
+            Message::CopyCommitId(id) => {
+                self.copy_request += 1;
+                return iced::clipboard::write(id.clone())
+                    .chain(Task::done(Message::CommitIdCopied(self.copy_request, id)));
+            }
+            Message::CommitIdCopied(request, id) if request == self.copy_request => {
+                self.copied_commit = Some(id);
+                return Task::perform(
+                    async {
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    },
+                    move |()| Message::ClearCopiedCommit(request),
+                );
+            }
+            Message::ClearCopiedCommit(request) if request == self.copy_request => {
+                self.copied_commit = None;
+            }
             Message::SelectTab(id) => return self.select_tab(id),
             Message::CloseTab(id) => return self.close_tab(id),
             Message::ToggleUnchanged(id) => return self.toggle_unchanged(id),

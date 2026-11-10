@@ -80,6 +80,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
             ),
         ),
     );
+    let base = super::project_add::overlay(app, base);
     let base = super::line_navigation::overlay(app, base);
     let base = crate::ui::notifications::overlay(
         &app.notifications,
@@ -271,8 +272,10 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     }
     body = body.push(navigation).push(space().height(8));
     {
+        let mut groups = Column::new().spacing(4).width(Length::Fill);
         for (space_index, group) in app.workspace.spaces.iter().enumerate() {
-            body = body.push(context_menu::trigger(
+            let mut group_body = Column::new().spacing(4).width(Length::Fill);
+            group_body = group_body.push(context_menu::trigger(
                 container(
                     row![
                         button(
@@ -326,6 +329,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                 move |point| Message::SpaceMenu(space_index, point),
             ));
             if app.collapsed_spaces.contains(&space_index) {
+                groups = groups.push(group_body);
                 continue;
             }
             let mut projects = Column::new().spacing(4).width(Length::Fill);
@@ -361,10 +365,10 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                             },
                         )
                     };
-                body = body.push(projects);
+                group_body = group_body.push(projects);
             }
             if group.projects.is_empty() {
-                body = body.push(
+                group_body = group_body.push(
                     container(
                         text(app.i18n.text(Key::NoProjects))
                             .size(12)
@@ -373,7 +377,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                     .padding([6, 12]),
                 );
             }
-            body = body.push(
+            group_body = group_body.push(
                 button(
                     row![
                         icon(Icon::Plus, theme::MUTED),
@@ -382,15 +386,32 @@ fn sidebar(app: &App) -> Element<'_, Message> {
                     .spacing(8)
                     .align_y(Alignment::Center),
                 )
-                .on_press_maybe((!app.picking).then_some(Message::Space(
-                    crate::app::spaces::Message::PickProject(Some(space_index)),
+                .on_press_maybe((!app.picking).then_some(Message::ProjectAdd(
+                    crate::app::project_add::Message::Open(Some(space_index)),
                 )))
                 .style(theme::action(false))
                 .padding([8, 12])
                 .width(Length::Fill),
             );
-            body = body.push(space().height(8));
+            group_body = group_body.push(space().height(8));
+            groups = groups.push(group_body);
         }
+        let groups: Element<'_, Message> = if app.picking
+            || app.space_draft.is_some()
+            || app.project_add.is_some()
+            || app.auth_dialog.is_some()
+            || app.git_actions.has_dialog()
+        {
+            groups.into()
+        } else {
+            reorder::groups(
+                groups,
+                38.,
+                |from, to| Message::Space(crate::app::spaces::Message::MoveSpace(from, to)),
+                |offset| Message::Space(crate::app::spaces::Message::ScrollSpaces(offset)),
+            )
+        };
+        body = body.push(groups);
         if app.workspace.spaces.is_empty() {
             body = body.push(
                 container(

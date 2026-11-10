@@ -31,3 +31,11 @@ pub(crate) enum Error {
     CurrentBranch,
     BranchInWorktree,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CloneError {
+    InvalidRemote,
+    Destination,
+    Exists,
+    Failed,
+}

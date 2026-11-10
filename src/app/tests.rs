@@ -3175,3 +3175,40 @@ export function App() {
     app.panes = pane_grid::State::new(Panel::Pipelines).0;
     capture(&app, "pipelines-en", (1080., 720.));
 }
+
+#[test]
+fn copied_commit_feedback_ignores_old_timers_and_resets_after_two_seconds() {
+    let mut app = history_state(2, false);
+    let first_id = format!("{:040x}", 2);
+    let _ = app.update(Message::CopyCommitId(first_id.clone()));
+    let first = app.copy_request;
+    assert!(app.copied_commit.is_none());
+    let _ = app.update(Message::CommitIdCopied(first, first_id.clone()));
+    assert_eq!(app.copied_commit.as_deref(), Some(first_id.as_str()));
+    if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+        use iced::{Event, mouse, widget::Id};
+        app.i18n = Rc::new(I18n::new(Language::Russian));
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (1440., 920.), app.view());
+        let bounds = ui
+            .find(Id::from(format!("copy-commit-id-project-{first_id}")))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        ui.point_at(bounds.center());
+        ui.simulate([Event::Mouse(mouse::Event::CursorMoved {
+            position: bounds.center(),
+        })]);
+        ui.snapshot(&iced::Theme::Dark)
+            .unwrap()
+            .matches_image(output.join("copied-commit-hint"))
+            .unwrap();
+    }
+    let _ = app.update(Message::CopyCommitId("second".into()));
+    let second = app.copy_request;
+    let _ = app.update(Message::CommitIdCopied(second, "second".into()));
+    let _ = app.update(Message::ClearCopiedCommit(first));
+    assert_eq!(app.copied_commit.as_deref(), Some("second"));
+    let _ = app.update(Message::ClearCopiedCommit(second));
+    assert!(app.copied_commit.is_none());
+}

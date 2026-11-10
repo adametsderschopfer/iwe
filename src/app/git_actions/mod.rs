@@ -129,6 +129,7 @@ impl App {
             }
             _ if self.git_actions.pending
                 || self.space_draft.is_some()
+                || self.project_add.is_some()
                 || self.auth_dialog.is_some() => {}
             Message::Menu(key, position) => {
                 if self.branch_selection.selected.contains(&key) {

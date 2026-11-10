@@ -10,6 +10,7 @@ pub(crate) mod locale;
 pub(crate) mod native_menu;
 pub(crate) mod pipelines;
 pub(crate) mod process;
+pub(crate) mod project_clone;
 pub(crate) mod project_index;
 pub(crate) mod repository;
 pub(crate) mod updates;

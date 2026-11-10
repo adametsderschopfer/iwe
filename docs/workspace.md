@@ -40,6 +40,27 @@ maximize or restore, and close the window. Drag empty header space to move the w
 empty header space to maximize or restore it. Drag any edge or corner to resize a restored window.
 Window controls remain available while a dialog is open.
 
+Drag a space heading to change the space order. A line marks the drop position. Sidebar changes save
+immediately. The open project and collapsed spaces keep their state. Dragging project rows still
+changes only their order within that space.
+
+Choose **Add project** to select existing folders or clone a remote repository. The space form
+offers the same choice. Cloning accepts HTTPS and SSH repository URLs. The dialog derives the
+repository folder name from the URL. You can edit the complete destination or choose another parent
+folder before cloning.
+
+The suggested parent is the most common parent folder among projects in the target space. The space
+form uses its current folder choices. Empty or ambiguous choices use `IWE Code` inside the user's
+home directory. Startup creates this fallback folder on first launch. With `IWE_DATA_DIR`, the
+fallback folder stays inside that data directory for isolated runs.
+
+Cloning runs in the background and adds the project only after success. Git uses existing credential
+helpers and SSH configuration. Pipeline sign-in does not configure cloning access. Existing folders
+are never overwritten. During cloning, the dialog prevents duplicate requests and cancellation.
+Failures preserve the URL and destination for correction. A failed clone can leave its new folder on
+disk. Choose another destination or inspect that folder before retrying. Canceling a space form
+detaches its draft entries but preserves any repositories already cloned on disk.
+
 Drag project rows to change their order. The form shows five complete rows and half the sixth row
 when more projects exist. Scroll to reach the remaining projects. A line marks the drop position.
 Holding a dragged row near the list edge scrolls the list. Dropping outside the list cancels the
@@ -78,14 +99,17 @@ updates its indicator. Other projects refresh at startup and every ten seconds, 
 simultaneous status reads. Repeated project directories share one result. Failed reads preserve the
 last known indicator.
 
+After copying a commit hash, its hover hint turns green and shows **Copied to clipboard** for two
+seconds. The hint retains the complete hash. Repeated copying restarts that interval.
+
 Hover hints use a consistent eight-pixel gap from their controls. Cursor-following hints keep the
 same gap above the pointer. Hints remain inside the window near its edges.
 
 Spaces group projects and have no filesystem path. Their sidebar headings do not open a project.
 Each project represents one directory. Its folder name becomes the project name. Use **Add project**
-beneath a space to attach another folder. Selecting a project opens its files and Git history.
-Selecting the current project again preserves its files, history filter, and scroll positions.
-Adding a folder again selects its existing entry within that space.
+beneath a space to attach another folder or clone a repository. Selecting a project opens its files
+and Git history. Selecting the current project again preserves its files, history filter, and scroll
+positions. Adding a folder again selects its existing entry within that space.
 
 One click selects a project and immediately displays its files beside the projects sidebar. The file
 panel sits between its vertical toolbar and the source preview. The files view lists project

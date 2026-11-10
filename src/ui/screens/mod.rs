@@ -8,6 +8,7 @@ mod header_repositories;
 mod line_navigation;
 mod modal;
 mod pipelines;
+mod project_add;
 pub(crate) mod settings;
 mod space_form;
 mod tab_menu;

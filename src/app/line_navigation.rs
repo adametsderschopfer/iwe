@@ -47,6 +47,7 @@ impl App {
             Event::Open
                 if self.navigation != Navigation::Settings
                     && self.space_draft.is_none()
+                    && self.project_add.is_none()
                     && self.auth_dialog.is_none()
                     && !self.git_actions.has_dialog()
                     && self.preview().document.is_some()

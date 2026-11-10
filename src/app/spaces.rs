@@ -20,6 +20,8 @@ pub(crate) enum Message {
     ProjectsPicked(u64, Option<usize>, Vec<PathBuf>),
     RemoveProject(usize),
     MoveProject(Option<usize>, usize, usize),
+    MoveSpace(usize, usize),
+    ScrollSpaces(f32),
     ScrollProjects(Option<usize>, f32),
     Create,
     Cancel,
@@ -82,7 +84,7 @@ impl App {
     }
 
     pub(super) fn update_space(&mut self, message: Message) -> Task<AppMessage> {
-        if self.git_actions.has_dialog() {
+        if self.git_actions.has_dialog() || self.project_add.is_some() {
             return Task::none();
         }
         match message {
@@ -183,6 +185,29 @@ impl App {
                         }
                     }
                 }
+            }
+            Message::MoveSpace(from, to)
+                if self.loaded
+                    && !self.picking
+                    && self.auth_dialog.is_none()
+                    && self.space_draft.is_none() =>
+            {
+                if self.workspace.move_space(from, to) {
+                    self.collapsed_spaces = self
+                        .collapsed_spaces
+                        .iter()
+                        .map(|&index| crate::domain::workspace::moved_index(index, from, to))
+                        .collect();
+                    self.space_menu = None;
+                    self.project_menu = None;
+                    return self.save();
+                }
+            }
+            Message::ScrollSpaces(offset) => {
+                return operation::scroll_by(
+                    "project-browser",
+                    operation::AbsoluteOffset { x: 0., y: offset },
+                );
             }
             Message::MoveProject(space, from, to)
                 if self.loaded && !self.picking && self.auth_dialog.is_none() =>

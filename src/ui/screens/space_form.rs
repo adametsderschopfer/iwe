@@ -128,7 +128,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
                     text(app.i18n.text(if app.picking {
                         Key::ChoosingDirectory
                     } else {
-                        Key::AddProjectFolder
+                        Key::AddProject
                     }))
                     .size(14),
                 ]
@@ -137,9 +137,9 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
             )
             .padding([10, 14])
             .style(theme::secondary)
-            .on_press_maybe(
-                (!app.picking).then_some(Message::Space(spaces::Message::PickProject(None))),
-            ),
+            .on_press_maybe((!app.picking).then_some(Message::ProjectAdd(
+                crate::app::project_add::Message::Open(None),
+            ))),
         )
         .id("space-add-project"),
     );

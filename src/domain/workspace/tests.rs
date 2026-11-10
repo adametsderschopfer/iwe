@@ -204,3 +204,27 @@ fn removing_spaces_preserves_other_selections_and_selects_a_remaining_project() 
     assert_eq!(workspace.selected_project, None);
     assert!(!workspace.remove_space(0));
 }
+
+#[test]
+fn moving_spaces_in_both_directions_keeps_each_selected_project_and_metadata() {
+    for selected in 0..3 {
+        for from in 0..3 {
+            for to in 0..3 {
+                let mut workspace = Workspace::default();
+                for index in 0..3 {
+                    workspace.create_space(
+                        format!("Space {index}"),
+                        vec![PathBuf::from(format!("project-{index}"))],
+                    );
+                }
+                workspace.spaces[selected].projects[0].pinned = true;
+                workspace.select_project(selected, 0);
+                let directory = workspace.directory().cloned();
+                assert_eq!(workspace.move_space(from, to), from != to);
+                assert_eq!(workspace.directory(), directory.as_ref());
+                assert!(workspace.project().unwrap().pinned);
+                assert_eq!(workspace.spaces.len(), 3);
+            }
+        }
+    }
+}

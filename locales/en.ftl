@@ -271,3 +271,16 @@ git-bulk-pull-description = Update the listed branches?
 git-bulk-done = Branch operations completed
 git-bulk-failed = Some branch operations failed. Retry only the branches remaining in the dialog.
 git-bulk-result = Completed: { $success }. Failed: { $failed }.
+
+commit-id-copied = Copied to clipboard
+add-project-source = Choose existing folders or clone a remote repository.
+clone-repository = Clone repository
+repository-url = Repository URL
+repository-url-placeholder = https://example.com/team/project.git
+clone-destination = Repository folder
+choose-clone-parent = Choose parent folder
+cloning-repository = Cloning repository…
+clone-invalid-remote = Enter an HTTPS or SSH repository URL.
+clone-invalid-destination = Choose an absolute path to a new repository folder.
+clone-destination-exists = This folder already exists. Choose a new repository folder.
+clone-failed = Could not clone the repository. Check Git access and choose a new folder before retrying.

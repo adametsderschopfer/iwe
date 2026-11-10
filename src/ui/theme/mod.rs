@@ -630,3 +630,19 @@ pub(crate) fn application_style(glass_ready: bool, theme: &Theme) -> theme::Styl
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) fn success_tooltip(theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(GREEN.resolve(theme).into()),
+        text_color: Some(if theme.extended_palette().is_dark {
+            Color::BLACK
+        } else {
+            Color::WHITE
+        }),
+        border: Border {
+            color: GREEN.resolve(theme),
+            ..tooltip(theme).border
+        },
+        ..tooltip(theme)
+    }
+}

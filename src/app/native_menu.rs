@@ -44,6 +44,7 @@ impl App {
             quit: self.i18n.text(Key::MenuQuit),
             enabled: self.loaded
                 && self.space_draft.is_none()
+                && self.project_add.is_none()
                 && self.auth_dialog.is_none()
                 && !self.git_actions.has_dialog()
                 && self.line_navigation.is_none(),

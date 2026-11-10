@@ -755,12 +755,25 @@ fn commit_table(app: &App, available_width: f32, available_height: f32) -> Eleme
                 commit.id
             )),
             column![
-                text(app.i18n.text(Key::CopyCommitId)).size(12),
+                text(
+                    app.i18n
+                        .text(if app.copied_commit.as_ref() == Some(&commit.id) {
+                            Key::CommitIdCopied
+                        } else {
+                            Key::CopyCommitId
+                        })
+                )
+                .size(12),
                 text(&commit.id).size(11).font(Font::MONOSPACE),
             ]
             .spacing(4),
             tooltip::Position::Bottom,
-        );
+        )
+        .style(if app.copied_commit.as_ref() == Some(&commit.id) {
+            theme::success_tooltip
+        } else {
+            theme::tooltip
+        });
         let natural_width =
             ellipsis::measured_width(&commit.subject, 13.).ceil() + theme::COMMIT_HASH_WIDTH + 8.;
         let title = container(

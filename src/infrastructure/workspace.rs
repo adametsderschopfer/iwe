@@ -22,6 +22,7 @@ fn config_path() -> Result<PathBuf, Failure> {
 
 pub(crate) async fn load() -> Result<(Workspace, Option<PathBuf>), Failure> {
     tokio::task::spawn_blocking(|| {
+        let _ = std::fs::create_dir_all(super::project_clone::default_parent());
         let path = config_path()?;
         let mut workspace = load_at(&path)?;
         workspace.normalize();

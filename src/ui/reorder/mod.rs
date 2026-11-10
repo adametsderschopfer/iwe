@@ -22,6 +22,7 @@ pub(crate) fn column<'a, Message: 'a>(
     Element::new(Reorder {
         content: content.into(),
         action_width,
+        handle_height: None,
         on_move: Box::new(on_move),
         on_scroll: Some(Box::new(on_scroll)),
     })
@@ -34,14 +35,31 @@ pub(crate) fn fixed_column<'a, Message: 'a>(
     Element::new(Reorder {
         content: content.into(),
         action_width: 0.,
+        handle_height: None,
         on_move: Box::new(on_move),
         on_scroll: None,
+    })
+}
+
+pub(crate) fn groups<'a, Message: 'a>(
+    content: Column<'a, Message>,
+    handle_height: f32,
+    on_move: impl Fn(usize, usize) -> Message + 'a,
+    on_scroll: impl Fn(f32) -> Message + 'a,
+) -> Element<'a, Message> {
+    Element::new(Reorder {
+        content: content.into(),
+        action_width: 36.,
+        handle_height: Some(handle_height),
+        on_move: Box::new(on_move),
+        on_scroll: Some(Box::new(on_scroll)),
     })
 }
 
 struct Reorder<'a, Message> {
     content: Element<'a, Message>,
     action_width: f32,
+    handle_height: Option<f32>,
     on_move: Box<dyn Fn(usize, usize) -> Message + 'a>,
     on_scroll: Option<Box<dyn Fn(f32) -> Message + 'a>>,
 }
@@ -146,6 +164,9 @@ impl<Message> Widget<Message, Theme, Renderer> for Reorder<'_, Message> {
                     && viewport.contains(position)
                     && let Some(source) = layout.children().position(|row| {
                         row.bounds().contains(position)
+                            && self
+                                .handle_height
+                                .is_none_or(|height| position.y < row.bounds().y + height)
                             && position.x < row.bounds().x + row.bounds().width - self.action_width
                     })
                 {

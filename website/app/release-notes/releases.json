@@ -635,6 +635,67 @@
     ]
   },
   {
+    "version": "0.1.15",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "space-order",
+        "category": "added",
+        "text": {
+          "en": "Drag space headings to reorder spaces without changing the open project.",
+          "ru": "Перетаскивайте заголовки пространств, чтобы менять их порядок без переключения открытого проекта.",
+          "es": "Arrastra las cabeceras de los espacios para cambiar su orden sin cambiar el proyecto abierto."
+        },
+        "sources": [
+          "src/domain/workspace.rs",
+          "src/ui/reorder/mod.rs",
+          "src/ui/screens/workspace.rs"
+        ]
+      },
+      {
+        "id": "copied-commit-confirmation",
+        "category": "added",
+        "text": {
+          "en": "Copying a commit hash shows a green confirmation tooltip for two seconds.",
+          "ru": "После копирования хеша коммита зелёная подсказка подтверждает копирование в течение двух секунд.",
+          "es": "Al copiar el hash de un commit, una ayuda verde confirma la copia durante dos segundos."
+        },
+        "sources": ["src/app/mod.rs", "src/ui/screens/git.rs", "src/ui/theme/mod.rs"]
+      },
+      {
+        "id": "project-source-choice",
+        "category": "added",
+        "text": {
+          "en": "Choose existing folders or clone an HTTPS or SSH repository when adding a project.",
+          "ru": "При добавлении проекта выбирайте существующие папки или клонируйте репозиторий по HTTPS или SSH.",
+          "es": "Al añadir un proyecto, elige carpetas existentes o clona un repositorio mediante HTTPS o SSH."
+        },
+        "sources": [
+          "src/app/project_add/mod.rs",
+          "src/infrastructure/project_clone/mod.rs",
+          "src/ui/screens/project_add.rs"
+        ]
+      },
+      {
+        "id": "suggested-clone-folder",
+        "category": "added",
+        "text": {
+          "en": "Cloning suggests a folder beside the space’s projects, with the home directory’s IWE Code folder as a fallback.",
+          "ru": "Клонирование предлагает папку рядом с проектами пространства или папку IWE Code в домашней папке пользователя.",
+          "es": "La clonación propone una carpeta junto a los proyectos o la carpeta IWE Code del directorio personal."
+        },
+        "sources": [
+          "src/app/project_add/mod.rs",
+          "src/infrastructure/project_clone/mod.rs",
+          "src/infrastructure/workspace.rs"
+        ]
+      }
+    ]
+  },
+  {
     "version": "unreleased",
     "status": "prepared",
     "publishedAt": null,

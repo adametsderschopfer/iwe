@@ -271,3 +271,16 @@ git-bulk-pull-description = ¿Actualizar las ramas de la lista?
 git-bulk-done = Operaciones de ramas completadas
 git-bulk-failed = Algunas operaciones fallaron. Reintenta solo las ramas que quedan en el diálogo.
 git-bulk-result = Completadas: { $success }. Fallidas: { $failed }.
+
+commit-id-copied = Copiado al portapapeles
+add-project-source = Añade carpetas existentes o clona un repositorio remoto.
+clone-repository = Clonar repositorio
+repository-url = URL del repositorio
+repository-url-placeholder = https://example.com/team/project.git
+clone-destination = Carpeta del repositorio
+choose-clone-parent = Elegir carpeta principal
+cloning-repository = Clonando repositorio…
+clone-invalid-remote = Introduce una URL HTTPS o SSH del repositorio.
+clone-invalid-destination = Elige una ruta absoluta para una carpeta nueva.
+clone-destination-exists = Esta carpeta ya existe. Elige una carpeta nueva para el repositorio.
+clone-failed = No se pudo clonar el repositorio. Comprueba el acceso mediante Git y elige otra carpeta antes de reintentar.

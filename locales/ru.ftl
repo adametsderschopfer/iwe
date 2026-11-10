@@ -272,3 +272,16 @@ git-bulk-pull-description = Обновить перечисленные ветк
 git-bulk-done = Действия с ветками завершены
 git-bulk-failed = Некоторые действия с ветками завершились ошибкой. Повторите действия только для веток, оставшихся в окне.
 git-bulk-result = Завершено: { $success }. Ошибок: { $failed }.
+
+commit-id-copied = Скопировано в буфер обмена
+add-project-source = Добавьте существующие папки или склонируйте удалённый репозиторий.
+clone-repository = Клонировать репозиторий
+repository-url = Ссылка на репозиторий
+repository-url-placeholder = https://example.com/team/project.git
+clone-destination = Папка репозитория
+choose-clone-parent = Выбрать родительскую папку
+cloning-repository = Клонируем репозиторий…
+clone-invalid-remote = Укажите ссылку HTTPS или SSH на репозиторий.
+clone-invalid-destination = Укажите полный путь к новой папке репозитория.
+clone-destination-exists = Эта папка уже существует. Выберите новую папку репозитория.
+clone-failed = Не удалось клонировать репозиторий. Проверьте доступ через Git и выберите новую папку перед повтором.

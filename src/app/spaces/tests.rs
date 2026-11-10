@@ -737,3 +737,70 @@ fn overflowing_space_list_keeps_edit_buttons_outside_the_scrollbar_lane() {
         );
     }
 }
+
+#[test]
+fn dragging_spaces_preserves_selection_collapsed_state_and_saved_order() {
+    use iced::{Event, Point, mouse, widget::Id};
+    let mut app = state(Language::English);
+    app.workspace
+        .create_space("First".into(), vec!["first".into()]);
+    app.workspace
+        .create_space("Second".into(), vec!["second".into()]);
+    app.workspace
+        .create_space("Third".into(), vec!["third".into()]);
+    app.workspace.select_project(0, 0);
+    app.collapsed_spaces.insert(0);
+    let generation = app.generation;
+    let mut ui = iced_test::Simulator::with_size(settings(), (1080., 920.), app.view());
+    let first = ui
+        .find(Id::new("space-group-0"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    let third = ui
+        .find(Id::new("space-group-2"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    ui.point_at(first.center());
+    ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    ))]);
+    // Move past the last group's midpoint, including its project rows.
+    let end = Point::new(third.center_x(), third.y + 110.);
+    ui.point_at(end);
+    ui.simulate([
+        Event::Mouse(mouse::Event::CursorMoved { position: end }),
+        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+    ]);
+    let messages = ui.into_messages().collect::<Vec<_>>();
+    assert!(
+        matches!(
+            messages.as_slice(),
+            [AppMessage::Space(Message::MoveSpace(0, 2))]
+        ),
+        "{messages:?}"
+    );
+    for message in messages {
+        let _ = app.update(message);
+    }
+    assert_eq!(app.workspace.selected_space, Some(2));
+    assert_eq!(app.workspace.directory(), Some(&PathBuf::from("first")));
+    assert!(app.collapsed_spaces.contains(&2));
+    assert_eq!(app.generation, generation);
+    assert!(app.saving);
+    let restored: Workspace =
+        serde_json::from_value(serde_json::to_value(&app.workspace).unwrap()).unwrap();
+    assert_eq!(
+        restored
+            .spaces
+            .iter()
+            .map(|space| space.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Second", "Third", "First"]
+    );
+    assert_eq!(restored.directory(), Some(&PathBuf::from("first")));
+    let before = serde_json::to_value(&app.workspace).unwrap();
+    let _ = app.update_space(Message::MoveSpace(99, 0));
+    assert_eq!(serde_json::to_value(&app.workspace).unwrap(), before);
+}

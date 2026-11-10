@@ -192,13 +192,25 @@ stale selections. Shared modal composition blocks interaction with the underlyin
 directory groups migrate to spaces without losing folders or preferences. Storage preserves the
 original configuration before migration.
 
-The shared `ui/reorder` widget handles project dragging, drop indicators, and edge scrolling. It
-defers row clicks until release and preserves trailing action buttons. Space forms reorder their
-drafts. Sidebar drops update domain order and save immediately. Both paths preserve the selected
-directory and existing project metadata. Project metadata includes a persistent pinned flag. Sidebar
-rendering moves pinned rows above the spaces without changing membership or selection. The shared
-reorder widget also handles file-panel icons. Their saved order determines the panel selected at
-startup and after project changes.
+`app/project_add/` owns source choices, destination drafts, and guarded clone requests.
+`infrastructure/project_clone/` validates remote URLs, reserves new folders, and runs bounded Git
+clones. Only successful results enter saved projects or space drafts. The interface maps typed
+errors to localized messages. Space folders determine the suggested parent when one parent is most
+common. An ambiguous or empty list uses the home directory's `IWE Code` folder. Workspace startup
+creates that folder. Isolated data directories contain their own fallback folder.
+
+Commit clipboard writes precede copied-state messages. A request counter rejects previous completion
+messages and expiration timers. The hash hint uses a shared green success style for two seconds.
+
+The shared `ui/reorder` widget handles project dragging, drop indicators, and edge scrolling. Its
+grouped mode accepts drags only within space headings while forwarding nested project controls.
+Domain space moves preserve selection. Application coordination remaps collapsed indices and saves
+without reloading the selected project. It defers row clicks until release and preserves trailing
+action buttons. Space forms reorder their drafts. Sidebar drops update domain order and save
+immediately. Both paths preserve the selected directory and existing project metadata. Project
+metadata includes a persistent pinned flag. Sidebar rendering moves pinned rows above the spaces
+without changing membership or selection. The shared reorder widget also handles file-panel icons.
+Their saved order determines the panel selected at startup and after project changes.
 
 Git history uses bounded pages with frozen revision hashes and continuing graph lanes. Scrolling
 loads older pages and preserves the current position. Search continues loading until history ends or

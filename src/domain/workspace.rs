@@ -262,6 +262,18 @@ impl Workspace {
         true
     }
 
+    pub(crate) fn move_space(&mut self, from: usize, to: usize) -> bool {
+        if from >= self.spaces.len() || to >= self.spaces.len() || from == to {
+            return false;
+        }
+        let space = self.spaces.remove(from);
+        self.spaces.insert(to, space);
+        if let Some(selected) = self.selected_space.as_mut() {
+            *selected = moved_index(*selected, from, to);
+        }
+        true
+    }
+
     pub(crate) fn move_project(&mut self, space: usize, from: usize, to: usize) -> bool {
         let Some(group) = self.spaces.get_mut(space) else {
             return false;
@@ -370,3 +382,15 @@ impl From<StoredWorkspace> for Workspace {
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) fn moved_index(index: usize, from: usize, to: usize) -> usize {
+    if index == from {
+        to
+    } else if from < index && index <= to {
+        index - 1
+    } else if to <= index && index < from {
+        index + 1
+    } else {
+        index
+    }
+}
