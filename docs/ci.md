@@ -121,6 +121,10 @@ start publication. The job requires three published platform releases with ident
 commits. Missing platforms leave Latest unchanged. Global publication concurrency prevents competing
 summary uploads.
 
+The summary tag targets current release metadata on main. Its application inputs must match the
+platform commit, and Cargo.toml must retain the published version. Changed application inputs stop
+publication. This permits GitHub's default token without granting workflow modification access.
+
 `publish-summary.py` checks both installation packages for macOS and Linux, plus all four Windows
 packages. It verifies each platform manifest signature with the embedded public key. It checks
 archive sizes and digests before copying the six update archives. The existing signing script signs

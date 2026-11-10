@@ -14,10 +14,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: release-summary
-  cancel-in-progress: false
-
 jobs:
   publish:
     if: >-
@@ -28,6 +24,9 @@ jobs:
       startsWith(github.event.workflow_run.head_branch, 'windows-v') ||
       startsWith(github.event.workflow_run.head_branch, 'linux-v')))
     runs-on: ubuntu-24.04
+    concurrency:
+      group: release-summary
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:

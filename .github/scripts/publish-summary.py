@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import tomllib
 
 FAMILIES = {
     "macos": ("arm64", "x64"),
@@ -27,6 +28,20 @@ def version_number(value):
 
 def archive_names(version, family):
     return {f"iwe-{version}-{family}-{arch}-update.tar.gz" for arch in FAMILIES[family]}
+
+
+def validate_summary_source(comparison, package_version, version):
+    # GitHub restricts creating tags at commits with older workflow definitions.
+    # A summary can target current release metadata only when application inputs match.
+    if package_version != version or comparison["status"] not in {"ahead", "identical"}:
+        raise ValueError("Summary metadata must retain the published application version and ancestry")
+    files = comparison["files"]
+    if len(files) >= 300:
+        raise ValueError("The source comparison exceeds GitHub's complete file listing limit")
+    for file in files:
+        for path in [file["filename"], file.get("previous_filename", file["filename"])]:
+            if path not in {".gitignore", "AGENTS.md", "README.md"} and not path.startswith(("docs/", "website/", ".github/scripts/", ".github/workflows/")):
+                raise ValueError(f"Application inputs changed after platform publication: {path}")
 
 
 def validate_platform(release, version, family):
@@ -106,6 +121,7 @@ def main():
         commits.add(api(f"repos/{repo}/commits/{tag}")["sha"])
     if len(commits) != 1:
         raise ValueError("All platform releases must use the same commit")
+    platform_commit = next(iter(commits))
     latest = api(f"repos/{repo}/releases/latest")
     if latest and re.fullmatch(r"v?[0-9]+\.[0-9]+\.[0-9]+", latest["tag_name"]):
         if version_number(latest["tag_name"].removeprefix("v")) > number:
@@ -139,6 +155,10 @@ def main():
     records = notes.validate()
     if version not in records:
         raise ValueError("Prepare authored notes before publishing a summary")
+    target = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    comparison = api(f"repos/{repo}/compare/{platform_commit}...{target}")
+    package_version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
+    validate_summary_source(comparison, package_version, version)
     with tempfile.TemporaryDirectory() as temporary:
         staging = Path(temporary)
         dist = staging / "dist"
@@ -162,7 +182,7 @@ def main():
         body = staging / "notes.md"
         body.write_text(release_body(version, releases, records, previous), encoding="utf-8")
         assets = sorted(str(path) for path in dist.iterdir())
-        subprocess.run(["gh", "release", "create", tag, "--target", commits.pop(), "--title", f"IWE Code {version}", "--latest", "--notes-file", str(body), *assets], check=True)
+        subprocess.run(["gh", "release", "create", tag, "--target", target, "--title", f"IWE Code {version}", "--latest", "--notes-file", str(body), *assets], check=True)
         print(f"Published shared Latest: https://github.com/{repo}/releases/tag/{tag}")
 
 

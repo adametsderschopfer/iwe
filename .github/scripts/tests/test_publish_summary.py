@@ -71,6 +71,19 @@ class SummaryTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 summary.version_number(value)
 
+    def test_summary_source_permits_metadata_but_rejects_changed_application_inputs(self):
+        comparison = {"status": "ahead", "files": [{"filename": ".github/workflows/release-summary.yml"}, {"filename": "docs/ci.md"}]}
+        summary.validate_summary_source(comparison, "0.1.14", "0.1.14")
+        with self.assertRaises(ValueError):
+            summary.validate_summary_source(comparison, "0.1.15", "0.1.14")
+        for path in ["src/i18n/mod.rs", "Cargo.lock", "assets/update-public-key.bin", "packaging/windows/setup.iss"]:
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                summary.validate_summary_source({"status": "ahead", "files": [{"filename": path}]}, "0.1.14", "0.1.14")
+        with self.assertRaises(ValueError):
+            summary.validate_summary_source({"status": "diverged", "files": []}, "0.1.14", "0.1.14")
+        with self.assertRaises(ValueError):
+            summary.validate_summary_source({"status": "ahead", "files": [{"filename": "docs/ci.md", "previous_filename": "src/main.rs"}]}, "0.1.14", "0.1.14")
+
 
 if __name__ == "__main__":
     unittest.main()
