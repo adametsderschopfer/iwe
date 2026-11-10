@@ -257,3 +257,184 @@ fn windows_sharing_and_lock_violations_are_retried() {
         .unwrap();
     }
 }
+
+#[test]
+fn failed_handoff_returns_without_terminating_the_process() {
+    assert_eq!(exit_after_handoff(|| Err(Error::Install)), Error::Install);
+}
+
+#[cfg(unix)]
+#[test]
+fn confirmed_install_exits_with_blocked_workers_and_restarts_the_verified_payload() {
+    use ed25519_dalek::{Signer, SigningKey};
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let target = root.join(if cfg!(target_os = "macos") {
+        "Installed.app"
+    } else {
+        "iwe"
+    });
+    let executable = if cfg!(target_os = "macos") {
+        target.join("Contents/MacOS/iwe")
+    } else {
+        target.clone()
+    };
+    fs::create_dir_all(executable.parent().unwrap()).unwrap();
+    fs::write(&executable, b"old executable").unwrap();
+    if cfg!(target_os = "macos") {
+        fs::write(target.join("Contents/Info.plist"), b"old bundle").unwrap();
+    }
+    let stage = stage_directory(&target).unwrap();
+    let archive_path = stage.path().join("package.tar.gz");
+    let file = File::create(&archive_path).unwrap();
+    let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+    let mut archive = tar::Builder::new(encoder);
+    let payload = payload_root(platform().unwrap());
+    let script = b"#!/bin/sh\nprintf new > \"$IWE_TEST_RESTARTED\"\n";
+    let path = if cfg!(target_os = "macos") {
+        format!("{payload}/Contents/MacOS/iwe")
+    } else {
+        payload.to_owned()
+    };
+    for (path, body) in
+        std::iter::once((path, script.as_slice())).chain(cfg!(target_os = "macos").then(|| {
+            (
+                format!("{payload}/Contents/Info.plist"),
+                b"new bundle".as_slice(),
+            )
+        }))
+    {
+        let mut header = tar::Header::new_gnu();
+        header.set_size(body.len() as u64);
+        header.set_mode(0o755);
+        header.set_cksum();
+        archive
+            .append_data(&mut header, path, Cursor::new(body))
+            .unwrap();
+    }
+    archive.into_inner().unwrap().finish().unwrap();
+    let package = fs::read(&archive_path).unwrap();
+    let platforms = if cfg!(target_os = "macos") {
+        ["macos-arm64", "macos-x64"]
+    } else {
+        ["linux-x64", "linux-x86"]
+    };
+    let manifest = serde_json::to_vec(&serde_json::json!({
+        "version": "99.0.0", "assets": platforms.map(|platform| serde_json::json!({
+            "name": format!("iwe-99.0.0-{platform}-update.tar.gz"),
+            "size": package.len(), "sha256": format!("{:x}", Sha256::digest(&package))
+        }))
+    }))
+    .unwrap();
+    let key = SigningKey::from_bytes(&[42; 32]);
+    fs::write(stage.path().join("updates.json"), &manifest).unwrap();
+    fs::write(
+        stage.path().join("updates.sig"),
+        key.sign(&manifest).to_bytes(),
+    )
+    .unwrap();
+    fs::write(
+        stage.path().join("plan.json"),
+        serde_json::to_vec(&Plan {
+            target: target.clone(),
+            tag: format!("{}-v99.0.0", std::env::consts::OS),
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(stage.path().join("running.lock"), b"").unwrap();
+    let helper_path = stage.path().join("helper");
+    fs::copy(std::env::current_exe().unwrap(), &helper_path).unwrap();
+    let restarted = root.join("restarted");
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "infrastructure::updates::install::tests::restart_process_fixture",
+            "--ignored",
+            "--nocapture",
+        ])
+        .env("IWE_TEST_UPDATE_ROLE", "parent")
+        .env("IWE_TEST_UPDATE_STAGE", stage.path())
+        .env("IWE_TEST_RESTARTED", &restarted)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            panic!("updating process did not terminate");
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    };
+    assert!(status.success());
+    while !restarted.exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    assert_eq!(fs::read(&restarted).unwrap(), b"new");
+    assert_eq!(fs::read(&executable).unwrap(), script);
+    let previous = if cfg!(target_os = "macos") {
+        stage.path().join("previous/Contents/MacOS/iwe")
+    } else {
+        stage.path().join("previous")
+    };
+    assert_eq!(fs::read(previous).unwrap(), b"old executable");
+    assert!(stage.path().join("helper.ready").is_file());
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "Subprocess fixture; invoked by the complete installation test"]
+fn restart_process_fixture() {
+    let directory = PathBuf::from(std::env::var_os("IWE_TEST_UPDATE_STAGE").unwrap());
+    if std::env::var("IWE_TEST_UPDATE_ROLE").unwrap() == "helper" {
+        let public = ed25519_dalek::SigningKey::from_bytes(&[42; 32])
+            .verifying_key()
+            .to_bytes();
+        helper_with_key(&directory, &public).unwrap();
+        return;
+    }
+    let lock = File::options()
+        .read(true)
+        .write(true)
+        .open(directory.join("running.lock"))
+        .unwrap();
+    lock.lock().unwrap();
+    let prepared = Prepared {
+        version: "99.0.0".into(),
+        directory: directory.clone(),
+        _lock: lock,
+        handed_off: AtomicBool::new(false),
+    };
+    // Runtime destruction would wait forever for this worker.
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let (started, receiver) = std::sync::mpsc::channel();
+    let _worker = runtime.spawn_blocking(move || {
+        started.send(()).unwrap();
+        std::thread::park();
+    });
+    receiver.recv_timeout(Duration::from_secs(1)).unwrap();
+    let mut command = Command::new(directory.join("helper"));
+    command
+        .args([
+            "--exact",
+            "infrastructure::updates::install::tests::restart_process_fixture",
+            "--ignored",
+            "--nocapture",
+        ])
+        .env("IWE_TEST_UPDATE_ROLE", "helper")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let error = runtime.block_on(async move {
+        tokio::task::spawn_blocking(move || {
+            exit_after_handoff(|| launch_helper(&prepared, command))
+        })
+        .await
+        .unwrap()
+    });
+    panic!("handoff failed: {error:?}");
+}

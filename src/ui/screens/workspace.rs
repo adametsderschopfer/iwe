@@ -270,7 +270,6 @@ fn sidebar(app: &App) -> Element<'_, Message> {
         }
         body = body.push(space().height(12));
     }
-    body = body.push(navigation).push(space().height(8));
     {
         let mut groups = Column::new().spacing(4).width(Length::Fill);
         for (space_index, group) in app.workspace.spaces.iter().enumerate() {
@@ -465,6 +464,8 @@ fn sidebar(app: &App) -> Element<'_, Message> {
         "nav-settings",
     ));
     container(column![
+        navigation,
+        space().height(8),
         scrollable(body)
             .id("project-browser")
             .spacing(theme::SIDEBAR_SCROLL_GAP)

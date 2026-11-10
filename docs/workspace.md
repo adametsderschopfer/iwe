@@ -70,7 +70,9 @@ Drag project rows within their space in the sidebar to change the same order. Si
 immediately and survive restarts. Reordering preserves the open project, file tabs, and loaded
 history. Sidebar rows retain their existing icons. Dragging does not move projects between spaces.
 
-Right-click a project and choose **Pin project**. Pinned projects appear above **Spaces** in a
+The **Spaces** heading and its add button stay fixed above the scrolling project list.
+
+Right-click a project and choose **Pin project**. Pinned projects appear before space groups in a
 separate **Pinned** group. Each row identifies its space. The project retains its space membership
 and disappears from that space's sidebar list. **Unpin project** returns it to the list. Pinning
 survives restarts and does not reload the open project.

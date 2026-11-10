@@ -61,7 +61,7 @@ pub(crate) enum Event {
     Download,
     Downloaded(Result<Arc<Prepared>, Error>),
     Install,
-    Started(Result<(), Error>),
+    InstallFailed(Error),
 }
 
 impl App {
@@ -125,14 +125,9 @@ impl App {
                     }
                 }
             }
-            Event::Started(result) if matches!(self.updates, State::Installing(_)) => {
-                if result.is_ok() {
-                    // Closing a window can leave the native application alive on macOS.
-                    // Exit the event loop so Prepared releases the installer's lock.
-                    return iced::exit();
-                }
-                self.notifications.error(error_key(Error::Install), None);
-                self.updates = State::Failed(Error::Install);
+            Event::InstallFailed(error) if matches!(self.updates, State::Installing(_)) => {
+                self.notifications.error(error_key(error), None);
+                self.updates = State::Failed(error);
             }
             _ => {}
         }
@@ -151,11 +146,11 @@ impl App {
         self.updates = State::Installing(Arc::clone(&prepared));
         Task::perform(
             async move {
-                tokio::task::spawn_blocking(move || updates::start_install(&prepared))
+                tokio::task::spawn_blocking(move || updates::install_and_exit(&prepared))
                     .await
-                    .unwrap_or(Err(Error::Install))
+                    .unwrap_or(Error::Install)
             },
-            |result| Message::Update(Event::Started(result)),
+            |error| Message::Update(Event::InstallFailed(error)),
         )
     }
 }

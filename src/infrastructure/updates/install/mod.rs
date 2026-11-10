@@ -124,6 +124,10 @@ pub(crate) fn start_install(prepared: &Prepared) -> Result<(), Error> {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
+    launch_helper(prepared, command)
+}
+
+fn launch_helper(prepared: &Prepared, mut command: Command) -> Result<(), Error> {
     let mut child = command.spawn().map_err(|_| Error::Install)?;
     if wait_for_helper(&mut child, &prepared.directory, Duration::from_secs(10)).is_err() {
         let _ = child.kill();
@@ -132,6 +136,19 @@ pub(crate) fn start_install(prepared: &Prepared) -> Result<(), Error> {
     }
     prepared.handed_off.store(true, Ordering::Release);
     Ok(())
+}
+
+pub(crate) fn install_and_exit(prepared: &Prepared) -> Error {
+    exit_after_handoff(|| start_install(prepared))
+}
+
+fn exit_after_handoff(handoff: impl FnOnce() -> Result<(), Error>) -> Error {
+    if let Err(error) = handoff() {
+        return error;
+    }
+    // Workspace persistence and helper readiness precede this point.
+    // OS process termination releases running.lock without waiting for GUI or worker teardown.
+    std::process::exit(0)
 }
 
 // Do not shut down the user's application until the helper accepts the handoff.
@@ -201,6 +218,10 @@ fn helper_directory(own: &Path, directory: &Path) -> Result<PathBuf, Error> {
 }
 
 fn helper(directory: &Path) -> Result<(), Error> {
+    helper_with_key(directory, PUBLIC_KEY)
+}
+
+fn helper_with_key(directory: &Path, public_key: &[u8; 32]) -> Result<(), Error> {
     let own = std::env::current_exe().map_err(|_| Error::Install)?;
     let directory = helper_directory(&own, directory)?;
     let directory = directory.as_path();
@@ -223,17 +244,17 @@ fn helper(directory: &Path) -> Result<(), Error> {
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    let result = apply(directory, &plan);
+    let result = apply(directory, &plan, public_key);
     if result.is_err() {
         let _ = restart(&plan.target, directory, true);
     }
     result
 }
 
-fn apply(directory: &Path, plan: &Plan) -> Result<(), Error> {
+fn apply(directory: &Path, plan: &Plan, public_key: &[u8; 32]) -> Result<(), Error> {
     let bytes = read_bounded(directory.join("updates.json"), 64 * 1024)?;
     let signature = read_bounded(directory.join("updates.sig"), 64)?;
-    let release = verified_release(&bytes, &signature, &plan.tag, platform()?, PUBLIC_KEY)?;
+    let release = verified_release(&bytes, &signature, &plan.tag, platform()?, public_key)?;
     let archive = directory.join("package.tar.gz");
     verify_package(&archive, &release)?;
     // Extract again after shutdown so modified staged files cannot bypass verification.

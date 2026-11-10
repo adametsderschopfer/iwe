@@ -17,9 +17,9 @@ events. Downloading and installation still require explicit actions.
 A download row with a dark blue icon appears near the sidebar settings button when an update becomes
 available. Choose **Download update** to download the package for the current operating system and
 processor. Choose **Install and restart** after the download finishes. IWE Code saves workspace
-settings before exiting its native event loop. A failed save keeps the window open and stops
-installation. Installation never requests administrator access. The installation directory must be
-writable by the current user.
+settings before starting installation. A failed save keeps the window open and stops installation.
+Installation never requests administrator access. The installation directory must be writable by the
+current user.
 
 The first installation of version 0.1.10 still requires a downloaded release package. That version
 can receive future updates. Older versions do not acquire an updater automatically. Development
@@ -47,10 +47,14 @@ rejects links, path traversal, duplicate paths, excess entries, and oversized ex
 Staging directories live beside the installed application, keeping replacements on one filesystem. A
 copied installer confirms that it accepted the handoff before the application exits. Failed helper
 startup keeps the application open and reports an installation error. The installer normalizes
-Windows paths before validation. It waits for the application's file lock after shutdown.
-Replacement retries temporary file locks for ten seconds while the graphics launcher exits. The
-installer replaces the complete macOS application bundle, including its signature and icon. Windows
-and Linux updates replace the standalone executable. Workspace data and credentials remain separate.
+Windows paths before validation. It waits for the application's file lock after shutdown. After the
+helper confirms readiness, the updating process exits directly from its installation worker. This
+releases the operating-system lock without waiting for window events, graphics teardown, or blocked
+background workers. This exit path runs only after the latest workspace save succeeds. A failed
+helper handoff keeps the application open. Replacement retries temporary file locks for ten seconds
+while the graphics launcher exits. The installer replaces the complete macOS application bundle,
+including its signature and icon. Windows and Linux updates replace the standalone executable.
+Workspace data and credentials remain separate.
 
 The installer moves the current application into its staging directory before moving the new
 application into place. A failed replacement restores the previous application. A failed process
@@ -91,7 +95,10 @@ key or place it in command arguments.
 ## Verification
 
 Local tests verify version selection, signatures, digest mismatches, redirect restrictions, metadata
-bounds, extraction limits, and replacement recovery. Interface tests cover translated update actions
-and duplicate requests. They never replace the running application or contact GitHub. Platform CI
-compiles and tests all six targets. A live update between signed releases still requires installed
-application testing.
+bounds, extraction limits, and replacement recovery. Interface tests cover translated update
+actions, duplicate requests, pending workspace saves, and failed handoffs. A subprocess test on
+macOS and Linux verifies signed extraction, process exit, replacement, and restarting the new
+executable. That test deliberately blocks a background worker to detect shutdown hangs. Its signing
+key belongs only to the fixture. Automated tests never replace the installed application or contact
+GitHub. Platform CI compiles and tests all six targets. A live update between signed releases still
+requires installed application testing.

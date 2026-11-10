@@ -501,7 +501,7 @@ impl App {
             updates::State::Saving(_) | updates::State::Installing(_)
         ) && !matches!(
             message,
-            Message::Saved(_) | Message::Update(updates::Event::Started(_))
+            Message::Saved(_) | Message::Update(updates::Event::InstallFailed(_))
         ) {
             return Task::none();
         }

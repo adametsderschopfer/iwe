@@ -696,6 +696,39 @@
     ]
   },
   {
+    "version": "0.1.16",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "reliable-update-process-exit",
+        "category": "fixed",
+        "text": {
+          "en": "Installing an update restarts the application without waiting for window events or blocked background workers.",
+          "ru": "Установка обновления перезапускает приложение без ожидания событий окна или завершения заблокированных фоновых потоков.",
+          "es": "La instalación reinicia la aplicación sin esperar eventos de ventana ni tareas en segundo plano bloqueadas."
+        },
+        "sources": [
+          "src/app/updates/mod.rs",
+          "src/infrastructure/updates/install/mod.rs",
+          "src/infrastructure/updates/install/tests.rs"
+        ]
+      },
+      {
+        "id": "fixed-spaces-sidebar-heading",
+        "category": "fixed",
+        "text": {
+          "en": "The Spaces heading and its add button remain visible while the project list scrolls.",
+          "ru": "Заголовок «Пространства» и кнопка добавления остаются видимыми при прокрутке списка проектов.",
+          "es": "El título Espacios y el botón para añadir permanecen visibles al desplazar la lista de proyectos."
+        },
+        "sources": ["src/ui/screens/workspace.rs", "docs/workspace.md"]
+      }
+    ]
+  },
+  {
     "version": "unreleased",
     "status": "prepared",
     "publishedAt": null,

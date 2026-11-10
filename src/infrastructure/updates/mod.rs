@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 use std::{sync::Arc, time::Duration};
 use tokio::io::AsyncWriteExt;
 
-pub(crate) use install::{Prepared, start_install, startup};
+pub(crate) use install::{Prepared, install_and_exit, startup};
 const REPOSITORY: &str = "https://github.com/adametsderschopfer/iwe-code";
 const RELEASES: &str = "https://api.github.com/repos/adametsderschopfer/iwe-code/releases";
 const MAX_PACKAGE: u64 = 512 * 1024 * 1024;

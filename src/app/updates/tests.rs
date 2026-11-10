@@ -126,21 +126,44 @@ fn update_actions_are_visible_in_all_languages_and_do_not_close_the_window_when_
     }
 }
 
-#[tokio::test]
-async fn confirmed_handoff_exits_the_event_loop_and_failed_handoff_keeps_the_app_open() {
-    use iced::futures::StreamExt;
-    use iced_test::runtime::{Action, task};
+#[test]
+fn failed_handoff_keeps_the_app_open_and_reports_the_failure() {
+    let mut app = app();
+    app.updates = State::Installing(Arc::new(Prepared::fixture()));
+    let task = app.update(Message::Update(Event::InstallFailed(Error::Install)));
+    assert_eq!(task.units(), 0);
+    assert!(matches!(app.updates, State::Failed(Error::Install)));
+    assert!(!app.notifications.items.is_empty());
+}
+
+#[test]
+fn installing_waits_for_the_latest_workspace_save_and_preserves_failed_saves() {
+    use crate::domain::Failure;
     for success in [true, false] {
         let mut app = app();
-        app.updates = State::Installing(Arc::new(Prepared::fixture()));
-        let result = if success { Ok(()) } else { Err(Error::Install) };
-        let task = app.update_release(Event::Started(result));
-        if success {
-            let mut stream = task::into_stream(task).unwrap();
-            assert!(matches!(stream.next().await, Some(Action::Exit)));
+        app.window_id = Some(iced::window::Id::unique());
+        app.updates = State::Ready(Arc::new(Prepared::fixture()));
+        // A save already in flight must finish before the latest snapshot is written.
+        app.saving = true;
+        let _ = app.update(Message::Update(Event::Install));
+        assert!(matches!(app.updates, State::Saving(_)));
+        assert!(app.save_pending);
+        let first = app.update(Message::Saved(Ok(())));
+        assert!(first.units() > 0);
+        assert!(matches!(app.updates, State::Saving(_)));
+        assert!(app.saving);
+        assert!(!app.save_pending);
+        let next = app.update(Message::Saved(if success {
+            Ok(())
         } else {
-            assert_eq!(task.units(), 0);
+            Err(Failure::Storage)
+        }));
+        if success {
+            assert!(matches!(app.updates, State::Installing(_)));
+            assert!(next.units() > 0);
+        } else {
             assert!(matches!(app.updates, State::Failed(Error::Install)));
+            assert_eq!(next.units(), 0);
         }
     }
 }
