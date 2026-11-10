@@ -105,9 +105,20 @@ impl App {
 
     pub(super) fn update_window(&mut self, event: Event) -> Task<Message> {
         match event {
-            Event::Close(id) if self.windows.settings == Some(id) => return window::close(id),
+            Event::Close(id) if self.windows.settings == Some(id) => {
+                let cleanup = self.update_module(super::modules::Event::Deployment(
+                    crate::modules::deployment::Event::CloseSettings,
+                ));
+                return Task::batch([cleanup, window::close(id)]);
+            }
             Event::Close(id) if self.window_id == Some(id) => return iced::exit(),
-            Event::Closed(id) if self.windows.settings == Some(id) => self.windows.settings = None,
+            Event::Closed(id) if self.windows.settings == Some(id) => {
+                self.windows.settings = None;
+                self.shortcuts = super::shortcuts::State::default();
+                return self.update_module(super::modules::Event::Deployment(
+                    crate::modules::deployment::Event::CloseSettings,
+                ));
+            }
             Event::Closed(id) if self.window_id == Some(id) => return iced::exit(),
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             Event::Drag(id) if self.windows.settings == Some(id) => return window::drag(id),

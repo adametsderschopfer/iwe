@@ -13,6 +13,21 @@ use std::{
     ops::Range,
 };
 
+pub(crate) fn visible_range(
+    offset: f32,
+    viewport_height: f32,
+    row_height: f32,
+    count: usize,
+) -> Range<usize> {
+    const BLOCK: usize = 8;
+    const BUFFER: usize = 16;
+    let first = (offset.max(0.) / row_height) as usize;
+    let start = (first.saturating_sub(BUFFER) / BLOCK * BLOCK).min(count);
+    let end =
+        (start + (viewport_height / row_height).ceil() as usize + BUFFER * 2 + BLOCK).min(count);
+    start..end
+}
+
 pub(crate) fn view<'a, Message: 'a>(
     key: impl Hash,
     range: Range<usize>,

@@ -190,6 +190,16 @@ pub(crate) fn semibold() -> Font {
     }
 }
 
+pub(crate) fn code_font() -> Font {
+    if cfg!(target_os = "macos") {
+        Font::with_name("Menlo")
+    } else if cfg!(target_os = "windows") {
+        Font::with_name("Consolas")
+    } else {
+        Font::MONOSPACE
+    }
+}
+
 pub(crate) fn toggle(theme: &Theme, status: toggler::Status) -> toggler::Style {
     let active = match status {
         toggler::Status::Active { is_toggled }
@@ -262,9 +272,13 @@ pub(crate) fn surface(theme: &Theme) -> container::Style {
 
 pub(crate) fn code_surface(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(CODE_BACKGROUND.resolve(theme).into()),
+        background: Some(code_background(theme).into()),
         ..surface(theme)
     }
+}
+
+pub(crate) fn code_background(theme: &Theme) -> Color {
+    CODE_BACKGROUND.resolve(theme)
 }
 
 pub(crate) fn sidebar(theme: &Theme) -> container::Style {

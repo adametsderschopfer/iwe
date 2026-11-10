@@ -8,7 +8,7 @@ use iced::{
 };
 use std::path::Path as FilePath;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Python,
     JavaScript,
@@ -167,16 +167,26 @@ fn label(frame: &mut Frame, value: &str, color: Color, size: f32) {
 }
 
 impl<Message> canvas::Program<Message> for Drawing {
-    type State = ();
+    type State = super::icons::cache::Cache<(Kind, bool)>;
     fn draw(
         &self,
-        _: &(),
+        state: &Self::State,
         renderer: &Renderer,
         theme: &Theme,
         bounds: Rectangle,
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
-        let mut frame = Frame::new(renderer, bounds.size());
+        state.draw(
+            (self.0, theme.extended_palette().is_dark),
+            renderer,
+            bounds.size(),
+            |frame| self.paint(frame, theme),
+        )
+    }
+}
+
+impl Drawing {
+    fn paint(&self, frame: &mut Frame, theme: &Theme) {
         let gray = theme::ICON_GRAY.resolve(theme);
         let blue = theme::ICON_BLUE.resolve(theme);
         let yellow = theme::ICON_YELLOW.resolve(theme);
@@ -185,7 +195,7 @@ impl<Message> canvas::Program<Message> for Drawing {
         let pink = theme::ICON_PINK.resolve(theme);
         match self.0 {
             Kind::Chevron(expanded) => line(
-                &mut frame,
+                frame,
                 if expanded {
                     &[(2., 6.), (5., 9.), (8., 6.)]
                 } else {
@@ -196,7 +206,7 @@ impl<Message> canvas::Program<Message> for Drawing {
             ),
             Kind::Folder(expanded, package) => {
                 line(
-                    &mut frame,
+                    frame,
                     &[
                         (1.5, 4.),
                         (6., 4.),
@@ -210,7 +220,7 @@ impl<Message> canvas::Program<Message> for Drawing {
                     1.1,
                 );
                 if expanded {
-                    line(&mut frame, &[(1.5, 8.), (14.5, 8.)], gray, 0.8);
+                    line(frame, &[(1.5, 8.), (14.5, 8.)], gray, 0.8);
                 }
                 if package {
                     frame.stroke(
@@ -256,7 +266,7 @@ impl<Message> canvas::Program<Message> for Drawing {
                     if js { yellow } else { blue },
                 );
                 label(
-                    &mut frame,
+                    frame,
                     if js { "JS" } else { "TS" },
                     if js {
                         Color::from_rgb8(41, 41, 41)
@@ -282,13 +292,13 @@ impl<Message> canvas::Program<Message> for Drawing {
                             )
                         })
                         .collect();
-                    line(&mut frame, &points, cyan, 0.9);
+                    line(frame, &points, cyan, 0.9);
                 }
                 frame.fill(&Path::circle(Point::new(8., 8.), 1.3), cyan);
             }
             Kind::Vue => {
                 shape(
-                    &mut frame,
+                    frame,
                     &[
                         (1., 2.),
                         (4., 2.),
@@ -300,7 +310,7 @@ impl<Message> canvas::Program<Message> for Drawing {
                     Color::from_rgb8(66, 184, 131),
                 );
                 shape(
-                    &mut frame,
+                    frame,
                     &[
                         (4., 2.),
                         (6.5, 2.),
@@ -317,7 +327,7 @@ impl<Message> canvas::Program<Message> for Drawing {
                     frame.fill_rectangle(Point::new(x, y), iced::Size::new(2.5, 2.5), blue);
                 }
                 shape(
-                    &mut frame,
+                    frame,
                     &[
                         (1., 9.5),
                         (12., 9.5),
@@ -333,7 +343,7 @@ impl<Message> canvas::Program<Message> for Drawing {
             }
             Kind::GitLab => {
                 shape(
-                    &mut frame,
+                    frame,
                     &[
                         (1., 2.),
                         (5., 6.),
@@ -346,7 +356,7 @@ impl<Message> canvas::Program<Message> for Drawing {
                     orange,
                 );
                 shape(
-                    &mut frame,
+                    frame,
                     &[(5., 6.), (11., 6.), (8., 15.)],
                     Color::from_rgb8(226, 78, 48),
                 );
@@ -356,11 +366,11 @@ impl<Message> canvas::Program<Message> for Drawing {
                     &Path::circle(Point::new(8., 8.), 6.),
                     Stroke::default().with_color(gray).with_width(1.),
                 );
-                line(&mut frame, &[(4., 12.), (12., 4.)], gray, 1.);
+                line(frame, &[(4., 12.), (12., 4.)], gray, 1.);
             }
             Kind::Lock => {
                 line(
-                    &mut frame,
+                    frame,
                     &[
                         (5., 7.),
                         (5., 4.),
@@ -373,27 +383,27 @@ impl<Message> canvas::Program<Message> for Drawing {
                     1.2,
                 );
                 line(
-                    &mut frame,
+                    frame,
                     &[(3., 7.), (13., 7.), (13., 14.), (3., 14.), (3., 7.)],
                     gray,
                     1.2,
                 );
-                line(&mut frame, &[(8., 9.), (8., 12.)], gray, 1.2);
+                line(frame, &[(8., 9.), (8., 12.)], gray, 1.2);
             }
             Kind::Text => {
                 for (y, end) in [(4., 14.), (7., 12.), (10., 14.), (13., 9.)] {
-                    line(&mut frame, &[(2., y), (end, y)], gray, 1.1);
+                    line(frame, &[(2., y), (end, y)], gray, 1.1);
                 }
             }
             Kind::Image => {
                 line(
-                    &mut frame,
+                    frame,
                     &[(1., 2.), (15., 2.), (15., 14.), (1., 14.), (1., 2.)],
                     pink,
                     1.,
                 );
                 line(
-                    &mut frame,
+                    frame,
                     &[(2., 12.), (6., 7.), (9., 10.), (12., 6.), (14., 9.)],
                     pink,
                     1.,
@@ -412,7 +422,7 @@ impl<Message> canvas::Program<Message> for Drawing {
                 for index in 0..8 {
                     let angle = index as f32 * std::f32::consts::TAU / 8.;
                     line(
-                        &mut frame,
+                        frame,
                         &[
                             (8. + 4. * angle.cos(), 8. + 4. * angle.sin()),
                             (8. + 6.5 * angle.cos(), 8. + 6.5 * angle.sin()),
@@ -441,9 +451,8 @@ impl<Message> canvas::Program<Message> for Drawing {
                     Kind::Database => ("DB", pink, 9.),
                     _ => unreachable!(),
                 };
-                label(&mut frame, text, color, size);
+                label(frame, text, color, size);
             }
         }
-        vec![frame.into_geometry()]
     }
 }

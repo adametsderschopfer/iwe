@@ -7,7 +7,7 @@ pub(crate) mod overview;
 mod rows;
 pub(crate) mod selection;
 
-pub(crate) use rows::view as rows;
+pub(crate) use rows::{view as rows, visible_range as visible_rows};
 
 use super::theme::{Tone, syntax};
 use crate::domain::changes::Source;
@@ -33,6 +33,7 @@ pub(crate) struct Document {
     pub fingerprint: [u8; 32],
     pub comparison: Option<comparison::Comparison>,
     pub page: Option<crate::domain::changes::TextPage>,
+    memory_bytes: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,10 +68,7 @@ impl Document {
             })
             .collect();
         Self {
-            fingerprint: Self::fingerprint(&Source {
-                text: text.clone(),
-                ..Source::default()
-            }),
+            fingerprint: Self::fingerprint_parts(&text, false, false, None),
             line_info: (1..=lines.len())
                 .map(|number| LineInfo {
                     number,
@@ -85,7 +83,9 @@ impl Document {
             change_counts: [0; 3],
             comparison: None,
             page: None,
+            memory_bytes: 0,
         }
+        .measure_memory()
     }
 
     pub(crate) fn can_fold(&self) -> bool {
@@ -126,10 +126,7 @@ impl Document {
             })
             .collect();
         Self {
-            fingerprint: Self::fingerprint(&Source {
-                text: text.clone(),
-                ..Source::default()
-            }),
+            fingerprint: Self::fingerprint_parts(&text, false, false, None),
             line_info: (1..=lines.len())
                 .map(|number| LineInfo {
                     number,
@@ -144,7 +141,9 @@ impl Document {
             change_counts: [0; 3],
             comparison: None,
             page: None,
+            memory_bytes: 0,
         }
+        .measure_memory()
     }
 
     pub(crate) fn with_page(mut self, page: Option<crate::domain::changes::TextPage>) -> Self {
@@ -163,19 +162,64 @@ impl Document {
     }
 
     pub(crate) fn with_comparison(self, source: Source, extension: &str) -> Self {
-        comparison::apply(self, source, extension)
+        comparison::apply(self, source, extension).measure_memory()
+    }
+
+    pub(crate) fn memory_bytes(&self) -> usize {
+        self.memory_bytes
+    }
+
+    fn measure_memory(mut self) -> Self {
+        // Include owned buffer capacities without scanning source text on the UI thread.
+        self.memory_bytes = std::mem::size_of::<Self>()
+            + self.text.capacity()
+            + self.source_lines.capacity() * std::mem::size_of::<String>()
+            + self
+                .source_lines
+                .iter()
+                .map(String::capacity)
+                .sum::<usize>()
+            + self.lines.capacity() * std::mem::size_of::<Vec<(String, Tone)>>()
+            + self
+                .lines
+                .iter()
+                .map(|line| {
+                    line.capacity() * std::mem::size_of::<(String, Tone)>()
+                        + line.iter().map(|(text, _)| text.capacity()).sum::<usize>()
+                })
+                .sum::<usize>()
+            + self.line_info.capacity() * std::mem::size_of::<LineInfo>()
+            + self
+                .comparison
+                .as_ref()
+                .map_or(0, comparison::Comparison::memory_bytes);
+        self
     }
 
     pub(crate) fn fingerprint(source: &Source) -> [u8; 32] {
+        Self::fingerprint_parts(
+            &source.text,
+            source.deleted,
+            source.comparison_failed,
+            source.previous.as_deref(),
+        )
+    }
+
+    fn fingerprint_parts(
+        text: &str,
+        deleted: bool,
+        comparison_failed: bool,
+        previous: Option<&str>,
+    ) -> [u8; 32] {
         let mut hash = Sha256::new();
-        hash.update(source.text.len().to_le_bytes());
-        hash.update(source.text.as_bytes());
+        hash.update(text.len().to_le_bytes());
+        hash.update(text.as_bytes());
         hash.update([
-            u8::from(source.deleted),
-            u8::from(source.comparison_failed),
-            u8::from(source.previous.is_some()),
+            u8::from(deleted),
+            u8::from(comparison_failed),
+            u8::from(previous.is_some()),
         ]);
-        if let Some(previous) = &source.previous {
+        if let Some(previous) = previous {
             hash.update(previous.as_bytes());
         }
         hash.finalize().into()

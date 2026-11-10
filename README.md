@@ -14,9 +14,19 @@ browser sign-in. Self-hosted GitLab supports personal access tokens. Open settin
 the bottom left. Preferences persist between launches. English, Russian, and Spanish translations
 are embedded in the executable.
 
+View bundled modules under **Settings → Modules**. The first system module provides an integrated
+terminal for the selected project. System modules are always enabled and cannot be removed. See
+[modules and terminal sessions](docs/modules.md) for controls and limits.
+
+The Deployment module browses SFTP, FTP, and FTPS servers. Configure shared connections and
+deployment profiles within each space. Compare remote files, upload local files, and download files
+through folder mappings. See [deployment](docs/deployment.md) for setup and shortcuts.
+
 IWE Code caches project trees locally and refreshes folder listings in the background. It reads
-source contents when files open. Repository files remain unchanged, and source contents stay local.
-See [workspace behavior](docs/workspace.md) for limits, authentication, and keyboard shortcuts.
+source contents when files open. File previews leave repository files unchanged, and source contents
+stay local until an explicit deployment upload. Terminal commands can change files and use the
+network with your account's permissions. See [workspace behavior](docs/workspace.md) for limits,
+authentication, and keyboard shortcuts.
 
 Platform tags publish separate macOS, Windows, and Linux releases with one shared application
 version. Each release requires checks and both architecture builds for its platform. Packages cover

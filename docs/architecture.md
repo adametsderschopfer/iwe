@@ -1,10 +1,32 @@
 # Architecture
 
 The application provides named spaces, projects, source previews, Git history, pipelines, and
-settings.
+settings. Bundled modules add optional capabilities through a typed catalog and application-owned
+runtimes.
+
+`modules/deployment/` owns remote browsing, connection forms, profile forms, transfer coordination,
+and protocol adapters. `domain/deployment/` defines connection metadata, profiles, exclusions, and
+reversible path mappings without external access. Workspace metadata stores shared connections and
+keys. Each space stores its deployment profiles. Older configurations receive empty deployment
+collections through Serde defaults.
+
+`app/modules/deployment.rs` connects module events to persistence, notifications, settings, and
+source tabs. The right deployment panel uses the shared resize widget with reversed drag direction.
+Remote source tabs retain immutable text snapshots and reuse the existing comparison renderer. The
+module exposes typed events and results without importing application state.
+
+Deployment adapters use ssh2 for SFTP and SuppaFTP with Rustls for FTP/FTPS. Each queued operation
+owns a blocking worker, bounded copy buffers, cancellation token, and request identifier. Secret
+buffers zeroize on drop and redact debug output. Saved secrets use a separate operating-system
+credential namespace. Views never perform network or filesystem operations. See
+[deployment](deployment.md) for behavior, limits, and verification.
 
 The settings window uses persistent left navigation and a separate scrollable section on the right.
-Its macOS content extends into the titlebar, with an opaque header below native window controls.
+Deployment groups connections, shared SSH keys, and space profiles under one navigation heading.
+Module-owned dialogs create connections and SSH key references. The host supplies the shared modal
+overlay. The key dialog preserves its parent connection draft and rejects obsolete file-picker
+responses. The settings window extends into the macOS titlebar, with an opaque header below native
+window controls.
 
 `app/repository_cache/` keeps the last successful initial Git snapshot for eight recent project
 directories. Snapshots include repository identities, history cursors, the selected branch, and
@@ -20,6 +42,8 @@ invalidate their entries.
 | `app/project_changes/`                                | Refresh sidebar change indicators for inactive projects with bounded Git status reads    |
 | `ui/notifications.rs`                                 | Overlay localized result cards without resizing the workspace                            |
 | `domain/`                                             | Model spaces, projects, preferences, accounts, remotes, commits, and graph relationships |
+| `modules/`                                            | Register bundled modules and contain their implementations                               |
+| `modules/terminal/`                                   | Own terminal state, interface, input, styles, shell sessions, and unit tests             |
 | `ui/screens/`                                         | Compose workspace, Git, pipeline, and settings screens                                   |
 | `ui/code.rs`, `ui/code/`                              | Prepare highlighted source lines and preserve their text layout                          |
 | `ui/icons.rs`, `ui/file_icons.rs`                     | Draw interface icons and compact file-type symbols                                       |
@@ -78,7 +102,7 @@ wrapper preserves vertical positioning and rejects source clicks beneath the gut
 and both comparison views share this wrapper without changing scroll identifiers or cached row
 layouts.
 
-`ui/code/selection.rs` shares tab selection state across virtual source rows. Iced paragraph hit
+`ui/code/selection/` shares tab selection state across virtual source rows. Iced paragraph hit
 testing maps pointer positions to UTF-8 boundaries. Syntax spans keep their colors while selected
 ranges receive the current theme's selection background. Comparison columns use separate source
 coordinates. Documents retain original lines alongside displayed spans so clipboard copies preserve
@@ -90,8 +114,8 @@ reveals folded targets through the existing folding projection and restores sour
 Selection state marks the target row separately from its selected text. Source views highlight its
 full width and line number, including empty target rows. Large-file searches reuse bounded page
 reads with a 45-second overall deadline. Search identifiers, tab identifiers, and project
-generations reject stale results after cancellation or navigation. The dialog uses Command+L on
-macOS and Ctrl+G on Windows and Linux.
+generations reject stale results after cancellation or navigation. The dialog defaults to Command+L
+on macOS and Ctrl+G on Windows and Linux.
 
 The shared process launcher resolves Git for repository reads and explicit Git operations. On
 Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
@@ -156,6 +180,16 @@ heights keep the scroll extent stable. The source-row widget uses Iced's advance
 overlapping rows during scrolling and resizing. It also forwards pointer events to collapsed-range
 buttons.
 
+Source blocks advance eight rows at a time to limit simultaneous text preparation. Scrolling retains
+borrowed syntax spans without adding selection fragments. Pointer text layout initializes only when
+a click or selection drag needs a character position. Vertical scrolling draws each source row once.
+Horizontal scrolling retains separate clipping for source text and fixed gutters.
+
+Source text and pointer layout share the platform's code font. macOS uses Menlo, and Windows uses
+Consolas. Linux retains the renderer's monospace family. Explicit platform families avoid repeated
+fallback searches when the renderer's default monospace font is unavailable. See
+[the scroll performance audit](performance.md) for measurements and reproduction commands.
+
 Opening a file first publishes plain text, then syntax colors, then Git comparison lines. Blocking
 workers prepare each document. Comparison reuses the current file's highlighted lines. An overlaid
 progress bar leaves the code viewport size unchanged. Shared immutable documents keep background
@@ -167,6 +201,18 @@ documents without copying their contents. Stable request identifiers route backg
 their original tabs. Closed tabs reject pending results. Project generations isolate refreshed and
 replaced projects. Refresh preserves current tabs and restarts their pending reads. Inactive working
 files refresh when selected. Commit tabs retain their original revision and comparison source.
+
+Closed-tab documents share a 16 MiB memory budget, with recent documents retained first. The last 20
+closures keep their source identity, offsets, part cursors, and compact folding state. Eviction
+releases prepared text and folding projections. Background reopening reads original files or Git
+revisions rather than additional source snapshots. Matching fingerprints restore expanded blocks.
+Changed large files restart at the first part. Document preparation measures owned buffer capacities
+off the interface thread. The budget excludes allocator overhead, active tabs, and renderer
+resources.
+
+File icons and interface icons retain canvas geometry between draws. Icon identity, resolved color,
+appearance, and dimensions invalidate the relevant cache. Widget removal releases its geometry.
+Comparison assembly moves prepared lines instead of copying their source strings and syntax spans.
 
 Each tab caches its collapsed-line projection. Only projection changes scan the document; scrolling
 builds rows from the cached projection. Expanding a range preserves all original source lines.
@@ -303,6 +349,42 @@ Dependencies may retain internal copies during requests or rendering. Workspace 
 contains credentials. See [authentication setup](authentication.md) for provider registration and
 protocol details.
 
+## Bundled modules
+
+`modules/catalog/` defines stable module identifiers and the bundled catalog. Each entry declares
+its system origin. System modules have no disable or removal operation. Legacy disabled-module
+preferences remain stored for compatibility. They do not affect system modules. Module availability
+does not start its processes.
+
+`app/modules/` owns panel visibility and host event routing. It maps module subscriptions into
+application messages. `ui/modules.rs` projects the catalog into settings and passes presentation
+values to module views. `Panel::Module` connects module panels to the existing resizable workspace.
+Each bundled module keeps its implementation under `modules/<name>/`. Shared application code
+retains its layers. No external module loader or marketplace exists.
+
+The terminal runtime starts only after an explicit open action. `modules/terminal/session/` runs the
+default shell through `portable-pty`. Its blocking workers handle input, output, resizing, and child
+cleanup. Bounded channels connect those workers to the application. An output subscription waits for
+data without periodic polling. Session identifiers reject obsolete startup results, output, input,
+clipboard reads, and resize requests.
+
+`modules/terminal/state/` keeps independent tabs with bounded `vt100` screens and shell sessions.
+Unique tab identifiers route startup, output, input, clipboard reads, and resize events. Closed tabs
+and replaced projects reject obsolete results. Each running tab owns an output subscription,
+including when another tab is selected or the panel is hidden. The state exposes typed events,
+tasks, and subscriptions without importing application state. `modules/terminal/view/` renders
+cells, handles focus and selection, and encodes keyboard input. `modules/terminal/style.rs` owns
+terminal colors and spacing while reusing shared theme tokens. The parser handles escape sequences
+without exposing them as interface messages. Clipboard operations require explicit user actions.
+Terminal contents never enter saved workspace data or diagnostics.
+
+The panel heading's cross hides the panel while retaining every session. A tab's cross removes its
+session and selects a neighboring tab when needed. Closing the last tab hides the panel. The plus
+creates a tab. Opening an empty panel creates its first tab. Switching project ends all sessions.
+Refreshing the same project preserves the tabs. See [the module guide](modules.md) for controls,
+resource limits, and platform requirements. See [the module decision](adr/0001-bundled-modules.md)
+for the extension boundary.
+
 ## Window and graphics
 
 `app/windows.rs` owns the secondary settings window and routes window-specific closing and keyboard
@@ -368,6 +450,13 @@ stable child positions while panel visibility changes. Dragging updates the widt
 saves it on release. The view limits panel width to preserve source space without changing the saved
 preference. File panel headings and file tabs share a common bottom edge.
 
+`domain/shortcuts/` stores shortcut overrides and enforces unique effective combinations, including
+defaults. Workspace normalization removes invalid or conflicting stored overrides. `app/shortcuts/`
+records settings input and routes unhandled shortcuts to the correct window. `ui/shortcuts/`
+converts physical keyboard events without coupling stored preferences to Iced. Source selection
+widgets use the same preferences for copy and select-all actions. The macOS menu suspends its
+accelerators while settings records a shortcut.
+
 Git and pipelines share one optional panel position. The workspace guide lists platform-specific
 keyboard shortcuts. Middle-click closes the targeted tab.
 
@@ -406,10 +495,11 @@ limits, and recovery behavior.
 
 ## Localization
 
-The executable embeds English, Russian, and Spanish catalogs from `locales/`. `IWE_LANG` overrides
-the system locale. Unsupported languages select English. Missing selected messages fall back to
-English, then to localized fallback text. The interface never displays translation keys or technical
-diagnostics.
+The executable embeds shared English, Russian, and Spanish catalogs from root `locales/`. Each
+bundled module owns its translations under `modules/<name>/locales/`. The shared localizer combines
+the resources and rejects duplicate message identifiers. `IWE_LANG` overrides the system locale.
+Unsupported languages select English. Missing selected messages fall back to English, then to
+localized fallback text. The interface never displays translation keys or technical diagnostics.
 
 Platform-only typed keys compile only for their target platform and catalog tests. The key macro
 applies platform conditions to variants, lookup arms, and the test registry. Tests retain every

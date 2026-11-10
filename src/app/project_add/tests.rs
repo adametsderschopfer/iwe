@@ -24,16 +24,38 @@ fn defaults_follow_the_target_space_and_fall_back_to_iwe_code() {
     app.workspace.create_space("Empty".into(), vec![]);
     let _ = app.update_project_add(Message::Open(Some(0)));
     let _ = app.update_project_add(Message::Remote);
+    assert_eq!(
+        app.project_add.as_ref().unwrap().destination,
+        work.to_string_lossy()
+    );
     let _ = app.update_project_add(Message::Url("git@example.com:team/mobile.git".into()));
     assert_eq!(
         app.project_add.as_ref().unwrap().destination,
         work.join("mobile").to_string_lossy()
+    );
+    let _ = app.update_project_add(Message::Url(String::new()));
+    assert_eq!(
+        app.project_add.as_ref().unwrap().destination,
+        work.to_string_lossy()
+    );
+    let _ = app.update_project_add(Message::PickParent);
+    let _ = app.update_project_add(Message::ParentPicked(
+        app.space_request,
+        Some(root.path().to_owned()),
+    ));
+    assert_eq!(
+        app.project_add.as_ref().unwrap().destination,
+        root.path().to_string_lossy()
     );
     let _ = app.update_project_add(Message::Cancel);
     let _ = app.update_project_add(Message::Open(Some(1)));
     assert_eq!(
         app.project_add.as_ref().unwrap().parent,
         project_clone::default_parent()
+    );
+    assert_eq!(
+        app.project_add.as_ref().unwrap().destination,
+        project_clone::default_parent().to_string_lossy()
     );
 }
 

@@ -11,15 +11,21 @@ pub(crate) struct Model {
     pub application: String,
     pub settings: String,
     pub about: String,
+    pub deployment: String,
+    pub connections: String,
+    pub keys: String,
+    pub profiles: String,
     pub spaces_title: String,
     pub projects_title: String,
     pub new_space: String,
+    pub no_projects: String,
     pub hide: String,
     pub hide_others: String,
     pub show_all: String,
     pub services: String,
     pub quit: String,
     pub enabled: bool,
+    pub recording_shortcut: bool,
     pub spaces: Vec<(String, Vec<(String, PathBuf)>)>,
 }
 
@@ -27,8 +33,10 @@ pub(crate) struct Model {
 pub(crate) enum Action {
     Settings,
     About,
+    DeploymentConnections,
+    DeploymentKeys,
+    DeploymentProfiles,
     NewSpace,
-    Space(usize),
     Project(usize, PathBuf),
     Quit,
 }
@@ -61,11 +69,12 @@ fn install(model: Model) -> muda::Result<Installed> {
     let mut actions = BTreeMap::new();
     let application = Submenu::new(&model.application, true);
     application.append(&item(&model.about, true, Action::About, None, &mut actions))?;
-    application.append(&item(
+    let settings = Submenu::new(&model.settings, model.enabled);
+    settings.append(&item(
         &model.settings,
         model.enabled,
         Action::Settings,
-        Some(Accelerator::new(Modifiers::META, Code::Comma)),
+        (!model.recording_shortcut).then(|| Accelerator::new(Modifiers::META, Code::Comma)),
         &mut actions,
     ))?;
     application.append(&PredefinedMenuItem::separator())?;
@@ -77,19 +86,11 @@ fn install(model: Model) -> muda::Result<Installed> {
         None,
         &mut actions,
     ))?;
-    if !model.spaces.is_empty() {
-        spaces.append(&PredefinedMenuItem::separator())?;
+    let projects = Submenu::new(&model.projects_title, model.enabled);
+    if model.spaces.iter().all(|(_, entries)| entries.is_empty()) {
+        projects.append(&MenuItem::new(&model.no_projects, false, None))?;
     }
-    let projects = Submenu::new(
-        &model.projects_title,
-        model.enabled
-            && model
-                .spaces
-                .iter()
-                .any(|(_, projects)| !projects.is_empty()),
-    );
     for (index, (name, entries)) in model.spaces.iter().enumerate() {
-        spaces.append(&item(name, true, Action::Space(index), None, &mut actions))?;
         if !entries.is_empty() {
             let group = Submenu::new(name.replace('&', "&&"), true);
             for (name, path) in entries {
@@ -104,23 +105,37 @@ fn install(model: Model) -> muda::Result<Installed> {
             projects.append(&group)?;
         }
     }
-    application.append(&spaces)?;
-    application.append(&projects)?;
-    application.append(&PredefinedMenuItem::separator())?;
     application.append(&PredefinedMenuItem::services(Some(&model.services)))?;
     application.append(&PredefinedMenuItem::separator())?;
-    application.append(&PredefinedMenuItem::hide(Some(&model.hide)))?;
-    application.append(&PredefinedMenuItem::hide_others(Some(&model.hide_others)))?;
+    if model.recording_shortcut {
+        application.append(&MenuItem::new(&model.hide, false, None))?;
+        application.append(&MenuItem::new(&model.hide_others, false, None))?;
+    } else {
+        application.append(&PredefinedMenuItem::hide(Some(&model.hide)))?;
+        application.append(&PredefinedMenuItem::hide_others(Some(&model.hide_others)))?;
+    }
     application.append(&PredefinedMenuItem::show_all(Some(&model.show_all)))?;
     application.append(&PredefinedMenuItem::separator())?;
     application.append(&item(
         &model.quit,
         true,
         Action::Quit,
-        Some(Accelerator::new(Modifiers::META, Code::KeyQ)),
+        (!model.recording_shortcut).then(|| Accelerator::new(Modifiers::META, Code::KeyQ)),
         &mut actions,
     ))?;
     menu.append(&application)?;
+    menu.append(&spaces)?;
+    menu.append(&projects)?;
+    menu.append(&settings)?;
+    let deployment = Submenu::new(&model.deployment, model.enabled);
+    for (label, action) in [
+        (&model.connections, Action::DeploymentConnections),
+        (&model.keys, Action::DeploymentKeys),
+        (&model.profiles, Action::DeploymentProfiles),
+    ] {
+        deployment.append(&item(label, model.enabled, action, None, &mut actions))?;
+    }
+    menu.append(&deployment)?;
     menu.init_for_nsapp();
     Ok(Installed {
         model,

@@ -6,7 +6,7 @@ use crate::ui::theme;
 use crate::{
     domain::{
         Failure,
-        changes::TextCursor,
+        changes::{TextCursor, TextPage},
         repository::{ChangedFile, Commit},
         workspace::DiffView,
     },
@@ -16,8 +16,18 @@ use crate::{
 use iced::{Task, widget::operation};
 use std::{path::PathBuf, sync::Arc};
 
+const CLOSED_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
+
 #[derive(Debug, Clone)]
 enum Source {
+    Remote {
+        path: PathBuf,
+        remote: String,
+        label: String,
+        identity: String,
+        text: Arc<String>,
+        previous: Option<Arc<String>>,
+    },
     Working {
         root: PathBuf,
         path: PathBuf,
@@ -32,6 +42,7 @@ enum Source {
 impl Source {
     fn extension(&self) -> String {
         match self {
+            Self::Remote { path, .. } => syntax_for(path),
             Self::Working { path, .. } => syntax_for(path),
             Self::Commit { file, .. } => syntax_for(std::path::Path::new(&file.path)),
         }
@@ -39,6 +50,7 @@ impl Source {
 
     async fn read(self) -> Result<Document, Failure> {
         let text = match self.clone() {
+            Self::Remote { text, .. } => Ok((*text).clone()),
             Self::Working { root, path } => repository::working_text(root, path).await,
             Self::Commit { root, commit, file } => {
                 repository::commit_text(root, *commit, file).await
@@ -60,6 +72,7 @@ impl Source {
         version: Option<(u64, u128)>,
     ) -> Result<Document, Failure> {
         let (text, page) = match self {
+            Self::Remote { .. } => return Err(Failure::TooLarge),
             Self::Working { root, path } => {
                 repository::working_page(root, path, cursor, version).await?
             }
@@ -110,6 +123,11 @@ impl Source {
         let extension = self.extension();
         let text = document.text.clone();
         let source = match self {
+            Self::Remote { previous, .. } => crate::domain::changes::Source {
+                text,
+                previous: previous.map(|p| (*p).clone()),
+                ..Default::default()
+            },
             Self::Working { root, path } => repository::working_comparison(root, path, text).await,
             Self::Commit { root, commit, file } => {
                 repository::commit_comparison(root, *commit, file, text).await
@@ -140,6 +158,7 @@ pub(crate) enum PageDirection {
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Preview {
+    pub remote: bool,
     pub selection: crate::ui::code::selection::Selection,
     pub id: u64,
     pub title: String,
@@ -158,6 +177,14 @@ pub(crate) struct Preview {
     diff_unfolded_scroll: ([f32; 2], f32),
     source: Option<Source>,
     page_history: Vec<TextCursor>,
+    suspended: Option<Suspended>,
+}
+
+#[derive(Debug, Clone)]
+struct Suspended {
+    page: Option<TextPage>,
+    fingerprint: [u8; 32],
+    folding: Folding,
 }
 
 pub(crate) struct State {
@@ -181,7 +208,61 @@ impl Default for State {
     }
 }
 
+impl State {
+    fn trim_closed_documents(&mut self, budget: usize) {
+        let mut retained = 0;
+        for preview in self.closed.iter_mut().rev() {
+            let Some(document) = &preview.document else {
+                continue;
+            };
+            let bytes = document.memory_bytes();
+            if bytes <= budget - retained {
+                retained += bytes;
+            } else {
+                let mut folding = std::mem::take(&mut preview.folding);
+                folding.release_layout();
+                preview.suspended = Some(Suspended {
+                    page: document.page,
+                    fingerprint: document.fingerprint,
+                    folding,
+                });
+                preview.document = None;
+            }
+        }
+    }
+}
+
 impl App {
+    pub(crate) fn active_local_file(&self) -> Option<PathBuf> {
+        match self.preview().source.as_ref()? {
+            Source::Working { path, .. } => Some(path.clone()),
+            Source::Remote {
+                path,
+                previous: Some(_),
+                ..
+            } => Some(path.clone()),
+            _ => None,
+        }
+    }
+
+    pub(super) fn open_remote_preview(
+        &mut self,
+        path: PathBuf,
+        remote: String,
+        origin: (String, String),
+        text: Arc<String>,
+        previous: Option<Arc<String>>,
+    ) -> Task<Message> {
+        self.navigation = super::Navigation::Files;
+        self.open_source(Source::Remote {
+            path,
+            remote,
+            identity: origin.0,
+            label: origin.1,
+            text,
+            previous,
+        })
+    }
     pub(super) fn load_line_preview(&self, id: u64, request: u64, line: usize) -> Task<Message> {
         let Some(source) = self
             .preview()
@@ -267,6 +348,17 @@ impl App {
 
     fn open_source(&mut self, source: Source) -> Task<Message> {
         let (path, title, revision) = match &source {
+            Source::Remote {
+                path,
+                remote,
+                label,
+                identity,
+                ..
+            } => (
+                path.clone(),
+                format!("{label}: {remote}"),
+                Some(format!("{identity}:{remote}")),
+            ),
             Source::Working { root, path } => (
                 path.clone(),
                 path.strip_prefix(root)
@@ -285,6 +377,7 @@ impl App {
             preview.path.as_ref() == Some(&path) && preview.revision == revision
         });
         if let Some(index) = existing
+            && !matches!(source, Source::Remote { .. })
             && self.tabs.files[index].error.is_none()
         {
             return self.select_tab(self.tabs.files[index].id);
@@ -292,6 +385,7 @@ impl App {
 
         self.file_request += 1;
         let preview = Preview {
+            remote: matches!(source, Source::Remote { .. }),
             id: self.file_request,
             title,
             path: Some(path),
@@ -403,6 +497,15 @@ impl App {
             Err(error) => return self.finish_preview(id, Err(error)),
         };
         if let Some(page) = document.page {
+            if preview
+                .suspended
+                .as_ref()
+                .and_then(|suspended| suspended.page)
+                .is_some_and(|previous| previous.cursor != page.cursor)
+            {
+                preview.scroll_x = 0.;
+                preview.scroll_y = 0.;
+            }
             preview
                 .page_history
                 .retain(|cursor| cursor.offset < page.cursor.offset);
@@ -456,7 +559,14 @@ impl App {
         preview.loading = false;
         match result {
             Ok(document) => {
-                if preview.document.as_ref().map(|old| old.fingerprint)
+                let suspended = preview.suspended.take().filter(|suspended| {
+                    suspended.fingerprint == document.fingerprint
+                        && suspended.folding.collapsed == (collapse && document.can_fold())
+                });
+                if let Some(mut suspended) = suspended {
+                    suspended.folding.restore_layout(&document);
+                    preview.folding = suspended.folding;
+                } else if preview.document.as_ref().map(|old| old.fingerprint)
                     != Some(document.fingerprint)
                     || preview.folding.collapsed != (collapse && document.can_fold())
                 {
@@ -606,6 +716,7 @@ impl App {
                 self.tabs.closed.remove(0);
             }
             self.tabs.closed.push(closed);
+            self.tabs.trim_closed_documents(CLOSED_DOCUMENT_BYTES);
         }
         if self.changes.preview_pending == Some(id) {
             self.changes.preview_pending = None;
@@ -643,7 +754,24 @@ impl App {
             preview.preparation = Preparation::Text;
             preview.error = None;
             let read = if preview.loading {
-                self.read_preview(preview.id, source)
+                if let Some(page) = preview
+                    .document
+                    .as_ref()
+                    .and_then(|document| document.page)
+                    .or_else(|| {
+                        preview
+                            .suspended
+                            .as_ref()
+                            .and_then(|suspended| suspended.page)
+                    })
+                {
+                    let (generation, id) = (self.generation, preview.id);
+                    Task::perform(source.read_page(page.cursor, page.version), move |result| {
+                        Message::FilePrepared(generation, id, Preparation::Text, result)
+                    })
+                } else {
+                    self.read_preview(preview.id, source)
+                }
             } else {
                 Task::none()
             };

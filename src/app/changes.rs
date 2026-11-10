@@ -7,7 +7,7 @@ use crate::{
     ui::code::{Document, syntax_for},
 };
 use iced::{Subscription, Task};
-use std::{collections::BTreeSet, time::Duration};
+use std::{collections::BTreeSet, path::PathBuf, time::Duration};
 
 #[derive(Default)]
 pub(crate) struct State {
@@ -29,6 +29,54 @@ pub(crate) enum Event {
 }
 
 impl App {
+    pub(super) fn toggle_worktree_folder(&mut self, repository: Option<PathBuf>, path: String) {
+        let prefix = repository
+            .as_ref()
+            .map(|root| format!("repo:{}:", root.display()))
+            .unwrap_or_default();
+        let key = format!("{prefix}{path}");
+        if self.collapsed_worktree_folders.remove(&key) {
+            return;
+        }
+        self.collapsed_worktree_folders.insert(key);
+        let Some(root) = repository.as_ref().or_else(|| self.workspace.directory()) else {
+            return;
+        };
+        let descendant_prefix = format!("{path}/");
+        for file in self.changes.status.files.keys() {
+            if repository.is_some()
+                && self
+                    .changes
+                    .status
+                    .roots
+                    .iter()
+                    .filter(|candidate| file.starts_with(candidate))
+                    .max_by_key(|candidate| candidate.components().count())
+                    != Some(root)
+            {
+                continue;
+            }
+            let Ok(relative) = file.strip_prefix(root) else {
+                continue;
+            };
+            for folder in relative
+                .ancestors()
+                .skip(1)
+                .filter(|folder| !folder.as_os_str().is_empty())
+            {
+                let folder = folder
+                    .components()
+                    .map(|part| part.as_os_str().to_string_lossy())
+                    .collect::<Vec<_>>()
+                    .join("/");
+                if path.is_empty() || folder == path || folder.starts_with(&descendant_prefix) {
+                    self.collapsed_worktree_folders
+                        .insert(format!("{prefix}{folder}"));
+                }
+            }
+        }
+    }
+
     pub(super) fn change_subscription(&self) -> Subscription<Message> {
         if self.loaded && self.workspace.directory().is_some() && !self.changes.disabled {
             iced::time::every(Duration::from_secs(3)).map(|_| Message::Worktree(Event::Refresh))

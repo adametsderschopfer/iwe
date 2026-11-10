@@ -7,6 +7,7 @@ pub(crate) mod files;
 pub(crate) mod git_actions;
 pub(crate) mod jobs;
 pub(crate) mod line_navigation;
+pub(crate) mod modules;
 #[cfg(target_os = "macos")]
 mod native_menu;
 pub(crate) mod notifications;
@@ -15,6 +16,7 @@ pub(crate) mod project_add;
 pub(crate) mod project_changes;
 mod repositories;
 mod repository_cache;
+pub(crate) mod shortcuts;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
 pub(crate) mod updates;
@@ -70,6 +72,7 @@ fn application(
         Subscription::batch([
             app.change_subscription(),
             app.project_change_subscription(),
+            app.module_subscription(),
             iced::time::every(std::time::Duration::from_secs(60))
                 .map(|_| Message::Update(updates::Event::Automatic(updates::Trigger::Periodic))),
             window::events().filter_map(|(id, event)| match event {
@@ -89,13 +92,15 @@ fn application(
             #[cfg(target_os = "macos")]
             app.native_menu_subscription(),
             window_state_subscription(),
-            iced::event::listen_with(|event, _, id| {
+            iced::event::listen_with(|event, status, id| {
                 if let iced::Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) = event {
                     Some(Message::BranchSelection(
                         branch_selection::Event::Modifiers(id, modifiers),
                     ))
+                } else if let iced::Event::Keyboard(event) = event {
+                    Some(Message::Shortcut(shortcuts::Event::Key(id, event, status)))
                 } else {
-                    shortcut(event).map(|message| Message::WindowShortcut(id, Box::new(message)))
+                    None
                 }
             }),
         ])
@@ -116,7 +121,9 @@ fn window_state_subscription() -> Subscription<Message> {
     }
 }
 
+#[cfg(test)]
 fn shortcut(event: iced::Event) -> Option<Message> {
+    let bindings = crate::domain::shortcuts::Shortcuts::default();
     let iced::Event::Keyboard(keyboard::Event::KeyPressed {
         key,
         physical_key,
@@ -127,34 +134,7 @@ fn shortcut(event: iced::Event) -> Option<Message> {
     else {
         return None;
     };
-    if key == keyboard::Key::Named(keyboard::key::Named::Escape) {
-        return Some(Message::DismissDialog);
-    }
-    let close = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::KeyW)
-        || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("w"));
-    let reopen = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::KeyT)
-        || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case("t"));
-    let line_key = if cfg!(target_os = "macos") {
-        keyboard::key::Code::KeyL
-    } else {
-        keyboard::key::Code::KeyG
-    };
-    let line_character = if cfg!(target_os = "macos") { "l" } else { "g" };
-    let go_to_line = physical_key == keyboard::key::Physical::Code(line_key)
-        || matches!(&key, keyboard::Key::Character(character) if character.eq_ignore_ascii_case(line_character));
-    let settings = physical_key == keyboard::key::Physical::Code(keyboard::key::Code::Comma)
-        || matches!(&key, keyboard::Key::Character(character) if character == ",");
-    if settings && modifiers == keyboard::Modifiers::COMMAND {
-        Some(Message::Navigate(Navigation::Settings))
-    } else if go_to_line && modifiers == keyboard::Modifiers::COMMAND {
-        Some(Message::GoToLine(line_navigation::Event::Open))
-    } else if close && modifiers == keyboard::Modifiers::COMMAND {
-        Some(Message::CloseActiveTab)
-    } else if reopen && modifiers == keyboard::Modifiers::COMMAND | keyboard::Modifiers::SHIFT {
-        Some(Message::ReopenClosedTab)
-    } else {
-        None
-    }
+    shortcuts::key_message(&key, physical_key, modifiers, &bindings)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,6 +149,10 @@ pub(crate) enum SettingsTab {
     General,
     Code,
     Panels,
+    Modules,
+    Connections,
+    DeploymentKeys,
+    Deployment,
     Shortcuts,
     About,
 }
@@ -177,6 +161,7 @@ pub(crate) enum Panel {
     Workspace,
     Git,
     Pipelines,
+    Module(crate::modules::ModuleId),
 }
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum GitPanel {
@@ -207,6 +192,8 @@ pub(crate) struct App {
     pub workspace: Workspace,
     pub navigation: Navigation,
     pub settings_tab: SettingsTab,
+    pub shortcuts: shortcuts::State,
+    pub modules: modules::State,
     pub panes: pane_grid::State<Panel>,
     pub git_panes: pane_grid::State<GitPanel>,
     pub repository: Option<RepositorySet>,
@@ -310,6 +297,7 @@ pub(crate) enum Message {
     Saved(Result<(), Failure>),
     Navigate(Navigation),
     SelectSettingsTab(SettingsTab),
+    Module(modules::Event),
     Space(spaces::Message),
     ProjectAdd(project_add::Message),
     Git(git_actions::Message),
@@ -336,7 +324,10 @@ pub(crate) enum Message {
     ToggleFilePanel(FilePanel),
     ResizeFilePanel(f32, bool),
     MoveFilePanel(usize, usize),
-    ToggleWorktreeFolder(String),
+    ToggleWorktreeFolder {
+        repository: Option<PathBuf>,
+        path: String,
+    },
     Files(files::Event),
     Worktree(changes::Event),
     ProjectChanges(project_changes::Event),
@@ -369,6 +360,7 @@ pub(crate) enum Message {
     Opened(Result<(), Failure>),
     SetLanguage(String),
     SetAppearance(Appearance),
+    Shortcut(shortcuts::Event),
     SetCodeSize(u16),
     SetLineNumbers(bool),
     CopyPath,
@@ -412,6 +404,8 @@ impl App {
             workspace: Workspace::default(),
             navigation: Navigation::Projects,
             settings_tab: SettingsTab::default(),
+            shortcuts: shortcuts::State::default(),
+            modules: modules::State::default(),
             panes: pane_grid::State::new(Panel::Workspace).0,
             git_panes: git_panes(),
             repository: None,
@@ -514,6 +508,17 @@ impl App {
                 message,
                 Message::Navigate(_)
                     | Message::SelectSettingsTab(_)
+                    | Message::Module(modules::Event::Toggle(_))
+                    | Message::Module(modules::Event::Terminal(
+                        crate::modules::terminal::Event::Start
+                            | crate::modules::terminal::Event::Close(_)
+                            | crate::modules::terminal::Event::Select(_)
+                            | crate::modules::terminal::Event::Hide
+                            | crate::modules::terminal::Event::Input(..)
+                            | crate::modules::terminal::Event::Paste(_)
+                            | crate::modules::terminal::Event::Pasted(..)
+                            | crate::modules::terminal::Event::Focus(_)
+                    ))
                     | Message::SelectProject(_, _)
                     | Message::RevealGitBranches
                     | Message::RevealRepositoryBranches(_)
@@ -638,6 +643,10 @@ impl App {
             Message::WindowShortcut(id, message) => {
                 if self.windows.settings == Some(id) {
                     return match *message {
+                        Message::DismissDialog if self.modules.deployment.has_dialog() => self
+                            .update_module(modules::Event::Deployment(
+                                crate::modules::deployment::Event::CloseDialog,
+                            )),
                         Message::CloseActiveTab => self.update_window(windows::Event::Close(id)),
                         Message::Navigate(Navigation::Settings) => self.open_settings(),
                         _ => Task::none(),
@@ -730,10 +739,26 @@ impl App {
                 self.jobs.overview.popup = None;
                 return self.refresh_pipeline_overviews(false);
             }
-            Message::SelectSettingsTab(tab) => self.settings_tab = tab,
+            Message::SelectSettingsTab(tab) => {
+                if self.modules.deployment.has_dialog() {
+                    return Task::none();
+                }
+                self.shortcuts = shortcuts::State::default();
+                self.settings_tab = tab;
+                return self.update_module(modules::Event::Deployment(
+                    crate::modules::deployment::Event::StopBrowsing,
+                ));
+            }
+            Message::Shortcut(event) => return self.update_shortcuts(event),
+            Message::Module(event) => return self.update_module(event),
             Message::Space(message) => return self.update_space(message),
             Message::ProjectAdd(message) => return self.update_project_add(message),
             Message::DismissDialog => {
+                if self.navigation == Navigation::Settings && self.modules.deployment.has_dialog() {
+                    return self.update_module(modules::Event::Deployment(
+                        crate::modules::deployment::Event::CloseDialog,
+                    ));
+                }
                 if self.repository_menu.take().is_some() {
                     return Task::none();
                 }
@@ -817,10 +842,8 @@ impl App {
                     return self.save();
                 }
             }
-            Message::ToggleWorktreeFolder(path) => {
-                if !self.collapsed_worktree_folders.remove(&path) {
-                    self.collapsed_worktree_folders.insert(path);
-                }
+            Message::ToggleWorktreeFolder { repository, path } => {
+                self.toggle_worktree_folder(repository, path)
             }
             Message::RepositoryLoaded(generation, request, result)
                 if generation == self.generation && request == self.repo_request =>
@@ -1072,6 +1095,7 @@ impl App {
                         }
                     }
                     Panel::Workspace => {}
+                    Panel::Module(id) => return self.update_module(modules::Event::Toggle(id)),
                 }
                 self.sync_panels();
                 let pipelines = if (self.workspace.preferences.show_pipelines
@@ -1275,12 +1299,16 @@ impl App {
         self.project_menu = None;
         self.space_menu = None;
         let directory = self.workspace.directory().cloned();
+        self.modules
+            .deployment
+            .sync_context(self.workspace.selected_space, directory.as_deref());
         let same_project = self.project_directory == directory;
         self.project_directory = directory;
         self.cancel_auth();
         self.disconnecting = false;
         self.generation += 1;
         if !same_project {
+            self.modules.terminal.reset();
             self.file_panel = self.workspace.preferences.file_panels[0];
             self.file_panel_visible = true;
             self.collapsed_worktree_folders.clear();
@@ -1443,16 +1471,31 @@ impl App {
     fn sync_panels(&mut self) {
         let show_git = self.workspace.preferences.show_git && self.workspace.directory().is_some();
         let show_pipelines = self.workspace.preferences.show_pipelines && self.has_remote();
+        let show_terminal = self.modules.terminal.open && self.workspace.directory().is_some();
         if self.panes.iter().any(|(_, panel)| *panel == Panel::Git) == show_git
             && self
                 .panes
                 .iter()
                 .any(|(_, panel)| *panel == Panel::Pipelines)
                 == show_pipelines
+            && self
+                .panes
+                .iter()
+                .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Terminal))
+                == show_terminal
         {
             return;
         }
         let (mut panes, top) = pane_grid::State::new(Panel::Workspace);
+        if show_terminal
+            && let Some((_, split)) = panes.split(
+                pane_grid::Axis::Horizontal,
+                top,
+                Panel::Module(crate::modules::ModuleId::Terminal),
+            )
+        {
+            panes.resize(split, 0.68);
+        }
         if show_git
             && let Some((_, split)) = panes.split(pane_grid::Axis::Horizontal, top, Panel::Git)
         {

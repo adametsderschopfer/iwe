@@ -14,7 +14,7 @@ use crate::{
     },
 };
 use iced::{
-    Alignment, Color, Element, Font, Length, Point, Rectangle, Renderer, Theme, mouse,
+    Alignment, Color, Element, Length, Point, Rectangle, Renderer, Theme, mouse,
     widget::{
         Row, button,
         canvas::{self, Frame, Geometry, Path, Stroke},
@@ -31,17 +31,25 @@ pub(super) fn view<'a>(
 ) -> Element<'a, Message> {
     let heading = row![
         container(
-            text(app.i18n.text(Key::DiffBefore))
-                .size(12)
-                .style(theme::MUTED.text())
+            text(app.i18n.text(if app.preview().remote {
+                Key::DeploymentRemote
+            } else {
+                Key::DiffBefore
+            }))
+            .size(12)
+            .style(theme::MUTED.text())
         )
         .padding([6, 12])
         .width(Length::Fill),
         space().width(BRIDGE_WIDTH),
         container(
-            text(app.i18n.text(Key::DiffAfter))
-                .size(12)
-                .style(theme::MUTED.text())
+            text(app.i18n.text(if app.preview().remote {
+                Key::DeploymentLocal
+            } else {
+                Key::DiffAfter
+            }))
+            .size(12)
+            .style(theme::MUTED.text())
         )
         .padding([6, 12])
         .width(Length::Fill),
@@ -88,10 +96,8 @@ fn pane<'a>(
             + theme::CODE_SCROLLBAR_WIDTH)
             .max(viewport.width);
         let count = preview.folding.side_len(comparison);
-        let start = (((preview.diff_scroll_y.max(0.) / height) as usize).saturating_sub(16) / 32
-            * 32)
-            .min(count);
-        let end = (start + (viewport.height / height).ceil() as usize + 64).min(count);
+        let visible = code::visible_rows(preview.diff_scroll_y, viewport.height, height, count);
+        let (start, end) = (visible.start, visible.end);
         let lines = (start..end).map(|row| match preview.folding.side_row(row) {
             SideRow::Fold { range, numbers } => {
                 let mut args = FluentArgs::new();
@@ -147,7 +153,11 @@ fn pane<'a>(
                         app.workspace.preferences.code_size,
                         app.workspace.preferences.line_numbers,
                         app.workspace.preferences.appearance,
-                        app.i18n.text(Key::DiffBefore),
+                        app.i18n.text(if app.preview().remote {
+                            Key::DeploymentRemote
+                        } else {
+                            Key::DiffBefore
+                        }),
                         side
                     ),
                     start..end,
@@ -248,7 +258,7 @@ fn line<'a>(
         row = row.push(
             text(cell.number)
                 .size(size)
-                .font(Font::MONOSPACE)
+                .font(theme::code_font())
                 .line_height(1.65)
                 .style(theme::FAINT.text())
                 .width(46)

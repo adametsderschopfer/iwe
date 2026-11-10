@@ -1,4 +1,8 @@
 app-title = IWE Code
+modules = Módulos
+modules-description = Módulos incluidos en IWE Code.
+system-module = Del sistema
+module-enabled = Activado
 git-fetch-done = Actualización de ramas remotas completada
 git-checkout-done = Cambio de revisión completado
 git-create-done = Rama creada
@@ -284,3 +288,8 @@ clone-invalid-remote = Introduce una URL HTTPS o SSH del repositorio.
 clone-invalid-destination = Elige una ruta absoluta para una carpeta nueva.
 clone-destination-exists = Esta carpeta ya existe. Elige una carpeta nueva para el repositorio.
 clone-failed = No se pudo clonar el repositorio. Comprueba el acceso mediante Git y elige otra carpeta antes de reintentar.
+
+shortcut-recording = Pulsa una combinación…
+shortcut-instructions = Pulsa Ctrl, Command, Super o Alt con una letra, número o F1–F12. Escape cancela.
+shortcut-invalid = Usa Ctrl, Command, Super o Alt con una letra, número o F1–F12.
+shortcut-conflict = Esta combinación ya está en uso. Elige otra combinación.

@@ -1,7 +1,7 @@
 use super::repository::Provider;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
 
@@ -40,12 +40,15 @@ pub(crate) struct Space {
     pub name: String,
     #[serde(default)]
     pub projects: Vec<Project>,
+    #[serde(default)]
+    pub deployments: Vec<super::deployment::Profile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub(crate) struct Preferences {
     pub language: Option<String>,
+    pub shortcuts: super::shortcuts::Shortcuts,
     pub appearance: Appearance,
     pub code_size: u16,
     pub show_git: bool,
@@ -55,6 +58,8 @@ pub(crate) struct Preferences {
     pub diff_view: DiffView,
     pub file_panels: Vec<FilePanel>,
     pub file_panel_width: f32,
+    pub disabled_modules: BTreeSet<String>,
+    pub deployment_panel_width: f32,
 }
 
 impl Preferences {
@@ -87,6 +92,7 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             language: None,
+            shortcuts: super::shortcuts::Shortcuts::default(),
             appearance: Appearance::default(),
             code_size: 14,
             show_git: true,
@@ -96,6 +102,8 @@ impl Default for Preferences {
             diff_view: DiffView::default(),
             file_panels: vec![FilePanel::Project, FilePanel::Changes],
             file_panel_width: Self::DEFAULT_FILE_PANEL_WIDTH,
+            disabled_modules: BTreeSet::new(),
+            deployment_panel_width: 300.,
         }
     }
 }
@@ -108,6 +116,7 @@ pub(crate) struct Workspace {
     pub selected_project: Option<usize>,
     pub preferences: Preferences,
     pub providers: BTreeMap<String, Provider>,
+    pub deployment: super::deployment::Connections,
 }
 
 impl Workspace {
@@ -123,6 +132,7 @@ impl Workspace {
     }
 
     pub(crate) fn normalize(&mut self) {
+        self.preferences.shortcuts.normalize();
         let mut panels = Vec::new();
         for panel in self
             .preferences
@@ -179,6 +189,7 @@ impl Workspace {
         self.spaces.push(Space {
             name: name.to_owned(),
             projects: Vec::new(),
+            deployments: Vec::new(),
         });
         for directory in directories {
             self.add_project(index, directory);
@@ -339,6 +350,7 @@ struct StoredWorkspace {
     selected_directory: usize,
     preferences: Preferences,
     providers: BTreeMap<String, Provider>,
+    deployment: super::deployment::Connections,
 }
 
 #[derive(Deserialize)]
@@ -357,6 +369,7 @@ impl From<StoredWorkspace> for Workspace {
                 .into_iter()
                 .map(|project| Space {
                     name: project.name,
+                    deployments: Vec::new(),
                     projects: project
                         .directories
                         .into_iter()
@@ -376,6 +389,7 @@ impl From<StoredWorkspace> for Workspace {
             selected_project,
             preferences: stored.preferences,
             providers: stored.providers,
+            deployment: stored.deployment,
         }
     }
 }

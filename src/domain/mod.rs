@@ -2,9 +2,11 @@
 
 pub(crate) mod auth;
 pub(crate) mod changes;
+pub(crate) mod deployment;
 pub(crate) mod git;
 pub(crate) mod jobs;
 pub(crate) mod repository;
+pub(crate) mod shortcuts;
 pub(crate) mod update;
 pub(crate) mod workspace;
 

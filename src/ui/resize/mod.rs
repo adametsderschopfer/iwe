@@ -24,6 +24,24 @@ pub(crate) fn horizontal<'a, Message: 'a>(
         offset,
         limits,
         on_resize: Box::new(on_resize),
+        direction: 1.,
+    })
+}
+
+pub(crate) fn right<'a, Message: 'a>(
+    content: Element<'a, Message>,
+    width: Option<f32>,
+    offset: f32,
+    limits: RangeInclusive<f32>,
+    on_resize: impl Fn(f32, bool) -> Message + 'a,
+) -> Element<'a, Message> {
+    Element::new(Resize {
+        content,
+        width,
+        offset,
+        limits,
+        on_resize: Box::new(on_resize),
+        direction: -1.,
     })
 }
 
@@ -33,6 +51,7 @@ struct Resize<'a, Message> {
     offset: f32,
     limits: RangeInclusive<f32>,
     on_resize: Box<dyn Fn(f32, bool) -> Message + 'a>,
+    direction: f32,
 }
 
 #[derive(Default)]
@@ -127,7 +146,7 @@ impl<Message> Widget<Message, Theme, Renderer> for Resize<'_, Message> {
             }
             Event::Mouse(mouse::Event::CursorMoved { position }) => {
                 if let Some(drag) = &mut state.drag {
-                    drag.last = (drag.width + position.x - drag.origin)
+                    drag.last = (drag.width + (position.x - drag.origin) * self.direction)
                         .clamp(*self.limits.start(), *self.limits.end());
                     shell.publish((self.on_resize)(drag.last, false));
                     shell.capture_event();

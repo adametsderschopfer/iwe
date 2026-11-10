@@ -1043,6 +1043,164 @@ fn closed_tabs_reopen_in_reverse_order_with_cached_documents_and_scroll_position
 }
 
 #[test]
+fn closed_documents_have_a_byte_budget_without_losing_tab_history() {
+    let mut app = app();
+    let text = "let value = 123; // Source retained for a closed preview.\n".repeat(8000);
+    let mut documents = Vec::new();
+    let mut original_bytes = 0;
+    for index in 0..20 {
+        let id = open(&mut app, &format!("file-{index}.rs"));
+        let document = Document::plain(text.clone());
+        original_bytes += document.memory_bytes();
+        let _ = app.finish_preview(id, Ok(document));
+        documents.push(Arc::downgrade(app.preview().document.as_ref().unwrap()));
+        app.preview_mut().scroll_y = index as f32 * 24.;
+        let _ = app.close_tab(id);
+    }
+    let retained: usize = app
+        .tabs
+        .closed
+        .iter()
+        .filter_map(|preview| preview.document.as_ref())
+        .map(|document| document.memory_bytes())
+        .sum();
+    eprintln!(
+        "Closed documents: {} bytes before budget, {} bytes retained",
+        original_bytes, retained
+    );
+    assert!(original_bytes > CLOSED_DOCUMENT_BYTES * 2);
+    assert!(retained <= CLOSED_DOCUMENT_BYTES);
+    assert!(documents[0].upgrade().is_none());
+    assert!(documents[19].upgrade().is_some());
+    assert_eq!(app.tabs.closed.len(), 20);
+    for index in (0..20).rev() {
+        let _ = app.reopen_closed_tab();
+        assert_eq!(app.preview().title, format!("file-{index}.rs"));
+        assert_eq!(app.preview().scroll_y, index as f32 * 24.);
+        assert_eq!(app.preview().loading, app.preview().document.is_none());
+    }
+}
+
+#[tokio::test]
+async fn suspended_pages_reopen_from_disk_and_detect_changed_files() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::{Action, task};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("large.txt");
+    let content = "a\n".repeat(400_000);
+    std::fs::write(&path, &content).unwrap();
+    let source = Source::Working {
+        root: directory.path().into(),
+        path: path.clone(),
+    };
+    let first = source
+        .clone()
+        .read_page(TextCursor::default(), None)
+        .await
+        .unwrap();
+    let page = first.page.unwrap();
+    let second = source
+        .clone()
+        .read_page(page.next.unwrap(), page.version)
+        .await
+        .unwrap();
+    let second_page = second.page.unwrap();
+    for changed in [false, true] {
+        let mut app = app();
+        let id = open(&mut app, "large.txt");
+        app.preview_mut().source = Some(source.clone());
+        app.preview_mut().page_history = vec![page.cursor];
+        let _ = app.finish_preview(id, Ok(second.clone()));
+        app.preview_mut().scroll_y = 240.;
+        let _ = app.close_tab(id);
+        app.tabs.trim_closed_documents(0);
+        assert!(app.tabs.closed[0].document.is_none());
+        if changed {
+            std::fs::write(&path, "changed\n").unwrap();
+        }
+        let mut actions = task::into_stream(app.reopen_closed_tab()).unwrap();
+        let mut loaded = None;
+        while let Some(action) = actions.next().await {
+            if let Action::Output(Message::FilePrepared(_, _, Preparation::Text, result)) = action {
+                loaded = Some(result.unwrap());
+            }
+        }
+        let loaded = loaded.unwrap();
+        assert_eq!(
+            loaded.page.unwrap().cursor,
+            if changed {
+                TextCursor::default()
+            } else {
+                second_page.cursor
+            }
+        );
+        let id = app.preview().id;
+        let _ = app.continue_preview(id, Preparation::Text, Ok(loaded.clone()));
+        let _ = app.finish_preview(id, Ok(loaded));
+        assert_eq!(app.preview().scroll_y, if changed { 0. } else { 240. });
+        assert_eq!(app.preview().page_history.len(), usize::from(!changed));
+    }
+}
+
+#[test]
+fn suspended_comparisons_restore_expanded_folds_only_for_matching_content() {
+    use crate::ui::code::folding::Row;
+    for changed in [false, true] {
+        let mut app = comparison_app();
+        let id = app.preview().id;
+        let _ = app.toggle_unchanged(id);
+        let document = app.preview().document.as_ref().unwrap().as_ref().clone();
+        let range = (0..app.preview().folding.len(&document))
+            .find_map(|index| match app.preview().folding.row(index) {
+                Row::Fold(range) => Some(range),
+                Row::Line(_) => None,
+            })
+            .unwrap();
+        let _ = app.expand_unchanged(id, range.clone());
+        let count = app.preview().folding.len(&document);
+        app.preview_mut().scroll_y = 96.;
+        app.preview_mut().diff_scroll_y = 144.;
+        let _ = app.close_tab(id);
+        app.tabs.trim_closed_documents(0);
+        assert!(app.tabs.closed[0].document.is_none());
+        let _ = app.reopen_closed_tab();
+        let id = app.preview().id;
+        let _ = app.continue_preview(
+            id,
+            Preparation::Text,
+            Ok(Document::plain(document.text.clone())),
+        );
+        let restored = if changed {
+            Document::from_source(
+                crate::domain::changes::Source {
+                    text: format!("new_entry = 1\n{}", document.text),
+                    previous: Some(document.text),
+                    ..Default::default()
+                },
+                "py",
+            )
+        } else {
+            document
+        };
+        let _ = app.finish_preview(id, Ok(restored));
+        let preview = app.preview();
+        assert!(preview.suspended.is_none());
+        assert!(preview.folding.collapsed);
+        if changed {
+            assert!(preview.folding.len(preview.document.as_ref().unwrap()) < count);
+            assert_eq!(preview.diff_scroll_y, 0.);
+        } else {
+            assert_eq!(
+                preview.folding.len(preview.document.as_ref().unwrap()),
+                count
+            );
+            assert_eq!((preview.scroll_y, preview.diff_scroll_y), (96., 144.));
+            assert!(matches!(preview.folding.row(range.start), Row::Line(_)));
+        }
+    }
+}
+
+#[test]
 fn restoring_tabs_skips_open_duplicates_and_resets_history_when_projects_change() {
     let mut app = app();
     let first = open(&mut app, "first.rs");

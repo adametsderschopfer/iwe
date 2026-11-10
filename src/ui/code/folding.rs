@@ -33,6 +33,17 @@ pub(crate) struct Folding {
 }
 
 impl Folding {
+    pub(crate) fn release_layout(&mut self) {
+        self.rows = Vec::new();
+        self.side_rows = Vec::new();
+        self.side_hunks = Vec::new();
+        self.unified_marks = Vec::new();
+    }
+
+    pub(crate) fn restore_layout(&mut self, document: &Document) {
+        self.rebuild(document);
+    }
+
     pub(crate) fn len(&self, document: &Document) -> usize {
         if self.collapsed {
             self.rows.len()

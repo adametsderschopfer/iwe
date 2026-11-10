@@ -42,6 +42,20 @@ impl Language {
             Self::Spanish => include_str!("../../locales/es.ftl"),
         }
     }
+
+    fn sources(self) -> [&'static str; 3] {
+        let terminal = match self {
+            Self::English => include_str!("../modules/terminal/locales/en.ftl"),
+            Self::Russian => include_str!("../modules/terminal/locales/ru.ftl"),
+            Self::Spanish => include_str!("../modules/terminal/locales/es.ftl"),
+        };
+        let deployment = match self {
+            Self::English => include_str!("../modules/deployment/locales/en.ftl"),
+            Self::Russian => include_str!("../modules/deployment/locales/ru.ftl"),
+            Self::Spanish => include_str!("../modules/deployment/locales/es.ftl"),
+        };
+        [self.source(), terminal, deployment]
+    }
 }
 
 macro_rules! message_keys {
@@ -61,7 +75,94 @@ macro_rules! message_keys {
 }
 
 message_keys! {
+    Deployment => "deployment",
+    DeploymentConnections => "deployment-connections",
+    DeploymentConnectionsHelp => "deployment-connections-help",
+    DeploymentProfiles => "deployment-profiles",
+    DeploymentKeyError => "deployment-key-error",
+    DeploymentKeysHelp => "deployment-keys-help",
+    DeploymentSaving => "deployment-saving",
+    DeploymentProfilesHelp => "deployment-profiles-help",
+    DeploymentNewConnection => "deployment-new-connection",
+    DeploymentNewProfile => "deployment-new-profile",
+    DeploymentName => "deployment-name",
+    DeploymentHost => "deployment-host",
+    DeploymentPort => "deployment-port",
+    DeploymentUsername => "deployment-username",
+    DeploymentPassword => "deployment-password",
+    DeploymentAgent => "deployment-agent",
+    DeploymentSshIdentity => "deployment-key",
+    DeploymentSecretHelp => "deployment-secret-help",
+    DeploymentSave => "deployment-save",
+    DeploymentDelete => "deployment-delete",
+    DeploymentTest => "deployment-test",
+    DeploymentKeys => "deployment-keys",
+    DeploymentKeyPath => "deployment-key-path",
+    DeploymentChooseFile => "deployment-choose-file",
+    DeploymentAddIdentity => "deployment-add-key",
+    DeploymentSelectProject => "deployment-select-project",
+    DeploymentConnection => "deployment-connection",
+    DeploymentRoot => "deployment-root",
+    DeploymentBrowse => "deployment-browse",
+    DeploymentUseRoot => "deployment-use-root",
+    DeploymentUseFolder => "deployment-use-folder",
+    DeploymentMappings => "deployment-mappings",
+    DeploymentLocalFolder => "deployment-local-folder",
+    DeploymentRemoteFolder => "deployment-remote-folder",
+    DeploymentRemove => "deployment-remove",
+    DeploymentAddMapping => "deployment-add-mapping",
+    DeploymentMappingHelp => "deployment-mapping-help",
+    DeploymentExclusions => "deployment-exclusions",
+    DeploymentAddExclusion => "deployment-add-exclusion",
+    DeploymentDefault => "deployment-default",
+    DeploymentUpload => "deployment-upload",
+    DeploymentDownload => "deployment-download",
+    DeploymentCompare => "deployment-compare",
+    DeploymentClose => "deployment-close",
+    DeploymentRefresh => "deployment-refresh",
+    DeploymentSettings => "deployment-settings",
+    DeploymentEmpty => "deployment-empty",
+    DeploymentWorking => "deployment-working",
+    DeploymentFiles => "deployment-files",
+    DeploymentBytes => "deployment-bytes",
+    DeploymentCancel => "deployment-cancel",
+    DeploymentRetry => "deployment-retry",
+    DeploymentReplace => "deployment-replace",
+    DeploymentTrust => "deployment-trust",
+    DeploymentSaved => "deployment-saved",
+    DeploymentConnected => "deployment-connected",
+    DeploymentComplete => "deployment-complete",
+    DeploymentConfigurationError => "deployment-configuration-error",
+    DeploymentMappingError => "deployment-mapping-error",
+    DeploymentExcludedError => "deployment-excluded-error",
+    DeploymentAccessError => "deployment-access-error",
+    DeploymentConnectionError => "deployment-connection-error",
+    DeploymentCredentialsError => "deployment-credentials-error",
+    DeploymentUnknownHost => "deployment-unknown-host",
+    DeploymentHostChanged => "deployment-host-changed",
+    DeploymentCancelled => "deployment-cancelled",
+    DeploymentTooLarge => "deployment-too-large",
+    DeploymentBinary => "deployment-binary",
+    DeploymentOverwrite => "deployment-overwrite",
+    DeploymentChanged => "deployment-changed",
+    DeploymentUnsupported => "deployment-unsupported",
+    DeploymentRemote => "deployment-remote",
+    DeploymentLocal => "deployment-local",
+    DeploymentFtpsImplicit => "deployment-ftps-implicit",
     AppTitle => "app-title",
+    Modules => "modules",
+    ModulesDescription => "modules-description",
+    SystemModule => "system-module",
+    ModuleEnabled => "module-enabled",
+    Terminal => "terminal",
+    TerminalStarting => "terminal-starting",
+    TerminalExited => "terminal-exited",
+    TerminalFailed => "terminal-failed",
+    TerminalTab => "terminal-tab",
+    TerminalNewTab => "terminal-new-tab",
+    TerminalCloseTab => "terminal-close-tab",
+    TerminalHide => "terminal-hide",
+    TerminalPasteTooLarge => "terminal-paste-too-large",
     Updates => "updates",
     UpdatesDescription => "updates-description",
     CheckUpdates => "check-updates",
@@ -205,6 +306,10 @@ message_keys! {
     DiffAfter => "diff-after",
     KeyboardShortcuts => "keyboard-shortcuts",
     ShortcutTabs => "shortcut-tabs",
+    ShortcutRecording => "shortcut-recording",
+    ShortcutInstructions => "shortcut-instructions",
+    ShortcutInvalid => "shortcut-invalid",
+    ShortcutConflict => "shortcut-conflict",
     CloseActiveTabDescription => "close-active-tab-description",
     ReopenClosedTab => "reopen-closed-tab",
     ReopenClosedTabDescription => "reopen-closed-tab-description",
@@ -354,8 +459,8 @@ pub(crate) struct I18n {
 impl I18n {
     pub(crate) fn new(language: Language) -> Self {
         Self {
-            selected: bundle(language, language.source()),
-            english: bundle(Language::English, Language::English.source()),
+            selected: bundle_catalogs(language, &language.sources()),
+            english: bundle_catalogs(Language::English, &Language::English.sources()),
         }
     }
 
@@ -385,6 +490,16 @@ fn bundle(language: Language, source: &str) -> Option<FluentBundle<FluentResourc
     let resource = FluentResource::try_new(source.to_owned()).ok()?;
     let mut bundle = FluentBundle::new(vec![language.identifier()]);
     bundle.add_resource(resource).ok()?;
+    Some(bundle)
+}
+
+fn bundle_catalogs(language: Language, sources: &[&str]) -> Option<FluentBundle<FluentResource>> {
+    let (first, rest) = sources.split_first()?;
+    let mut bundle = bundle(language, first)?;
+    for source in rest {
+        let resource = FluentResource::try_new((*source).to_owned()).ok()?;
+        bundle.add_resource(resource).ok()?;
+    }
     Some(bundle)
 }
 

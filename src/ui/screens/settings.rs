@@ -1,7 +1,7 @@
 use super::workspace::divider;
 use crate::{
     app::{App, Message, Panel, SettingsTab},
-    domain::workspace::Appearance,
+    domain::{shortcuts::Command, workspace::Appearance},
     i18n::Key,
     ui::theme,
 };
@@ -18,10 +18,37 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         (SettingsTab::General, Key::General, "general"),
         (SettingsTab::Code, Key::Code, "code"),
         (SettingsTab::Panels, Key::Panels, "panels"),
+        (SettingsTab::Modules, Key::Modules, "modules"),
+        (
+            SettingsTab::Connections,
+            Key::DeploymentConnections,
+            "connections",
+        ),
+        (
+            SettingsTab::DeploymentKeys,
+            Key::DeploymentKeys,
+            "deployment-keys",
+        ),
+        (
+            SettingsTab::Deployment,
+            Key::DeploymentProfiles,
+            "deployment",
+        ),
         (SettingsTab::Shortcuts, Key::KeyboardShortcuts, "shortcuts"),
         (SettingsTab::About, Key::About, "about"),
     ];
     for &(tab, key, id) in &sections {
+        if tab == SettingsTab::Connections {
+            tabs = tabs.push(
+                container(text(t(Key::Deployment)).size(13).font(theme::semibold()))
+                    .id("settings-deployment-group")
+                    .padding([12, 12]),
+            );
+        }
+        let nested = matches!(
+            tab,
+            SettingsTab::Connections | SettingsTab::DeploymentKeys | SettingsTab::Deployment
+        );
         tabs = tabs.push(
             container(
                 button(text(t(key)).size(13))
@@ -30,7 +57,11 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     .on_press(Message::SelectSettingsTab(tab))
                     .style(theme::action(app.settings_tab == tab)),
             )
-            .id(format!("settings-tab-{id}")),
+            .id(format!("settings-tab-{id}"))
+            .padding(iced::Padding {
+                left: if nested { 12. } else { 0. },
+                ..iced::Padding::ZERO
+            }),
         );
     }
     let section: Element<'_, Message> = match app.settings_tab {
@@ -126,6 +157,27 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         ]
         .spacing(16)
         .into(),
+        SettingsTab::Modules => crate::ui::modules::settings(app),
+        SettingsTab::Connections => crate::modules::deployment::connections_view(
+            &app.modules.deployment,
+            &app.workspace.deployment,
+            &app.i18n,
+        )
+        .map(crate::app::modules::deployment_message),
+        SettingsTab::DeploymentKeys => crate::modules::deployment::keys_view(
+            &app.modules.deployment,
+            &app.workspace.deployment,
+            &app.i18n,
+        )
+        .map(crate::app::modules::deployment_message),
+        SettingsTab::Deployment => crate::modules::deployment::profiles_view(
+            &app.modules.deployment,
+            &app.workspace.deployment,
+            app.deployment_profiles(),
+            app.workspace.directory().map(std::path::PathBuf::as_path),
+            &app.i18n,
+        )
+        .map(crate::app::modules::deployment_message),
         SettingsTab::Shortcuts => column![
             shortcut_group(
                 t(Key::Code),
@@ -134,17 +186,17 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     setting(
                         t(Key::GoToLine),
                         t(Key::GoToLineDescription),
-                        shortcut_badge("Command + L", "Ctrl + G"),
+                        shortcut_control(app, Command::GoToLine),
                     ),
                     setting(
                         t(Key::CopyCodeSelection),
                         t(Key::CopyCodeSelectionDescription),
-                        shortcut_badge("Command + C", "Ctrl + C"),
+                        shortcut_control(app, Command::Copy),
                     ),
                     setting(
                         t(Key::SelectAllCode),
                         t(Key::SelectAllCodeDescription),
-                        shortcut_badge("Command + A", "Ctrl + A"),
+                        shortcut_control(app, Command::SelectAll),
                     ),
                 ],
             ),
@@ -155,14 +207,30 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     setting(
                         t(Key::CloseTab),
                         t(Key::CloseActiveTabDescription),
-                        shortcut_badge("Command + W", "Ctrl + W"),
+                        shortcut_control(app, Command::CloseTab),
                     ),
                     setting(
                         t(Key::ReopenClosedTab),
                         t(Key::ReopenClosedTabDescription),
-                        shortcut_badge("Command + Shift + T", "Ctrl + Shift + T"),
+                        shortcut_control(app, Command::ReopenTab),
                     ),
                 ],
+            ),
+            shortcut_group(
+                t(Key::Deployment),
+                "settings-shortcuts-deployment",
+                vec![
+                    setting(
+                        t(Key::DeploymentCompare),
+                        String::new(),
+                        shortcut_control(app, Command::DeploymentCompare)
+                    ),
+                    setting(
+                        t(Key::DeploymentUpload),
+                        String::new(),
+                        shortcut_control(app, Command::DeploymentUpload)
+                    ),
+                ]
             ),
         ]
         .spacing(24)
@@ -227,10 +295,23 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     ]
     .height(Length::Fill)
     .width(Length::Fill);
-    row![navigation, super::workspace::vertical_divider(), content]
+    let base = row![navigation, super::workspace::vertical_divider(), content]
         .height(Length::Fill)
         .width(Length::Fill)
-        .into()
+        .into();
+    if let Some(dialog) = crate::modules::deployment::settings_dialog(
+        &app.modules.deployment,
+        &app.workspace.deployment,
+        &app.i18n,
+    ) {
+        super::modal::overlay(
+            base,
+            dialog.map(crate::app::modules::deployment_message),
+            560.,
+        )
+    } else {
+        base
+    }
 }
 
 fn shortcut_group<'a>(
@@ -250,18 +331,43 @@ fn shortcut_group<'a>(
     .into()
 }
 
-fn shortcut_badge(mac: &'static str, other: &'static str) -> Element<'static, Message> {
-    container(
-        text(if cfg!(target_os = "macos") {
-            mac
-        } else {
-            other
-        })
-        .size(13),
-    )
-    .padding([8, 14])
-    .style(theme::badge)
-    .into()
+fn shortcut_control(app: &App, command: Command) -> Element<'_, Message> {
+    use crate::app::shortcuts::Event;
+    let recording = app.shortcuts.recording == Some(command);
+    let label = if recording {
+        app.i18n.text(Key::ShortcutRecording)
+    } else {
+        app.workspace.preferences.shortcuts.binding(command).label()
+    };
+    let mut controls = row![
+        button(text(label).size(13))
+            .padding([8, 14])
+            .on_press(Message::Shortcut(Event::Record(command)))
+            .style(theme::action(recording)),
+    ]
+    .spacing(8);
+    if recording {
+        controls = controls.push(
+            button(text(app.i18n.text(Key::Cancel)).size(13))
+                .padding([8, 14])
+                .on_press(Message::Shortcut(Event::Cancel))
+                .style(theme::action(false)),
+        );
+    }
+    let mut content = column![controls].spacing(8);
+    if recording {
+        content = content.push(
+            text(app.i18n.text(Key::ShortcutInstructions))
+                .size(12)
+                .style(theme::MUTED.text()),
+        );
+        if let Some(error) = app.shortcuts.error {
+            content = content.push(text(app.i18n.text(error)).size(13));
+        }
+    }
+    container(content)
+        .id(format!("shortcut-{command:?}"))
+        .into()
 }
 
 fn setting<'a>(

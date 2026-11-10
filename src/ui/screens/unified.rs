@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use iced::{
-    Alignment, Color, Element, Font, Length, Point, Rectangle, Renderer, Theme, mouse,
+    Alignment, Color, Element, Length, Point, Rectangle, Renderer, Theme, mouse,
     widget::{
         Row, button,
         canvas::{self, Frame, Geometry, Path, Stroke},
@@ -66,7 +66,7 @@ pub(super) fn line<'a>(
                     .map(|number| number.to_string())
                     .unwrap_or_default(),
             )
-            .font(Font::MONOSPACE)
+            .font(theme::code_font())
             .size(size)
             .line_height(1.65)
             .style(

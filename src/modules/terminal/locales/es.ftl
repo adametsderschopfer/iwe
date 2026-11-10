@@ -1,0 +1,9 @@
+terminal = Terminal
+terminal-starting = Iniciando terminal…
+terminal-exited = La sesión del terminal ha terminado.
+terminal-failed = No pudimos continuar esta sesión del terminal. Inicia una nueva sesión para volver a intentarlo.
+terminal-tab = Terminal { $number }
+terminal-new-tab = Nuevo terminal
+terminal-close-tab = Cerrar pestaña y terminar sesión
+terminal-hide = Ocultar panel del terminal
+terminal-paste-too-large = El texto es demasiado largo para pegarlo. Selecciona un fragmento más pequeño.

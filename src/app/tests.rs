@@ -117,6 +117,22 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
             (SettingsTab::General, "general", Key::LanguageDescription),
             (SettingsTab::Code, "code", Key::FontSizeDescription),
             (SettingsTab::Panels, "panels", Key::GitDescription),
+            (SettingsTab::Modules, "modules", Key::ModulesDescription),
+            (
+                SettingsTab::Connections,
+                "connections",
+                Key::DeploymentConnectionsHelp,
+            ),
+            (
+                SettingsTab::DeploymentKeys,
+                "deployment-keys",
+                Key::DeploymentKeysHelp,
+            ),
+            (
+                SettingsTab::Deployment,
+                "deployment",
+                Key::DeploymentProfilesHelp,
+            ),
             (
                 SettingsTab::Shortcuts,
                 "shortcuts",
@@ -855,7 +871,7 @@ fn file_panel_buttons_toggle_without_changing_open_files() {
                 0.
             };
         assert_eq!(source.x, expected_x);
-        assert_eq!(source.width, content_width(&app, 1080.) - expected_x);
+        assert_eq!(source.width, content_width(&app, 1080.) - expected_x - 48.);
         let files = ui
             .find(Id::new("project-files-panel"))
             .ok()
@@ -1316,6 +1332,7 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
             content_width(&app, width)
                 - theme::SIDEBAR_WIDTH
                 - 48.
+                - 48.
                 - app.workspace.preferences.file_panel_width
                 - 2.
         );
@@ -1342,6 +1359,218 @@ async fn code_scroll_preserves_position_and_reaches_the_last_line() {
 #[tokio::test]
 async fn short_code_scroll_preserves_position_and_reaches_the_last_line() {
     check_code_scrolling(45).await;
+}
+
+#[tokio::test]
+async fn icon_redraws_reuse_geometry_and_preserve_pixels() {
+    use iced::{Color, Element, mouse, widget::column};
+    use iced_test::{
+        core::renderer::Headless,
+        runtime::{UserInterface, user_interface},
+    };
+    let backend = std::env::var("IWE_PROFILE_BACKEND").ok();
+    let mut renderer = iced_test::renderer::Renderer::new(
+        theme::font(),
+        16.into(),
+        Some(backend.as_deref().unwrap_or("tiny-skia")),
+    )
+    .await
+    .unwrap();
+    let size = iced::Size::new(320., 320.);
+    let view = |expanded: bool| -> Element<'static, ()> {
+        column((0..16).map(|_| {
+            iced::widget::row![
+                crate::ui::file_icons::folder(expanded, false),
+                crate::ui::file_icons::chevron(expanded),
+                crate::ui::file_icons::file(std::path::Path::new("main.rs")),
+                crate::ui::file_icons::file(std::path::Path::new("main.tsx")),
+                crate::ui::icons::icon(crate::ui::icons::Icon::Settings, theme::TEXT),
+                crate::ui::icons::icon(
+                    if expanded {
+                        crate::ui::icons::Icon::Close
+                    } else {
+                        crate::ui::icons::Icon::Plus
+                    },
+                    theme::TEXT
+                ),
+            ]
+            .into()
+        }))
+        .into()
+    };
+    let mut cache = user_interface::Cache::default();
+    let mut timings = Vec::new();
+    for frame in 0..44 {
+        let mut ui = UserInterface::build(view(false), size, cache, &mut renderer);
+        let started = std::time::Instant::now();
+        ui.draw(
+            &mut renderer,
+            &iced::Theme::Dark,
+            &Default::default(),
+            mouse::Cursor::Unavailable,
+        );
+        if frame >= 4 {
+            timings.push(started.elapsed().as_secs_f64() * 1000.);
+        }
+        let pixels = renderer.screenshot(iced::Size::new(320, 320), 1., Color::BLACK);
+        assert_eq!(pixels.len(), 320 * 320 * 4);
+        cache = ui.into_cache();
+    }
+    timings.sort_by(f64::total_cmp);
+    eprintln!(
+        "Icon redraw ({}): median {:.3} ms, p95 {:.3} ms",
+        renderer.name(),
+        timings[timings.len() / 2],
+        timings[timings.len() * 95 / 100]
+    );
+    let mut previous = None;
+    for (expanded, theme) in [
+        (false, iced::Theme::Dark),
+        (true, iced::Theme::Dark),
+        (true, iced::Theme::Light),
+    ] {
+        let mut ui = UserInterface::build(view(expanded), size, cache, &mut renderer);
+        ui.draw(
+            &mut renderer,
+            &theme,
+            &Default::default(),
+            mouse::Cursor::Unavailable,
+        );
+        let actual = renderer.screenshot(iced::Size::new(320, 320), 1., Color::BLACK);
+        cache = ui.into_cache();
+        let mut fresh =
+            UserInterface::build(view(expanded), size, Default::default(), &mut renderer);
+        fresh.draw(
+            &mut renderer,
+            &theme,
+            &Default::default(),
+            mouse::Cursor::Unavailable,
+        );
+        let expected = renderer.screenshot(iced::Size::new(320, 320), 1., Color::BLACK);
+        assert_eq!(actual, expected, "Retained icons must match a fresh draw");
+        if let Some(previous) = previous {
+            assert_ne!(actual, previous);
+        }
+        previous = Some(actual);
+    }
+}
+
+#[tokio::test]
+async fn source_scroll_frames_cover_plain_and_comparison_views() {
+    use crate::domain::{changes::Source, workspace::DiffView};
+    use iced::{Event, futures::StreamExt, mouse};
+    use iced_test::{
+        core::{clipboard, renderer::Headless},
+        runtime::{Action, UserInterface, task, user_interface},
+    };
+
+    // Set IWE_PROFILE_BACKEND=wgpu to include GPU rendering and screenshot readback.
+    let backend = std::env::var("IWE_PROFILE_BACKEND").ok();
+    let mut renderer = iced_test::renderer::Renderer::new(
+        theme::font(),
+        16.into(),
+        Some(backend.as_deref().unwrap_or("tiny-skia")),
+    )
+    .await
+    .unwrap();
+    let text = include_str!("../i18n/mod.rs");
+    let window = iced::Size::new(1440., 920.);
+    for (name, comparison, view, scroll_id) in [
+        ("plain", false, DiffView::Unified, "source-code"),
+        ("unified", true, DiffView::Unified, "source-code"),
+        ("side-by-side", true, DiffView::SideBySide, "source-after"),
+    ] {
+        let mut state = App::new(Rc::new(I18n::new(Language::English)));
+        state.loaded = true;
+        state.workspace.preferences.diff_view = view;
+        state.preview_mut().title = "mod.rs".to_owned();
+        state.preview_mut().document = Some(
+            Document::from_source(
+                Source {
+                    text: text.to_owned(),
+                    previous: comparison.then(|| text.replace("pub", "pub /* previous */")),
+                    ..Source::default()
+                },
+                "rs",
+            )
+            .into(),
+        );
+        let bounds = iced_test::Simulator::with_size(ui_settings(), window, state.view())
+            .find(iced::widget::Id::new(scroll_id))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let cursor = mouse::Cursor::Available(bounds.center());
+        let mut cache = user_interface::Cache::default();
+        for _ in 0..2 {
+            cache = UserInterface::build(state.view(), window, cache, &mut renderer).into_cache();
+        }
+        let mut timings = Vec::new();
+        let mut previous = 0.;
+        let mut operations: Vec<Box<dyn iced::advanced::widget::Operation>> = Vec::new();
+        for frame in 0..44 {
+            let started = std::time::Instant::now();
+            let mut ui = UserInterface::build(state.view(), window, cache, &mut renderer);
+            for mut operation in operations.drain(..) {
+                ui.operate(&renderer, operation.as_mut());
+            }
+            let built = started.elapsed().as_secs_f64() * 1000.;
+            let mut messages = Vec::new();
+            ui.update(
+                &[
+                    Event::Window(window::Event::RedrawRequested(iced::time::Instant::now())),
+                    Event::Mouse(mouse::Event::WheelScrolled {
+                        delta: mouse::ScrollDelta::Pixels { x: 0., y: -48. },
+                    }),
+                ],
+                cursor,
+                &mut renderer,
+                &mut clipboard::Null,
+                &mut messages,
+            );
+            ui.draw(&mut renderer, &state.theme(), &Default::default(), cursor);
+            let drawn = started.elapsed().as_secs_f64() * 1000.;
+            if backend.is_some() {
+                let pixels =
+                    renderer.screenshot(iced::Size::new(2880, 1840), 2., iced::Color::BLACK);
+                assert_eq!(pixels.len(), 2880 * 1840 * 4);
+            }
+            let rendered = started.elapsed().as_secs_f64() * 1000.;
+            cache = ui.into_cache();
+            for message in messages {
+                if let Some(mut actions) = task::into_stream(state.update(message)) {
+                    while let Some(action) = actions.next().await {
+                        if let Action::Widget(operation) = action {
+                            operations.push(operation);
+                        }
+                    }
+                }
+            }
+            let offset = if view == DiffView::SideBySide {
+                state.preview().diff_scroll_y
+            } else {
+                state.preview().scroll_y
+            };
+            assert!((offset - previous - 48.).abs() < 0.1, "{name}: {offset}");
+            previous = offset;
+            if frame >= 4 {
+                timings.push([built, drawn - built, rendered - drawn, rendered]);
+            }
+        }
+        for (index, phase) in ["build", "draw", "render+readback", "total"]
+            .iter()
+            .enumerate()
+        {
+            let mut values: Vec<_> = timings.iter().map(|timing| timing[index]).collect();
+            values.sort_by(f64::total_cmp);
+            eprintln!(
+                "Scroll {name} {phase} ({}): median {:.2} ms, p95 {:.2} ms",
+                renderer.name(),
+                values[values.len() / 2],
+                values[values.len() * 95 / 100],
+            );
+        }
+    }
 }
 
 async fn check_code_scrolling(line_count: usize) {

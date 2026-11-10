@@ -1,5 +1,7 @@
 //! Draw small, consistent outline icons without a platform icon font.
 
+pub(super) mod cache;
+
 use super::theme::Tone;
 
 use iced::{
@@ -7,7 +9,7 @@ use iced::{
     widget::canvas::{self, Frame, Geometry, Path, Stroke},
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Icon {
     Check,
     Warning,
@@ -20,6 +22,8 @@ pub(crate) enum Icon {
     Tag,
     Play,
     Settings,
+    Terminal,
+    Server,
     Plus,
     Right,
     Down,
@@ -60,16 +64,31 @@ pub(crate) fn sized_icon<'a, Message: 'a>(
 struct Drawing(Icon, Tone);
 
 impl<Message> canvas::Program<Message> for Drawing {
-    type State = ();
+    type State = cache::Cache<(Icon, iced::Color, bool)>;
     fn draw(
         &self,
-        _: &(),
+        state: &Self::State,
         renderer: &Renderer,
         theme: &Theme,
         bounds: Rectangle,
         _: mouse::Cursor,
     ) -> Vec<Geometry> {
-        let mut frame = Frame::new(renderer, bounds.size());
+        state.draw(
+            (
+                self.0,
+                self.1.resolve(theme),
+                theme.extended_palette().is_dark,
+            ),
+            renderer,
+            bounds.size(),
+            |frame| self.paint(frame, theme),
+        )
+    }
+}
+
+impl Drawing {
+    fn paint(&self, frame: &mut Frame, theme: &Theme) {
+        let bounds = frame.size();
         frame.scale(bounds.width.min(bounds.height) / 20.);
         let updating = matches!(self.0, Icon::Update);
         if updating {
@@ -95,6 +114,12 @@ impl<Message> canvas::Program<Message> for Drawing {
             frame.stroke(&path, stroke);
         };
         match self.0 {
+            Icon::Server => {
+                line(&[(3., 3.), (17., 3.), (17., 17.), (3., 17.), (3., 3.)]);
+                line(&[(3., 10.), (17., 10.)]);
+                line(&[(6., 6.), (8., 6.)]);
+                line(&[(6., 13.), (8., 13.)]);
+            }
             Icon::Check => {
                 line(&[(3., 10.), (8., 15.), (17., 5.)]);
             }
@@ -209,6 +234,10 @@ impl<Message> canvas::Program<Message> for Drawing {
                     line(&[(13., y), (14., y)]);
                 }
             }
+            Icon::Terminal => {
+                line(&[(3., 5.), (8., 10.), (3., 15.)]);
+                line(&[(10., 15.), (17., 15.)]);
+            }
             Icon::Close => {
                 line(&[(5., 5.), (15., 15.)]);
                 line(&[(5., 15.), (15., 5.)]);
@@ -309,6 +338,5 @@ impl<Message> canvas::Program<Message> for Drawing {
                 frame.stroke(&Path::circle(Point::new(10., 10.), 3.), stroke);
             }
         }
-        vec![frame.into_geometry()]
     }
 }

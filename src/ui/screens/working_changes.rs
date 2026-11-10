@@ -84,7 +84,10 @@ pub(super) fn view(app: &App, minimum_width: f32) -> Element<'_, Message> {
             )
             .padding([0, 4])
             .style(theme::tree_item(false))
-            .on_press(Message::ToggleWorktreeFolder(prefix.clone()));
+            .on_press(Message::ToggleWorktreeFolder {
+                repository: Some(root.clone()),
+                path: String::new(),
+            });
             let mut group =
                 column![container(heading).id(format!("changes-repository-{}", root.display()))];
             if expanded {
@@ -157,7 +160,10 @@ fn tree<'a>(app: &'a App, root: &Path, prefix: &str, minimum_width: f32) -> Elem
         entries,
         &collapsed,
         &app.i18n,
-        |path| Message::ToggleWorktreeFolder(format!("{prefix}{path}")),
+        |path| Message::ToggleWorktreeFolder {
+            repository: (!prefix.is_empty()).then(|| root.to_owned()),
+            path,
+        },
         minimum_width,
         usize::from(!prefix.is_empty()),
     )

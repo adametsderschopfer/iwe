@@ -1,5 +1,8 @@
 # Workspace
 
+The [Deployment module](deployment.md) adds a right panel for server files and manual transfers.
+Shared connections serve deployment profiles stored within each space.
+
 IWE Code provides a native workspace for local directories, source previews, Git history, and CI
 runs.
 
@@ -46,8 +49,9 @@ changes only their order within that space.
 
 Choose **Add project** to select existing folders or clone a remote repository. The space form
 offers the same choice. Cloning accepts HTTPS and SSH repository URLs. The dialog derives the
-repository folder name from the URL. You can edit the complete destination or choose another parent
-folder before cloning.
+repository folder name from the URL. Before a valid URL is entered, the destination field shows the
+suggested parent folder. Entering a valid URL appends the repository folder name to that parent. You
+can edit the complete destination or choose another parent folder before cloning.
 
 The suggested parent is the most common parent folder among projects in the target space. The space
 form uses its current folder choices. Empty or ambiguous choices use `IWE Code` inside the user's
@@ -93,7 +97,7 @@ Empty space lists align their message with the **Spaces** heading.
 Space settings remain at the sidebar's right edge. Project rows contain no separate file button. The
 space list reserves a separate scrollbar lane, with a gap before space controls and project rows.
 
-Projects with uncommitted files show a small gray change icon at the right of their sidebar row.
+Projects with uncommitted files show a small green change icon at the right of their sidebar row.
 Pinned projects use the same indicator. The **Uncommitted files** section uses the same
 circle-and-line icon. Changes include staged, unstaged, untracked, and deleted files within the
 project's discovered repositories. The selected project's existing three-second status refresh
@@ -151,6 +155,10 @@ For a parent folder containing `backend` and `front`, each repository has its ow
 comparisons use their owning repository, including deleted files and identical relative filenames.
 An unavailable repository does not hide other repositories. Refresh the project after repairing it.
 
+In **Uncommitted files**, collapsing a folder also collapses every nested folder. Reopening it
+leaves nested folders collapsed. Collapsing a repository group applies the same rule to its folders.
+Other folders and repository groups retain their expanded state.
+
 Selecting a project starts a background directory index. Cached folders appear immediately while
 their listings refresh. Recently visited projects also retain their expanded folders in memory.
 Collapsing a folder also collapses all its nested folders. Reopening it leaves nested folders
@@ -202,6 +210,10 @@ The preview cannot edit files. Only visible lines and nearby lines become widget
 follows the panel height. Stable line identities preserve text layout while scrolling. Long lines
 stay unwrapped and use horizontal scrolling.
 
+The viewer prepares new rows in small groups while scrolling. Source text uses Menlo on macOS and
+Consolas on Windows. Linux uses the renderer's monospace family. Text selection uses the same font
+as the displayed source.
+
 Press Command+L on macOS or Ctrl+G on Windows and Linux to open **Go to Line**. These shortcuts
 match [JetBrains defaults](https://blog.jetbrains.com/idea/2022/10/top-underrated-shortcuts/). Enter
 a positive line number and press Enter. The viewer reveals hidden lines, scrolls to the target, and
@@ -249,9 +261,13 @@ and Linux. These shortcuts keep the application open, including when no tabs rem
 modal dialogs block tab shortcuts. Middle-clicking a tab closes that tab. Command+Shift+T restores
 the last closed tab on macOS; Ctrl+Shift+T restores it on Windows and Linux. Repeated presses
 restore earlier closures, including commit versions, without duplicating open tabs. The latest 20
-closed tabs retain their documents, scroll positions, and folded blocks in memory. Working files
-refresh after restoration. Settings lists both shortcuts. Refresh keeps tabs and closure history for
-the current project. Changing projects clears both. Closing the application clears this memory.
+closed tabs retain their paths and scroll positions. Their prepared documents share a 16 MiB memory
+budget. Older documents leave memory when that budget fills. Reopening them reads the original file
+or Git revision on a background worker. Large files retain their current part. Unchanged documents
+restore expanded blocks. Changed files rebuild their blocks, and changed large files restart at the
+first part. Working files refresh after restoration. Settings lists both shortcuts. Refresh keeps
+tabs and closure history for the current project. Changing projects clears both. Closing the
+application clears this memory.
 
 The bottom bar shows the active file's full path. Clicking the path copies it to the clipboard. When
 no file is open, the bar shows the project path. Revision identifiers remain in commit tabs.
@@ -532,18 +548,29 @@ restarts. Switching themes preserves open files and scroll positions. Code adjus
 size and line numbers. Opening Git closes pipelines. Opening pipelines closes Git. Both panels can
 remain hidden. Drag the horizontal divider to resize the visible panel.
 
-On macOS, the **IWE Code** application menu includes **Settings**, **Spaces**, and **Projects**.
-**Spaces** includes **New space** and each saved space. **Projects** groups projects by their space.
-Choosing a space or project brings the workspace window forward. The menu follows language and
-workspace changes. Modal dialogs disable workspace navigation in the menu. Windows and Linux retain
-their existing sidebar controls.
+On macOS, **Spaces**, **Projects**, **Settings**, and **Deployment** appear beside the **IWE Code**
+application menu. **Deployment** opens the connection, shared SSH key, or space profile section in
+settings. These sections also appear under the **Deployment** group inside settings. **Spaces**
+contains only **New space**. **Settings** opens the settings window through its menu item.
+**Projects** groups projects by their space. An empty **Projects** menu shows a disabled **No
+projects yet** item. Choosing a project brings the workspace window forward. The menu follows
+language and workspace changes. Modal dialogs disable workspace navigation in the menu. Windows and
+Linux retain their existing sidebar controls.
 
 Preferences and projects are saved automatically in the system configuration directory. Writes
 replace the previous configuration atomically. A damaged configuration is preserved without
 automatic overwriting. Set `IWE_DATA_DIR` to use a separate configuration directory for development.
 `IWE_LANG` overrides system language when the saved preference is **System**.
 
-Keyboard shortcuts use two groups in settings: **Code** and **Tabs**.
+Keyboard shortcuts use two groups in settings: **Code** and **Tabs**. Click a shortcut button, then
+press the new combination. Escape or **Cancel** keeps the previous shortcut. Use Ctrl, Command,
+Super, or Alt with a letter, digit, or F1–F12. Shift can supplement these modifiers. IWE Code
+rejects combinations assigned to another listed action or reserved application commands. A rejected
+combination keeps recording open and preserves the previous shortcut. Valid changes apply
+immediately and persist with workspace preferences. Shortcuts follow physical key positions across
+keyboard layouts. Text fields and the terminal retain their own keyboard controls. The
+settings-opening shortcut remains fixed. macOS also reserves its hide and quit shortcuts. The table
+lists the defaults.
 
 | Group | macOS               | Windows and Linux | Action                          |
 | ----- | ------------------- | ----------------- | ------------------------------- |
@@ -552,6 +579,13 @@ Keyboard shortcuts use two groups in settings: **Code** and **Tabs**.
 | Code  | Command + A         | Ctrl + A          | Select all source text          |
 | Tabs  | Command + W         | Ctrl + W          | Close the active file tab       |
 | Tabs  | Command + Shift + T | Ctrl + Shift + T  | Reopen the last closed file tab |
+
+## Modules
+
+Open **Settings → Modules** to manage bundled modules. The terminal is the first system module.
+System modules are always enabled and cannot be removed. Open **Terminal** in the sidebar to run
+commands in the selected project's folder. See [modules and terminal sessions](modules.md) for
+controls, session behavior, and limits.
 
 ## Application updates
 

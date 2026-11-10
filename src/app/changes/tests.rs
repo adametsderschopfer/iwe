@@ -2,6 +2,139 @@ use super::*;
 use crate::i18n::{I18n, Language};
 use std::{path::PathBuf, rc::Rc};
 
+fn folder_test_app(grouped: bool) -> (App, Vec<PathBuf>) {
+    use crate::domain::{
+        changes::{FileChange, FileStatus},
+        workspace::FilePanel,
+    };
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    let project = PathBuf::from("project");
+    app.workspace
+        .create_space("Work".into(), vec![project.clone()]);
+    app.workspace.preferences.show_git = false;
+    app.file_panel = FilePanel::Changes;
+    app.changes.loaded = true;
+    let roots = if grouped {
+        vec![project.join("repo"), project.join("repo-other")]
+    } else {
+        vec![project]
+    };
+    app.changes.status.roots = roots.clone();
+    for (index, root) in roots.iter().enumerate() {
+        for path in [
+            format!("src/top{index}.rs"),
+            format!("src/nested/middle{index}.rs"),
+            format!("src/nested/deep/leaf{index}.rs"),
+            format!("src-other/sibling{index}.rs"),
+        ] {
+            app.changes.status.files.insert(
+                root.join(path),
+                FileChange {
+                    status: FileStatus::Modified,
+                    original: None,
+                },
+            );
+        }
+    }
+    (app, roots)
+}
+
+fn assert_visible_files(app: &App, visible: &[&str], hidden: &[&str]) {
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), (1440., 920.), app.view());
+    for file in visible {
+        assert!(ui.find(*file).unwrap().visible_bounds().is_some(), "{file}");
+    }
+    for file in hidden {
+        assert!(ui.find(*file).is_err(), "{file}");
+    }
+}
+
+#[test]
+fn collapsing_a_worktree_folder_keeps_all_descendants_closed_after_reopening() {
+    let (mut app, _) = folder_test_app(false);
+    assert_visible_files(
+        &app,
+        &["top0.rs", "middle0.rs", "leaf0.rs", "sibling0.rs"],
+        &[],
+    );
+    for _ in 0..2 {
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (1440., 920.), app.view());
+        ui.click("src").unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+    }
+    assert_visible_files(
+        &app,
+        &["top0.rs", "sibling0.rs"],
+        &["middle0.rs", "leaf0.rs"],
+    );
+    let _ = app.update(Message::ToggleWorktreeFolder {
+        repository: None,
+        path: "src/nested".into(),
+    });
+    assert_visible_files(
+        &app,
+        &["top0.rs", "middle0.rs", "sibling0.rs"],
+        &["leaf0.rs"],
+    );
+}
+
+#[test]
+fn collapsing_a_repository_closes_its_folders_without_changing_other_repositories() {
+    let (mut app, roots) = folder_test_app(true);
+    for _ in 0..2 {
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (1440., 920.), app.view());
+        ui.click(iced::widget::Id::from(format!(
+            "changes-repository-{}",
+            roots[0].display()
+        )))
+        .unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+    }
+    assert_visible_files(
+        &app,
+        &["top1.rs", "middle1.rs", "leaf1.rs", "sibling1.rs"],
+        &["top0.rs", "middle0.rs", "leaf0.rs", "sibling0.rs"],
+    );
+    let _ = app.update(Message::ToggleWorktreeFolder {
+        repository: Some(roots[0].clone()),
+        path: "src".into(),
+    });
+    assert_visible_files(
+        &app,
+        &["top0.rs", "top1.rs", "middle1.rs", "leaf1.rs"],
+        &["middle0.rs", "leaf0.rs"],
+    );
+}
+
+#[test]
+fn grouped_folder_collapse_preserves_similar_siblings_and_other_repository_paths() {
+    let (mut app, roots) = folder_test_app(true);
+    for _ in 0..2 {
+        let _ = app.update(Message::ToggleWorktreeFolder {
+            repository: Some(roots[0].clone()),
+            path: "src".into(),
+        });
+    }
+    assert_visible_files(
+        &app,
+        &[
+            "top0.rs",
+            "sibling0.rs",
+            "top1.rs",
+            "middle1.rs",
+            "leaf1.rs",
+        ],
+        &["middle0.rs", "leaf0.rs"],
+    );
+}
+
 #[test]
 fn uncommitted_files_are_visible_in_the_side_panel_and_open_from_the_tree() {
     use crate::domain::{

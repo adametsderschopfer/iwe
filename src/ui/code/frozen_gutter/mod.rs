@@ -73,6 +73,27 @@ impl<Message> Widget<Message, Theme, Renderer> for Frozen<'_, Message> {
             width: self.width.min(visible.width),
             ..visible
         };
+        if bounds.x >= viewport.x {
+            if let Some(background) = crate::ui::theme::code_surface(theme).background {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: gutter,
+                        ..Default::default()
+                    },
+                    background,
+                );
+            }
+            self.content.as_widget().draw(
+                &tree.children[0],
+                renderer,
+                theme,
+                style,
+                layout,
+                cursor,
+                viewport,
+            );
+            return;
+        }
         let source = source_viewport(viewport, bounds, self.width);
         if let Some(clip) = source.intersection(&visible) {
             renderer.with_layer(clip, |renderer| {

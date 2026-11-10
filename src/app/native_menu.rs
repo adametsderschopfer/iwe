@@ -34,20 +34,27 @@ impl App {
             application: self.i18n.text(Key::AppTitle),
             settings: self.i18n.text(Key::Settings),
             about: self.i18n.text(Key::About),
+            deployment: self.i18n.text(Key::Deployment),
+            connections: self.i18n.text(Key::DeploymentConnections),
+            keys: self.i18n.text(Key::DeploymentKeys),
+            profiles: self.i18n.text(Key::DeploymentProfiles),
             spaces_title: self.i18n.text(Key::Spaces),
             projects_title: self.i18n.text(Key::Projects),
             new_space: self.i18n.text(Key::NewSpace),
+            no_projects: self.i18n.text(Key::NoProjects),
             hide: self.i18n.text(Key::MenuHide),
             hide_others: self.i18n.text(Key::MenuHideOthers),
             show_all: self.i18n.text(Key::MenuShowAll),
             services: self.i18n.text(Key::MenuServices),
             quit: self.i18n.text(Key::MenuQuit),
+            recording_shortcut: self.shortcuts.recording.is_some(),
             enabled: self.loaded
                 && self.space_draft.is_none()
                 && self.project_add.is_none()
                 && self.auth_dialog.is_none()
                 && !self.git_actions.has_dialog()
-                && self.line_navigation.is_none(),
+                && self.line_navigation.is_none()
+                && !self.modules.deployment.has_dialog(),
             spaces: self
                 .workspace
                 .spaces
@@ -88,7 +95,22 @@ impl App {
                 for action in actions {
                     let task = match action {
                         Action::Settings => self.update(Message::Navigate(Navigation::Settings)),
-                        Action::About => {
+                        Action::DeploymentConnections
+                        | Action::DeploymentKeys
+                        | Action::DeploymentProfiles
+                            if self.menu_model().enabled =>
+                        {
+                            let tab = match action {
+                                Action::DeploymentConnections => SettingsTab::Connections,
+                                Action::DeploymentKeys => SettingsTab::DeploymentKeys,
+                                _ => SettingsTab::Deployment,
+                            };
+                            let select = self.update(Message::SelectSettingsTab(tab));
+                            let open = self.open_settings();
+                            Task::batch([select, open])
+                        }
+                        Action::About if !self.modules.deployment.has_dialog() => {
+                            self.shortcuts = super::shortcuts::State::default();
                             self.settings_tab = SettingsTab::About;
                             self.update(Message::Navigate(Navigation::Settings))
                         }
@@ -117,17 +139,6 @@ impl App {
                                     project.map_or_else(Task::none, |project| {
                                         self.update(Message::SelectProject(space, project))
                                     })
-                                }
-                                Action::Space(space) if space < self.workspace.spaces.len() => {
-                                    self.collapsed_spaces.remove(&space);
-                                    if self.workspace.spaces[space].projects.is_empty() {
-                                        self.workspace.selected_space = Some(space);
-                                        self.workspace.selected_project = None;
-                                        self.navigation = Navigation::Projects;
-                                        Task::batch([self.load_directory(), self.save()])
-                                    } else {
-                                        self.update(Message::SelectProject(space, 0))
-                                    }
                                 }
                                 _ => Task::none(),
                             }

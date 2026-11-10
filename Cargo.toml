@@ -34,6 +34,11 @@ semver = "1"
 ed25519-dalek = "2.2"
 tar = "0.4"
 flate2 = "1"
+portable-pty = "0.9.0"
+vt100 = "=0.16.2"
+ssh2 = { version = "0.9.7", features = ["vendored-openssl"] }
+suppaftp = { version = "12.2.1", features = ["rustls-ring", "deprecated"] }
+webpki-roots = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 muda = { version = "0.21.2", default-features = false }
@@ -53,6 +58,10 @@ keyring = { version = "3.6", features = ["windows-native"] }
 keyring = { version = "3.6", features = ["sync-secret-service", "crypto-rust", "vendored"] }
 
 [dev-dependencies]
+rcgen = "0.14.10"
+rand = "0.10"
+russh = { version = "0.65.1", default-features = false, features = ["ring"] }
+russh-sftp = "3.0.1"
 fluent-syntax = "0.12.0"
 iced_test = "0.14.0"
 

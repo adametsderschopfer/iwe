@@ -11,7 +11,7 @@ use crate::{
     },
 };
 use iced::{
-    Alignment, Element, Font, Length,
+    Alignment, Element, Length,
     widget::{
         self, Column, Row, button, column, container, mouse_area, pane_grid, responsive, row,
         scrollable, space, text,
@@ -27,10 +27,11 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
             pane_grid::Content::new(
                 container(match panel {
                     Panel::Workspace => {
-                        responsive(move |size| project_content(app, size.width)).into()
+                        responsive(move |size| deployment_content(app, size.width)).into()
                     }
                     Panel::Git => git::view(app),
                     Panel::Pipelines => pipelines::view(app),
+                    Panel::Module(id) => crate::ui::modules::panel(app, *id),
                 })
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -64,6 +65,12 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     .height(Length::Fill)
     .style(theme::surface)
     .into();
+    let base = crate::modules::deployment::overlay(
+        &app.modules.deployment,
+        &app.i18n,
+        base,
+        crate::app::modules::deployment_message,
+    );
     let base = super::header_repositories::overlay(app, base);
     let base = super::tab_menu::overlay(app, base);
     let base = crate::ui::branch_selection::watch(base, !app.branch_selection.selected.is_empty());
@@ -452,6 +459,26 @@ fn sidebar(app: &App) -> Element<'_, Message> {
             "nav-pipelines",
         ));
     }
+    if app.workspace.directory().is_some() {
+        for module in crate::modules::MODULES {
+            if module.id == crate::modules::ModuleId::Deployment {
+                continue;
+            }
+            tools = tools.push(navigation_button(
+                app,
+                match module.id {
+                    crate::modules::ModuleId::Terminal => Icon::Terminal,
+                    crate::modules::ModuleId::Deployment => Icon::Server,
+                },
+                crate::ui::modules::title(module.id),
+                Some(Message::Module(crate::app::modules::Event::Toggle(
+                    module.id,
+                ))),
+                app.module_open(module.id),
+                "nav-terminal",
+            ));
+        }
+    }
     if let Some(update) = crate::ui::updates::sidebar(app) {
         tools = tools.push(update);
     }
@@ -484,6 +511,67 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     })
     .style(theme::sidebar)
     .into()
+}
+
+fn deployment_content(app: &App, width: f32) -> Element<'_, Message> {
+    use crate::{app::modules::deployment_message, modules::deployment::Event};
+    let toolbar_width = theme::FILE_PANEL_TOOL_SIZE + 2. * theme::FILE_PANEL_TOOL_INSET;
+    let maximum = (width - toolbar_width - 400.).clamp(220., 640.);
+    let panel_width = app
+        .workspace
+        .preferences
+        .deployment_panel_width
+        .clamp(220., maximum);
+    let visible = app.modules.deployment.open;
+    let reserved = toolbar_width + if visible { panel_width + 1. } else { 0. };
+    let tools = container(tooltip::view(
+        container(
+            button(icon(Icon::Server, theme::MUTED))
+                .on_press(deployment_message(Event::Toggle))
+                .width(theme::FILE_PANEL_TOOL_SIZE)
+                .height(theme::FILE_PANEL_TOOL_SIZE)
+                .padding(10)
+                .style(theme::action(visible)),
+        )
+        .id("deployment-toggle"),
+        text(app.i18n.text(Key::Deployment)).size(12),
+        tooltip::Position::Left,
+    ))
+    .padding(theme::FILE_PANEL_TOOL_INSET)
+    .height(Length::Fill)
+    .style(theme::sidebar);
+    let content = row![
+        container(project_content(app, (width - reserved).max(0.)))
+            .width(Length::Fill)
+            .height(Length::Fill),
+        container(vertical_divider())
+            .width(if visible { 1. } else { 0. })
+            .clip(true),
+        container(
+            crate::modules::deployment::panel(
+                &app.modules.deployment,
+                &app.workspace.deployment,
+                app.deployment_profiles(),
+                app.workspace.directory().map(std::path::PathBuf::as_path),
+                &app.i18n
+            )
+            .map(deployment_message)
+        )
+        .id("deployment-panel")
+        .width(if visible { panel_width } else { 0. })
+        .height(Length::Fill)
+        .clip(true),
+        tools,
+    ]
+    .width(Length::Fill)
+    .height(Length::Fill);
+    resize::right(
+        content.into(),
+        visible.then_some(panel_width),
+        width - reserved,
+        220. ..=maximum,
+        |width, finished| deployment_message(Event::Resize(width, finished)),
+    )
 }
 
 fn project_content(app: &App, width: f32) -> Element<'_, Message> {
@@ -669,7 +757,7 @@ fn project_entry(app: &App, space_index: usize, project_index: usize) -> Element
         contents = contents.push(tooltip::view(
             container(sized_icon(
                 Icon::Changes,
-                theme::MUTED,
+                theme::GREEN,
                 theme::PROJECT_STATUS_ICON_SIZE,
             ))
             .id(format!("project-changes-{space_index}-{project_index}")),
@@ -712,7 +800,7 @@ fn project_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Mes
     context_menu::overlay(
         base,
         *point,
-        iced::Size::new(340., 104.),
+        iced::Size::new(340., 148.),
         move || {
             column![
                 container(
@@ -785,6 +873,16 @@ fn space_menu<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'a, Messa
                         .on_press(Message::Space(crate::app::spaces::Message::Edit(index)))
                 )
                 .id("space-menu-edit"),
+                container(
+                    button(text(app.i18n.text(Key::DeploymentSettings)).size(14))
+                        .padding([10, 12])
+                        .width(Length::Fill)
+                        .style(theme::action(false))
+                        .on_press(crate::app::modules::deployment_message(
+                            crate::modules::deployment::Event::SpaceSettings(index)
+                        ))
+                )
+                .id("space-menu-deployment"),
                 container(
                     button(
                         text(app.i18n.text(Key::DeleteSpace))
@@ -1020,7 +1118,7 @@ fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
         .map(|preview| {
             tab_label::width(&tab_label::label(
                 &preview.title,
-                preview.revision.as_deref(),
+                preview.revision.as_deref().filter(|_| !preview.remote),
             ))
         })
         .sum();
@@ -1037,7 +1135,10 @@ fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
         .filter(|preview| !preview.title.is_empty())
         .map(|preview| {
             let active = preview.id == app.preview().id;
-            let label = tab_label::label(&preview.title, preview.revision.as_deref());
+            let label = tab_label::label(
+                &preview.title,
+                preview.revision.as_deref().filter(|_| !preview.remote),
+            );
             let width = tab_label::width(&label);
             let mut description = if let Some(revision) = &preview.revision {
                 format!("{}\n{}", preview.title, revision)
@@ -1244,12 +1345,9 @@ fn preview(app: &App) -> Element<'_, Message> {
                 let width = (document.columns as f32 * size * 0.65 + gutter + 12. + rail)
                     .max(viewport.width);
                 let count = app.preview().folding.len(document);
-                // Keep a stable row block while the viewport moves inside the buffer.
-                let start =
-                    (((app.preview().scroll_y.max(0.) / height) as usize).saturating_sub(16) / 32
-                        * 32)
-                        .min(count);
-                let end = (start + (viewport.height / height).ceil() as usize + 64).min(count);
+                let visible =
+                    code::visible_rows(app.preview().scroll_y, viewport.height, height, count);
+                let (start, end) = (visible.start, visible.end);
                 let lines = (start..end).map(|row| {
                     let index = match app.preview().folding.row(row) {
                         code::folding::Row::Line(index) => index,
@@ -1333,7 +1431,7 @@ fn preview(app: &App) -> Element<'_, Message> {
                             text(info.number)
                                 .size(size)
                                 .line_height(1.65)
-                                .font(Font::MONOSPACE)
+                                .font(theme::code_font())
                                 .style(theme::FAINT.text())
                                 .width(46)
                                 .align_x(Alignment::End),
@@ -1349,7 +1447,7 @@ fn preview(app: &App) -> Element<'_, Message> {
                         container(
                             line.push(
                                 text(sign)
-                                    .font(Font::MONOSPACE)
+                                    .font(theme::code_font())
                                     .size(size)
                                     .line_height(1.65)
                                     .color(color)

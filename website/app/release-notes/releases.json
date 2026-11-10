@@ -183,7 +183,7 @@
         "category": "added",
         "text": {
           "en": "View repositories in immediate project subfolders together in one shared history.",
-          "ru": "Просматривайте репозитории из непосредственных подпапок проекта в общей истории.",
+          "ru": "Просматривайте репозитории из непосредственных поддиректорий проекта в общей истории.",
           "es": "Consulta los repositorios de las subcarpetas directas del proyecto en un historial compartido."
         },
         "sources": ["6e1035c"]
@@ -358,7 +358,7 @@
         "category": "changed",
         "text": {
           "en": "Collapsing a project folder also collapses its nested folders.",
-          "ru": "Сворачивание папки проекта также сворачивает вложенные папки.",
+          "ru": "Сворачивание директории проекта также сворачивает вложенные директории.",
           "es": "Al contraer una carpeta del proyecto también se contraen sus subcarpetas."
         },
         "sources": ["src/app/files.rs"]
@@ -428,7 +428,7 @@
         "category": "added",
         "text": {
           "en": "Select branches and folders with Command or Ctrl, then push, update, or delete the selection.",
-          "ru": "Выбирайте ветки и папки через Command или Ctrl, затем отправляйте, обновляйте или удаляйте выбранные ветки.",
+          "ru": "Выбирайте ветки и директории через Command или Ctrl, затем отправляйте, обновляйте или удаляйте выбранные ветки.",
           "es": "Selecciona ramas y carpetas con Command o Ctrl para enviarlas, actualizarlas o eliminarlas."
         },
         "sources": ["src/app/branch_selection.rs", "src/app/git_actions/bulk.rs"]
@@ -670,7 +670,7 @@
         "category": "added",
         "text": {
           "en": "Choose existing folders or clone an HTTPS or SSH repository when adding a project.",
-          "ru": "При добавлении проекта выбирайте существующие папки или клонируйте репозиторий по HTTPS или SSH.",
+          "ru": "При добавлении проекта выбирайте существующие директории или клонируйте репозиторий по HTTPS или SSH.",
           "es": "Al añadir un proyecto, elige carpetas existentes o clona un repositorio mediante HTTPS o SSH."
         },
         "sources": [
@@ -684,7 +684,7 @@
         "category": "added",
         "text": {
           "en": "Cloning suggests a folder beside the space’s projects, with the home directory’s IWE Code folder as a fallback.",
-          "ru": "Клонирование предлагает папку рядом с проектами пространства или папку IWE Code в домашней папке пользователя.",
+          "ru": "Клонирование предлагает директорию рядом с проектами пространства или директорию IWE Code в домашней директории пользователя.",
           "es": "La clonación propone una carpeta junto a los proyectos o la carpeta IWE Code del directorio personal."
         },
         "sources": [
@@ -772,6 +772,128 @@
     "publishedAt": null,
     "tags": [],
     "source": null,
-    "items": []
+    "items": [
+      {
+        "id": "deployment-transfers",
+        "category": "added",
+        "text": {
+          "en": "Browse, compare, upload, and download project files through SFTP, FTP, and FTPS in a resizable server panel.",
+          "ru": "Просматривайте, сравнивайте, отправляйте и скачивайте файлы проекта через SFTP, FTP и FTPS в панели сервера с изменяемой шириной.",
+          "es": "Explora, compara, sube y descarga archivos del proyecto mediante SFTP, FTP y FTPS desde un panel de servidor ajustable."
+        },
+        "sources": ["src/modules/deployment/transfer/mod.rs", "src/modules/deployment/view/mod.rs"]
+      },
+      {
+        "id": "deployment-settings",
+        "category": "added",
+        "text": {
+          "en": "Manage shared connections and SSH keys in separate dialogs. Space profiles define project mappings and excluded paths.",
+          "ru": "Настраивайте общие подключения и SSH-ключи в отдельных диалогах. Профили пространства определяют маппинги проекта и исключённые пути.",
+          "es": "Gestiona conexiones y claves SSH compartidas en diálogos independientes. Los perfiles del espacio definen asignaciones y rutas excluidas."
+        },
+        "sources": [
+          "src/modules/deployment/state/mod.rs",
+          "src/ui/screens/settings.rs",
+          "src/domain/deployment/mod.rs"
+        ]
+      },
+      {
+        "id": "terminal-module",
+        "category": "added",
+        "text": {
+          "en": "Open multiple terminal tabs for the selected project. Resize or hide the panel while keeping its sessions.",
+          "ru": "Открывайте несколько вкладок терминала для выбранного проекта. Изменяйте размер панели или скрывайте её с сохранением сеансов.",
+          "es": "Abre varias pestañas de terminal para el proyecto seleccionado. Redimensiona u oculta el panel sin cerrar sus sesiones."
+        },
+        "sources": [
+          "src/modules/terminal/state/mod.rs",
+          "src/modules/terminal/session/mod.rs",
+          "src/modules/terminal/view/mod.rs"
+        ]
+      },
+      {
+        "id": "custom-keyboard-shortcuts",
+        "category": "added",
+        "text": {
+          "en": "Customize source, tab, and deployment shortcuts in settings. Conflicting combinations are rejected.",
+          "ru": "Меняйте сочетания клавиш для кода, вкладок и деплоймента в настройках. Приложение отклоняет повторяющиеся сочетания.",
+          "es": "Personaliza los atajos del código, las pestañas y el despliegue en ajustes. La aplicación rechaza las combinaciones duplicadas."
+        },
+        "sources": [
+          "src/domain/shortcuts/mod.rs",
+          "src/app/shortcuts/mod.rs",
+          "src/ui/screens/settings.rs"
+        ]
+      },
+      {
+        "id": "source-scroll-and-memory",
+        "category": "changed",
+        "text": {
+          "en": "Source views reuse row layouts and icon geometry. Closed tabs limit retained prepared documents to 16 MiB.",
+          "ru": "Просмотр кода повторно использует разметку строк и геометрию иконок. Закрытые вкладки сохраняют подготовленные документы в пределах 16 МиБ.",
+          "es": "Las vistas reutilizan diseños de filas y geometría de iconos. Las pestañas cerradas limitan los documentos preparados a 16 MiB."
+        },
+        "sources": [
+          "src/ui/code/rows/mod.rs",
+          "src/ui/code/selection/mod.rs",
+          "src/ui/icons/cache.rs",
+          "src/app/tabs.rs"
+        ]
+      },
+      {
+        "id": "native-navigation-menus",
+        "category": "changed",
+        "text": {
+          "en": "macOS shows Spaces, Projects, Settings, and Deployment beside the application menu. Empty project menus explain that no projects exist.",
+          "ru": "macOS показывает «Пространства», «Проекты», «Настройки» и «Деплоймент» рядом с меню приложения. Пустое меню проектов сообщает об отсутствии проектов.",
+          "es": "macOS muestra Espacios, Proyectos, Ajustes y Despliegue junto al menú de la aplicación. El menú informa cuando no hay proyectos."
+        },
+        "sources": ["src/infrastructure/native_menu.rs", "src/app/native_menu.rs"]
+      },
+      {
+        "id": "nested-working-change-folders",
+        "category": "fixed",
+        "text": {
+          "en": "Collapsing a directory in working changes also collapses its descendants without affecting other repositories.",
+          "ru": "Сворачивание директории в рабочих изменениях также сворачивает её вложенные директории, не затрагивая другие репозитории.",
+          "es": "Al contraer un directorio en los cambios locales también se contraen sus descendientes sin afectar a otros repositorios."
+        },
+        "sources": ["src/app/changes.rs"]
+      },
+      {
+        "id": "clone-destination-placeholder",
+        "category": "fixed",
+        "text": {
+          "en": "Project cloning shows the suggested parent directory before a repository URL is entered.",
+          "ru": "Клонирование проекта показывает предлагаемую родительскую директорию до ввода адреса репозитория.",
+          "es": "La clonación muestra el directorio principal sugerido antes de introducir la URL del repositorio."
+        },
+        "sources": ["src/app/project_add/mod.rs"]
+      },
+      {
+        "id": "russian-directory-terminology",
+        "category": "changed",
+        "text": {
+          "en": "Russian application and website text use consistent directory terminology.",
+          "ru": "Русские тексты приложения и сайта используют единый термин «директория».",
+          "es": "Los textos en ruso de la aplicación y del sitio usan una terminología uniforme para los directorios."
+        },
+        "sources": ["locales/ru.ftl", "website/app/i18n/ru.json"]
+      },
+      {
+        "id": "bundled-module-structure",
+        "category": "maintenance",
+        "text": {
+          "en": "Bundled modules keep their runtime, interface, translations, and tests together behind typed application events.",
+          "ru": "Встроенные модули объединяют выполнение операций, интерфейс, переводы и тесты, используя типизированные события приложения.",
+          "es": "Los módulos integrados agrupan operaciones, interfaz, traducciones y pruebas mediante eventos tipados de la aplicación."
+        },
+        "sources": [
+          "src/modules/catalog/mod.rs",
+          "src/app/modules/mod.rs",
+          "docs/adr/0001-bundled-modules.md"
+        ]
+      }
+    ]
   }
 ]

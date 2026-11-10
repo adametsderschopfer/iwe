@@ -40,6 +40,28 @@ fn move_to(ui: &mut iced_test::Simulator<'_, Message>, position: Point) {
 }
 
 #[test]
+fn right_panel_grows_when_its_left_edge_moves_left() {
+    let content = container(space())
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into();
+    let view = right(content, Some(200.), 300., 100. ..=400., Message::Resize);
+    let mut ui = iced_test::Simulator::with_size(iced::Settings::default(), (500., 300.), view);
+    ui.point_at((301., 100.));
+    ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    ))]);
+    move_to(&mut ui, Point::new(251., 100.));
+    ui.simulate([Event::Mouse(mouse::Event::ButtonReleased(
+        mouse::Button::Left,
+    ))]);
+    assert_eq!(
+        ui.into_messages().collect::<Vec<_>>(),
+        vec![Message::Resize(250., false), Message::Resize(250., true)]
+    );
+}
+
+#[test]
 fn drag_tracks_outside_the_panel_and_commits_only_on_release() {
     let mut ui =
         iced_test::Simulator::with_size(iced::Settings::default(), (400., 150.), view(true));

@@ -1,4 +1,8 @@
 app-title = IWE Code
+modules = Modules
+modules-description = Modules included with IWE Code.
+system-module = System
+module-enabled = Enabled
 git-fetch-done = Remote refresh complete
 git-checkout-done = Checkout complete
 git-create-done = Branch created
@@ -284,3 +288,8 @@ clone-invalid-remote = Enter an HTTPS or SSH repository URL.
 clone-invalid-destination = Choose an absolute path to a new repository folder.
 clone-destination-exists = This folder already exists. Choose a new repository folder.
 clone-failed = Could not clone the repository. Check Git access and choose a new folder before retrying.
+
+shortcut-recording = Press a shortcut…
+shortcut-instructions = Press Ctrl, Command, Super, or Alt with a letter, digit, or F1–F12. Escape cancels.
+shortcut-invalid = Use Ctrl, Command, Super, or Alt with a letter, digit, or F1–F12.
+shortcut-conflict = This shortcut is already in use. Choose another shortcut.

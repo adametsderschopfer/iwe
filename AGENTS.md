@@ -5,7 +5,8 @@ Build a native Rust workspace with Iced.
 ## Essential requirements
 
 - Maintain macOS, Windows, and Linux support.
-- Organize code by layers. Follow [architecture rules](docs/rules/architecture.md).
+- Organize shared code by layers and bundled capabilities under `src/modules/`. Follow
+  [architecture rules](docs/rules/architecture.md).
 - Preserve the graphics priorities in [platform rules](docs/rules/platforms.md).
 - Use native Liquid Glass when available. Follow the gray fallback policy in
   [platform rules](docs/rules/platforms.md).
@@ -55,8 +56,8 @@ Read additional rules for the task:
 | Change entities, storage, queries, search indexes, or file formats | [Entities and data access](docs/rules/data.md)     |
 
 Read [the current architecture](docs/architecture.md) and affected feature documents before
-implementation. Subsystem rules guide future development within the layers. Do not create empty
-modules.
+implementation. Subsystem rules guide development within shared layers and module boundaries. Do not
+create empty modules.
 
 ## Maintain the rules
 

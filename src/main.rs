@@ -4,6 +4,7 @@ mod app;
 mod domain;
 mod i18n;
 mod infrastructure;
+mod modules;
 mod ui;
 
 fn main() -> std::process::ExitCode {

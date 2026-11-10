@@ -6,7 +6,7 @@ use crate::{
     ui::theme,
 };
 use iced::{
-    Element, Event, Font, Length, Point, Rectangle, Renderer, Size, Theme,
+    Element, Event, Length, Point, Rectangle, Renderer, Size, Theme,
     advanced::{
         Clipboard, Layout, Shell, Widget, layout, mouse, renderer,
         text::{self, Paragraph},
@@ -229,36 +229,9 @@ pub(crate) fn line<'a>(
     }
     let value = line_text(document, index);
     let range = selection.range(lane, row, value.len());
-    let mut highlighted = Vec::new();
-    let mut offset = 0;
-    for span in spans {
-        let text = span.text.to_string();
-        let length = text.len();
-        let mut cuts = vec![0, length];
-        if let Some(range) = &range {
-            for boundary in [range.start, range.end] {
-                if boundary > offset && boundary < offset + length {
-                    cuts.push(boundary - offset);
-                }
-            }
-        }
-        cuts.sort_unstable();
-        cuts.dedup();
-        for pair in cuts.windows(2) {
-            let mut fragment = span.clone();
-            fragment.text = text[pair[0]..pair[1]].to_owned().into();
-            if range
-                .as_ref()
-                .is_some_and(|range| range.contains(&(offset + pair[0])))
-            {
-                fragment = fragment.background(theme::CODE_SELECTION.resolve(&app.theme()));
-            }
-            highlighted.push(fragment);
-        }
-        offset += length;
-    }
+    let highlighted = highlight_spans(spans, range, theme::CODE_SELECTION.resolve(&app.theme()));
     let content = rich_text::<(), Message, _, _>(highlighted)
-        .font(Font::MONOSPACE)
+        .font(theme::code_font())
         .size(size)
         .line_height(1.65)
         .wrapping(widget_text::Wrapping::None)
@@ -272,7 +245,51 @@ pub(crate) fn line<'a>(
         row,
         id: app.preview().id,
         size,
+        shortcuts: app.workspace.preferences.shortcuts.clone(),
     })
+}
+
+fn highlight_spans(
+    spans: Vec<iced::widget::text::Span<'_>>,
+    range: Option<Range<usize>>,
+    background: iced::Color,
+) -> Vec<iced::widget::text::Span<'_>> {
+    let Some(range) = range.filter(|range| !range.is_empty()) else {
+        return spans;
+    };
+    let mut highlighted = Vec::with_capacity(spans.len() + 2);
+    let mut offset = 0;
+    for span in spans {
+        let length = span.text.len();
+        if range.end <= offset || range.start >= offset + length {
+            highlighted.push(span);
+            offset += length;
+            continue;
+        }
+        if range.start <= offset && range.end >= offset + length {
+            highlighted.push(span.background(background));
+            offset += length;
+            continue;
+        }
+        let mut cuts = vec![0, length];
+        for boundary in [range.start, range.end] {
+            if boundary > offset && boundary < offset + length {
+                cuts.push(boundary - offset);
+            }
+        }
+        cuts.sort_unstable();
+        cuts.dedup();
+        for pair in cuts.windows(2) {
+            let mut fragment = span.clone();
+            fragment.text = span.text[pair[0]..pair[1]].to_owned().into();
+            if range.contains(&(offset + pair[0])) {
+                fragment = fragment.background(background);
+            }
+            highlighted.push(fragment);
+        }
+        offset += length;
+    }
+    highlighted
 }
 
 type TextParagraph = <Renderer as text::Renderer>::Paragraph;
@@ -286,6 +303,7 @@ struct Selectable<'a> {
     row: usize,
     id: u64,
     size: f32,
+    shortcuts: crate::domain::shortcuts::Shortcuts,
 }
 
 impl Widget<Message, Theme, Renderer> for Selectable<'_> {
@@ -330,19 +348,6 @@ impl Widget<Message, Theme, Renderer> for Selectable<'_> {
             .as_widget_mut()
             .layout(&mut tree.children[0], renderer, limits);
         let size = Size::new(limits.max().width, child.size().height);
-        tree.state
-            .downcast_mut::<text::paragraph::Plain<TextParagraph>>()
-            .update(text::Text {
-                content: &self.value,
-                bounds: size,
-                size: self.size.into(),
-                line_height: text::LineHeight::Relative(1.65),
-                font: Font::MONOSPACE,
-                align_x: text::Alignment::Default,
-                align_y: iced::alignment::Vertical::Top,
-                shaping: text::Shaping::Advanced,
-                wrapping: text::Wrapping::None,
-            });
         layout::Node::with_children(size, vec![child])
     }
     fn draw(
@@ -379,14 +384,31 @@ impl Widget<Message, Theme, Renderer> for Selectable<'_> {
         if shell.is_event_captured() {
             return;
         }
-        let over = cursor
-            .position()
-            .filter(|point| layout.bounds().contains(*point) && viewport.contains(*point));
+        let needs_position = match event {
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => true,
+            Event::Mouse(mouse::Event::CursorMoved { .. }) => self.selection.dragging,
+            _ => false,
+        };
+        let over = cursor.position().filter(|point| {
+            needs_position && layout.bounds().contains(*point) && viewport.contains(*point)
+        });
         let position = over.map(|point| {
             let local = Point::new((point.x - layout.bounds().x).max(0.), self.size * 0.8);
             let paragraph = tree
                 .state
-                .downcast_ref::<text::paragraph::Plain<TextParagraph>>();
+                .downcast_mut::<text::paragraph::Plain<TextParagraph>>();
+            // Shape the pointer lookup only when selection needs a character position.
+            paragraph.update(text::Text {
+                content: &self.value,
+                bounds: layout.bounds().size(),
+                size: self.size.into(),
+                line_height: text::LineHeight::Relative(1.65),
+                font: theme::code_font(),
+                align_x: text::Alignment::Default,
+                align_y: iced::alignment::Vertical::Top,
+                shaping: text::Shaping::Advanced,
+                wrapping: text::Wrapping::None,
+            });
             let mut byte = paragraph
                 .raw()
                 .hit_test(local)
@@ -421,23 +443,22 @@ impl Widget<Message, Theme, Renderer> for Selectable<'_> {
                 modifiers,
                 ..
             }) if self.selection.anchor.is_some() && self.selection.lane == Some(self.lane) => {
-                let command = *modifiers == keyboard::Modifiers::COMMAND;
-                let character = |value: &str| matches!(key, keyboard::Key::Character(text) if text.eq_ignore_ascii_case(value));
-                if command
-                    && (character("c")
-                        || *physical_key
-                            == keyboard::key::Physical::Code(keyboard::key::Code::KeyC))
-                {
+                use crate::domain::shortcuts::Command;
+                let matches = |command| {
+                    crate::ui::shortcuts::matches(
+                        &self.shortcuts.binding(command),
+                        key,
+                        *physical_key,
+                        *modifiers,
+                    )
+                };
+                if matches(Command::Copy) {
                     if let Some(text) = self.selection.copy(self.document) {
                         clipboard.write(iced::advanced::clipboard::Kind::Standard, text);
                         shell.capture_event();
                     }
                     None
-                } else if command
-                    && (character("a")
-                        || *physical_key
-                            == keyboard::key::Physical::Code(keyboard::key::Code::KeyA))
-                {
+                } else if matches(Command::SelectAll) {
                     Some(Action::All(self.lane))
                 } else if *key == keyboard::Key::Named(keyboard::key::Named::Escape) {
                     Some(Action::Clear)
@@ -467,3 +488,6 @@ impl Widget<Message, Theme, Renderer> for Selectable<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

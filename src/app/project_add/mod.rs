@@ -82,7 +82,7 @@ impl App {
                 space,
                 cloning: false,
                 remote: String::new(),
-                destination: String::new(),
+                destination: parent.to_string_lossy().into_owned(),
                 parent,
                 custom_destination: false,
                 pending: false,
@@ -123,7 +123,7 @@ impl App {
                 if !draft.custom_destination {
                     draft.destination = project_clone::repository_name(&draft.remote)
                         .map(|name| draft.parent.join(name).to_string_lossy().into_owned())
-                        .unwrap_or_default();
+                        .unwrap_or_else(|| draft.parent.to_string_lossy().into_owned());
                 }
             }
             Message::Destination(destination) => {

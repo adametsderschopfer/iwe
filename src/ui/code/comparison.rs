@@ -99,6 +99,19 @@ pub(crate) struct UnifiedLine<'a> {
 }
 
 impl Comparison {
+    pub(super) fn memory_bytes(&self) -> usize {
+        self.rows.capacity() * std::mem::size_of::<Pair>()
+            + self
+                .rows
+                .iter()
+                .flat_map(|pair| pair.cells.iter().flatten())
+                .map(|cell| cell.emphasis.capacity() * std::mem::size_of::<Range<usize>>())
+                .sum::<usize>()
+            + self.hunks.capacity() * std::mem::size_of::<Hunk>()
+            + self.unified_marks.capacity() * std::mem::size_of::<Mark>()
+            + self.unified_rows.capacity() * std::mem::size_of::<(usize, Side)>()
+    }
+
     pub(crate) fn unified_line(&self, index: usize) -> Option<UnifiedLine<'_>> {
         let &(row, side) = self.unified_rows.get(index)?;
         let pair = self.rows.get(row)?;
@@ -176,7 +189,7 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
     else {
         return document;
     };
-    let before = Document::new(previous, extension);
+    let mut before = Document::new(previous, extension);
     let diff = TextDiff::configure()
         .timeout(Duration::from_millis(300))
         .diff_lines(before.text.as_str(), document.text.as_str());
@@ -195,8 +208,8 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
         let old_start = lines.len();
         if matches!(op.tag(), DiffTag::Delete | DiffTag::Replace) {
             for index in old.clone() {
-                lines.push(before.lines[index].clone());
-                source_lines.push(before.source_lines[index].clone());
+                lines.push(std::mem::take(&mut before.lines[index]));
+                source_lines.push(std::mem::take(&mut before.source_lines[index]));
                 line_info.push(LineInfo {
                     number: index + 1,
                     change: Some(LineChange::Removed),
@@ -211,8 +224,8 @@ pub(super) fn apply(mut document: Document, source: Source, extension: &str) -> 
                 DiffTag::Replace => Some(LineChange::Added),
                 _ => None,
             };
-            lines.push(document.lines[index].clone());
-            source_lines.push(document.source_lines[index].clone());
+            lines.push(std::mem::take(&mut document.lines[index]));
+            source_lines.push(std::mem::take(&mut document.source_lines[index]));
             line_info.push(LineInfo {
                 number: index + 1,
                 change,

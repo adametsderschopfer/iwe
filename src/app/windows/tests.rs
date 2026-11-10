@@ -60,6 +60,7 @@ fn settings_window_fits_all_languages_without_the_project_sidebar() {
                 super::super::SettingsTab::General,
                 super::super::SettingsTab::Code,
                 super::super::SettingsTab::Panels,
+                super::super::SettingsTab::Modules,
                 super::super::SettingsTab::Shortcuts,
                 super::super::SettingsTab::About,
             ] {

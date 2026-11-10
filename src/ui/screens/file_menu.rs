@@ -30,7 +30,7 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         let child_width = 300_f32.min(available.width);
         let origin = Point::new(
             menu.point.x.clamp(0., (available.width - width).max(0.)),
-            menu.point.y.clamp(0., (available.height - 58.).max(0.)),
+            menu.point.y.clamp(0., (available.height - 150.).max(0.)),
         );
         let main = mouse_area(
             button(
@@ -48,6 +48,25 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
             .style(theme::action(false)),
         )
         .on_enter(Message::Files(Event::CopyOptions));
+        let deployment_action = |key, compare| {
+            button(text(app.i18n.text(key)).size(13))
+                .padding([10, 12])
+                .width(Length::Fill)
+                .style(theme::action(false))
+                .on_press(crate::app::modules::deployment_message(
+                    crate::modules::deployment::Event::Run(if compare {
+                        crate::modules::deployment::Operation::Compare(menu.path.clone())
+                    } else {
+                        crate::modules::deployment::Operation::Upload(menu.path.clone())
+                    }),
+                ))
+        };
+        let main = column![
+            main,
+            deployment_action(Key::DeploymentCompare, true),
+            deployment_action(Key::DeploymentUpload, false)
+        ]
+        .spacing(4);
         let mut layers = vec![panel(main.into(), origin, width)];
         if menu.copy_open {
             let x = if origin.x + width + child_width <= available.width {

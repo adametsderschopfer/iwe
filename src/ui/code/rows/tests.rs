@@ -1,6 +1,29 @@
 use super::*;
 use std::rc::Rc;
 
+#[test]
+fn scrolling_keeps_visible_rows_and_limits_new_rows_per_step() {
+    for count in [0, 1, 45, 2000] {
+        for height in [19.8, 26.4, 39.6] {
+            let viewport = 600.;
+            let maximum = (count as f32 * height - viewport).max(0.);
+            let mut previous = visible_range(0., viewport, height, count);
+            for offset in (0..=maximum.ceil() as usize).step_by(12) {
+                let offset = (offset as f32).min(maximum);
+                let rows = visible_range(offset, viewport, height, count);
+                let first = (offset / height).floor() as usize;
+                let last = ((offset + viewport) / height).ceil() as usize;
+                assert!(rows.start <= first.min(count));
+                assert!(rows.end >= last.min(count));
+                assert!(rows.end <= count);
+                assert!(rows.len() <= (viewport / height).ceil() as usize + 40);
+                assert!(rows.clone().filter(|row| !previous.contains(row)).count() <= 8);
+                previous = rows;
+            }
+        }
+    }
+}
+
 struct Line(usize);
 
 struct LineState {

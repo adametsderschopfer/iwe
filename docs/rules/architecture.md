@@ -11,7 +11,8 @@ Follow these rules when [AGENTS.md](../../AGENTS.md) directs you here.
 - **Additional Platforms:** Windows and Linux.
 - **Architecture:** Layered architecture in one Rust crate, with The Elm Architecture for the
   interface.
-- **Code Organization:** Layers with explicit responsibilities and dependency boundaries.
+- **Code Organization:** Shared layers and self-contained bundled modules with explicit dependency
+  boundaries.
 
 Do not introduce Electron, Tauri, HTML, CSS, JavaScript UI frameworks, Qt, or custom C++ code.
 
@@ -47,8 +48,8 @@ Do not introduce architectural complexity without a concrete reason.
 
 ## Project Structure
 
-Organize source code by responsibility at the top level. Use the following layers as implementation
-needs arise:
+Keep shared application code in layers. Keep each bundled module under `src/modules/<name>/`. Use
+the following directories as implementation needs arise:
 
 | Layer             | Responsibility                                                                             |
 | ----------------- | ------------------------------------------------------------------------------------------ |
@@ -60,28 +61,63 @@ needs arise:
 | `domain/`         | Define workspace entities, repository data, graph algorithms, and business rules           |
 | `infrastructure/` | Implement storage, operating-system access, graphics startup, audio, and external services |
 | `i18n/`           | Resolve supported languages and format translated messages                                 |
+| `modules/`        | Register bundled modules and contain their runtime, interface, adapters, and tests         |
 
 Keep `main.rs` small. Use `main` and `app` to connect concrete implementations. Keep translation
-catalogs under root `locales/`. Keep unit tests in adjacent `tests.rs` files. Reserve root `tests/`
-for integration tests. Follow [test organization rules](quality.md#testing--verification) for module
-declarations and private access.
+catalogs under root `locales/` and module catalogs under `modules/<name>/locales/`. Keep unit tests
+in adjacent `tests.rs` files. Reserve root `tests/` for integration tests. Follow
+[test organization rules](quality.md#testing--verification) for module declarations and private
+access.
 
-The current application uses `app`, `domain`, `ui`, `infrastructure`, and `i18n`. `app` coordinates
-existing operations. `domain` owns workspace entities and repository data. Add `application` when
-concrete scenarios require it. Keep its contracts and operations independent of presentation. Add
-`ui/components` when multiple screens need reusable components. Do not create empty directories,
-placeholder types, or one file for every trivial method.
+The current application uses `app`, `domain`, `ui`, `infrastructure`, `i18n`, and `modules`. `app`
+coordinates shared operations. `domain` owns workspace entities and repository data. Add
+`application` when concrete scenarios require it. Keep its contracts and operations independent of
+presentation. Add `ui/components` when multiple screens need reusable components. Do not create
+empty directories, placeholder types, or one file for every trivial method.
 
-Do not restore top-level `features` or miscellaneous `shared` directories. Group related modules
-inside their responsible layer when that improves navigation. Keep feature guides under `docs/`.
-Documentation topics do not define source architecture.
+Do not restore top-level `features` or miscellaneous `shared` directories. Group shared components
+inside their responsible layer. Group bundled capabilities under `modules/`. Keep feature guides
+under `docs/`. Documentation topics do not define source architecture.
+
+## Bundled module structure
+
+- Keep a module's state, events, view, input handling, styling, and external adapters within its own
+  directory.
+- Expose a small integration boundary through `modules/<name>/mod.rs`.
+- Keep the pure module catalog under `modules/catalog/`. It must not import runtimes, Iced, or
+  operating-system APIs.
+- Keep host message routing, panel visibility, and workspace coordination in `app/modules/`.
+- System modules must remain available. Do not provide disable or removal operations for them.
+- Keep shared module settings in `ui/modules.rs`. Pass module state and presentation values to each
+  public view.
+- Module code must not import `app`, host screens, or another module's private implementation.
+- Module views may read module state, domain data, shared UI components, shared theme tokens, and
+  translations.
+- Module views must not perform external operations or import concrete session adapters.
+- Module state coordinates tasks and subscriptions. It may compose its own external adapters.
+- Keep filesystem, process, and network operations inside module adapters. Adapters must not import
+  Iced or presentation code.
+- Keep module-specific styles inside the module. Reuse shared theme tokens instead of duplicating
+  common colors.
+- Keep module translations under `modules/<name>/locales/`. Keep shared application translations
+  under root `locales/`.
+- Register bundled translation resources in the shared localizer without importing module runtime
+  code.
+- Keep unit tests in adjacent `tests.rs` files. Use component directories when separate test modules
+  need private access.
+- Add directories only for concrete responsibilities. Keep bundled modules in the existing
+  application crate.
+
+The terminal follows this structure under `modules/terminal/`. Its state and view expose typed
+terminal events. The host maps those events to workspace actions without granting the module access
+to application state.
 
 ## Dependency Rules
 
 Apply application-layer rules when concrete scenarios require that layer. Read
 [the current architecture](../architecture.md) for existing composition boundaries.
 
-- `domain` must not depend on `app`, `ui`, `application`, `infrastructure`, or `i18n`.
+- `domain` must not depend on `app`, `ui`, `application`, `infrastructure`, `modules`, or `i18n`.
 - `application` may use `domain` and contracts required by its scenarios.
 - Keep `application` independent of Iced, presentation state, localization, and concrete external
   services.
@@ -95,9 +131,10 @@ Apply application-layer rules when concrete scenarios require that layer. Read
 - Startup diagnostics may use `i18n`. Keep those messages outside the interface.
 - `ui` may use application results, read-only domain data, and `i18n`.
 - UI modules must not import concrete infrastructure or the application composition layer.
+- Shared UI composition may use a bundled module's public view and state boundary.
 - Pass presentation messages or callbacks explicitly when the application needs screen events.
 - `i18n` must not import application layers or perform operating-system or file access.
-- `main` and `app` may connect the layers through explicit dependencies.
+- `main` and `app` may connect shared layers and bundled modules through explicit dependencies.
 - Keep public APIs small. Avoid circular dependencies.
 - Introduce additional Cargo crates only when concrete dependency boundaries justify them.
 
@@ -111,9 +148,10 @@ Keep visual interaction state near its screen or component. Examples include sel
 dialogs, focus, and temporary input values. Keep application-wide UI state and message routing in
 `app`.
 
-Keep current operation coordination in `app`. Introduce `application` when reusable scenarios
-require it, then place those scenarios there. Put data invariants and algorithms in `domain`. Put
-actual disk, database, microphone, and network access in `infrastructure`.
+Keep shared operation coordination in `app`. Keep module operation coordination inside its module.
+Introduce `application` when reusable scenarios require it, then place those scenarios there. Put
+shared data invariants and algorithms in `domain`. Put external access in shared infrastructure or
+the owning module's adapter.
 
 For example, an Iced message can request a save operation. The application update function starts a
 task that calls the save scenario. The scenario applies domain rules and uses an injected storage
