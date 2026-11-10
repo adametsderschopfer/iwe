@@ -395,6 +395,10 @@ the system locale. Unsupported languages select English. Missing selected messag
 English, then to localized fallback text. The interface never displays translation keys or technical
 diagnostics.
 
+Platform-only typed keys compile only for their target platform and catalog tests. The key macro
+applies platform conditions to variants, lookup arms, and the test registry. Tests retain every
+catalog entry on every platform.
+
 Unit tests verify catalog completeness, translated layouts, persistence, repository reads, previews,
 and asynchronous selection. They also verify native material state and graphics fallback behavior.
 Headless tests cannot verify native material appearance. Check appearance with a local application

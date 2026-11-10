@@ -51,10 +51,10 @@ macro_rules! message_keys {
 
         impl Key {
             #[cfg(test)]
-            const ALL: &'static [Self] = &[$(Self::$variant),+];
+            const ALL: &'static [Self] = &[$($(#[$attribute])* Self::$variant),+];
 
             fn id(self) -> &'static str {
-                match self { $(Self::$variant => $id),+ }
+                match self { $($(#[$attribute])* Self::$variant => $id),+ }
             }
         }
     };
@@ -278,11 +278,17 @@ message_keys! {
     Manual => "manual",
     UnknownStatus => "unknown-status",
     Settings => "settings",
+    #[cfg(any(target_os = "macos", test))]
     MenuHide => "menu-hide",
+    #[cfg(any(target_os = "macos", test))]
     MenuHideOthers => "menu-hide-others",
+    #[cfg(any(target_os = "macos", test))]
     MenuShowAll => "menu-show-all",
+    #[cfg(any(target_os = "macos", test))]
     MenuServices => "menu-services",
+    #[cfg(any(target_os = "macos", test))]
     MenuQuit => "menu-quit",
+    #[cfg(any(target_os = "macos", test))]
     MenuUnavailable => "menu-unavailable",
     SettingsDescription => "settings-description",
     General => "general",

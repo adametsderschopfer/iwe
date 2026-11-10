@@ -338,10 +338,10 @@
   },
   {
     "version": "0.1.13",
-    "status": "prepared",
-    "publishedAt": null,
-    "tags": [],
-    "source": null,
+    "status": "released",
+    "publishedAt": "2026-11-10T00:39:11Z",
+    "tags": ["macos-v0.1.13"],
+    "source": "a5ad29050c40c076bf296301d2da467e5e39be6a",
     "items": [
       {
         "id": "full-line-highlight",
@@ -602,6 +602,25 @@
           "es": "Las capturas del sitio muestran el espacio, historial, comparaciones y ejecuciones actuales."
         },
         "sources": ["website/public/images/workspace-en.webp", "src/app/tests.rs"]
+      }
+    ]
+  },
+  {
+    "version": "0.1.14",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "platform-native-menu-keys",
+        "category": "fixed",
+        "text": {
+          "en": "Fixed Windows and Linux release checks by limiting native macOS menu keys to macOS builds.",
+          "ru": "Исправлены проверки выпуска Windows и Linux: ключи меню macOS включаются только в сборки macOS.",
+          "es": "Se corrigen las comprobaciones de Windows y Linux al limitar las claves del menú de macOS a sus compilaciones."
+        },
+        "sources": ["src/i18n/mod.rs"]
       }
     ]
   },
