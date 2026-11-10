@@ -1,5 +1,6 @@
 //! Run a project shell through the operating system's pseudo-terminal.
 
+#[cfg(unix)]
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use std::{
     fmt,
@@ -9,6 +10,8 @@ use std::{
     thread,
     time::Duration,
 };
+#[cfg(windows)]
+use xpty::{CommandBuilder, PtySize, PtySystem, native_pty_system};
 
 pub(crate) const MAX_INPUT: usize = 64 * 1024;
 
@@ -22,6 +25,7 @@ pub(crate) enum Output {
 enum Control {
     Input(Vec<u8>),
     Resize(u16, u16),
+    Close,
 }
 
 pub(crate) struct Session {
@@ -68,6 +72,8 @@ impl Session {
         let mut child = pair.slave.spawn_command(command).map_err(|_| ())?;
         drop(pair.slave);
 
+        let (controls, requests) = mpsc::sync_channel(64);
+        let shutdown = controls.clone();
         let (stop, stopped) = mpsc::channel();
         let mut killer = child.clone_killer();
         if thread::Builder::new()
@@ -86,6 +92,8 @@ impl Session {
                         },
                     }
                 }
+                // Release ConPTY on the input thread while the output thread drains it.
+                let _ = shutdown.send(Control::Close);
             })
             .is_err()
         {
@@ -93,7 +101,6 @@ impl Session {
             return Err(());
         }
 
-        let (controls, requests) = mpsc::sync_channel(64);
         let (events, output) = tokio::sync::mpsc::channel(64);
         let session = Arc::new(Self {
             controls,
@@ -106,6 +113,7 @@ impl Session {
             .spawn(move || {
                 while let Ok(control) = requests.recv() {
                     let result = match control {
+                        Control::Close => break,
                         Control::Input(bytes) => {
                             writer.write_all(&bytes).and_then(|()| writer.flush())
                         }

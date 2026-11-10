@@ -19,13 +19,14 @@ navigation item. **Add key** opens a focused dialog with a name and file picker.
 support editing and deletion. The key selector also provides an add button. Saving through that
 button selects the new key for the connection. The key manager preserves the connection's
 authentication choice. Cancel returns without adding a key. SFTP supports passwords, private key
-files, and the system SSH agent. The shared key list stores names and file paths. IWE Code does not
-copy private key files. Entering a password replaces the saved password or key passphrase. Leaving
-the field untouched preserves the existing secret. Passwords use Keychain, Windows Credential
-Manager, or Linux Secret Service. Workspace metadata never stores passwords or private key contents.
-Use **Test connection** before saving. The test status appears directly above its button. Progress
-uses neutral text; success uses green, and failure uses red. The button stays unavailable while the
-test runs. Cancellation and SSH fingerprint confirmation remain available beside the test controls.
+files, and the system SSH agent. Windows builds use bundled OpenSSL for Ed25519 host and user keys.
+The shared key list stores names and file paths. IWE Code does not copy private key files. Entering
+a password replaces the saved password or key passphrase. Leaving the field untouched preserves the
+existing secret. Passwords use Keychain, Windows Credential Manager, or Linux Secret Service.
+Workspace metadata never stores passwords or private key contents. Use **Test connection** before
+saving. The test status appears directly above its button. Progress uses neutral text; success uses
+green, and failure uses red. The button stays unavailable while the test runs. Cancellation and SSH
+fingerprint confirmation remain available beside the test controls.
 
 An unknown SSH server requires fingerprint confirmation before authentication. A changed server key
 blocks the connection. Verify the server independently before replacing its saved connection. FTPS
@@ -105,10 +106,10 @@ Text previews and comparisons accept UTF-8 files up to 2 MiB per side. Binary fi
 transferable. Transfers use 64 KiB buffers. Recursive transfers allow 10,000 entries and 64
 directory levels. The pending operation queue holds at most 32 requests. Transfer sessions are not
 persisted across application restarts. The module does not delete remote files, synchronize
-directories, edit remote files, or interpret SSH config and ProxyJump. FTP directory browsing
-requires a supported LIST response. Server permissions and filesystem features can restrict
-available operations. Local-change checks cannot eliminate every race with unrelated external
-writers. SSH-agent availability depends on the operating system and its configured agent.
+directories, or interpret SSH config and ProxyJump. FTP directory browsing requires a supported LIST
+response. Server permissions and filesystem features can restrict available operations. Local-change
+checks cannot eliminate every race with unrelated external writers. SSH-agent availability depends
+on the operating system and its configured agent.
 
 Automated tests use isolated temporary files and loopback servers. They exercise SFTP, FTP, explicit
 FTPS, and implicit FTPS. Tests cover server trust, password authentication, private keys, encrypted

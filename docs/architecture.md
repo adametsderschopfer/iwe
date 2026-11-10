@@ -385,10 +385,10 @@ Each bundled module keeps its implementation under `modules/<name>/`. Shared app
 retains its layers. No external module loader or marketplace exists.
 
 The terminal runtime starts only after an explicit open action. `modules/terminal/session/` runs the
-default shell through `portable-pty`. Its blocking workers handle input, output, resizing, and child
-cleanup. Bounded channels connect those workers to the application. An output subscription waits for
-data without periodic polling. Session identifiers reject obsolete startup results, output, input,
-clipboard reads, and resize requests.
+default shell through `portable-pty` on Unix and pinned `xpty` on Windows. Its blocking workers
+handle input, output, resizing, and child cleanup. Bounded channels connect those workers to the
+application. An output subscription waits for data without periodic polling. Session identifiers
+reject obsolete startup results, output, input, clipboard reads, and resize requests.
 
 `modules/terminal/state/` keeps independent tabs with bounded `vt100` screens and shell sessions.
 Unique tab identifiers route startup, output, input, clipboard reads, and resize events. Closed tabs

@@ -1,5 +1,33 @@
 use super::*;
 
+#[cfg(windows)]
+#[tokio::test]
+async fn shell_starts_without_cursor_reply_and_drains_output_before_closing() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().to_path_buf();
+    let mut command = CommandBuilder::new("cmd.exe");
+    command.args(["/D", "/Q", "/C", "echo FINAL-OUTPUT"]);
+    let session = tokio::task::spawn_blocking(move || Session::spawn(&path, 24, 80, command))
+        .await
+        .unwrap()
+        .unwrap();
+    let mut output = Vec::new();
+    tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            for event in session.next().await {
+                match event {
+                    Output::Bytes(bytes) => output.extend(bytes),
+                    Output::Closed => return,
+                    Output::Failed => panic!("terminal worker failed"),
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert!(String::from_utf8_lossy(&output).contains("FINAL-OUTPUT"));
+}
+
 #[tokio::test]
 async fn project_shell_accepts_input_and_reports_output_and_exit() {
     let directory = tempfile::tempdir().unwrap();
@@ -42,7 +70,12 @@ async fn project_shell_accepts_input_and_reports_output_and_exit() {
         }
     })
     .await
-    .unwrap();
+    .unwrap_or_else(|_| {
+        panic!(
+            "terminal did not close: {}",
+            String::from_utf8_lossy(&output)
+        )
+    });
     let output = String::from_utf8_lossy(&output);
     assert!(output.contains("RESULT:hello-terminal"), "{output}");
     let expected = std::fs::canonicalize(directory.path()).unwrap();

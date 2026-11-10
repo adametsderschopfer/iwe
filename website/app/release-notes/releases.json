@@ -768,10 +768,10 @@
   },
   {
     "version": "1.0.0",
-    "status": "prepared",
-    "publishedAt": null,
-    "tags": [],
-    "source": null,
+    "status": "released",
+    "publishedAt": "2026-11-10T19:15:44Z",
+    "tags": ["linux-v1.0.0"],
+    "source": "5c8f9bb0fa756d9c829863f1bee586f67f4e5662",
     "items": [
       {
         "id": "deployment-transfers",
@@ -995,6 +995,49 @@
           "website/app/components/ProductShowcase.vue",
           "website/app/i18n/en.json",
           "src/app/tests.rs"
+        ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.1",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "windows-ed25519-deployment",
+        "category": "fixed",
+        "text": {
+          "en": "Windows supports Ed25519 server keys and private keys for SFTP connections.",
+          "ru": "Windows поддерживает серверные и приватные ключи Ed25519 для подключений SFTP.",
+          "es": "Windows admite claves de servidor y claves privadas Ed25519 para conexiones SFTP."
+        },
+        "sources": ["Cargo.toml", "src/modules/deployment/transport/tests.rs"]
+      },
+      {
+        "id": "windows-terminal-exit",
+        "category": "fixed",
+        "text": {
+          "en": "Windows terminal sessions finish after the shell exits and retain their final output.",
+          "ru": "Сеансы терминала Windows завершаются после выхода из оболочки и сохраняют последний вывод.",
+          "es": "Las sesiones del terminal de Windows finalizan cuando termina el intérprete y conservan la salida final."
+        },
+        "sources": ["src/modules/terminal/session/mod.rs", "src/modules/terminal/session/tests.rs"]
+      },
+      {
+        "id": "windows-terminal-startup",
+        "category": "fixed",
+        "text": {
+          "en": "Windows terminal startup avoids the x86 crash and the initial cursor-query stall.",
+          "ru": "Запуск терминала Windows больше не вызывает сбой x86 и зависание при запросе положения курсора.",
+          "es": "El terminal de Windows evita el fallo de inicio en x86 y el bloqueo al consultar el cursor."
+        },
+        "sources": [
+          "Cargo.toml",
+          "src/modules/terminal/session/mod.rs",
+          "src/modules/terminal/session/tests.rs"
         ]
       }
     ]

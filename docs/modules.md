@@ -61,7 +61,9 @@ The shell determines which commands and programs are available.
 
 Closing the last tab hides the panel. Opening the panel again creates a new tab when no tabs remain.
 Tabs scroll horizontally when they exceed the available width. New tabs scroll into view. An ended
-shell retains its tab and output until you close the tab.
+shell retains its tab and output until you close the tab. The session releases its pseudo-terminal
+after shell exit while a separate reader drains the remaining output. This also completes Windows
+ConPTY sessions without waiting for the tab to close.
 
 Each tab groups its label and close control within one shared surface. The plus follows the last tab
 inside the same horizontal scrolling area.
@@ -98,7 +100,10 @@ application commands or open links automatically.
 
 macOS and Linux use a pseudo-terminal and the operating system's default shell. Windows uses ConPTY
 and the system's default command processor. Windows requires a ConPTY-capable Windows version. No
-shell is downloaded or installed.
+shell is downloaded or installed. Unix builds use `portable-pty`; Windows builds use pinned `xpty`
+0.3.6. Its Windows bindings use the system calling convention on x86 and x64. Its default flags
+avoid the cursor-inheritance handshake, which would stall a terminal without a cursor-position
+reply. The application uses safe Rust interfaces for both adapters.
 
 The module keeps terminal tabs for the selected project. It has no terminal search, clickable links,
 program-controlled mouse reporting, or input-method composition interface. Tests verify process
