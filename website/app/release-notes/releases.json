@@ -1510,7 +1510,7 @@
     ]
   },
   {
-    "version": "unreleased",
+    "version": "1.0.8",
     "status": "prepared",
     "publishedAt": null,
     "tags": [],
@@ -1552,5 +1552,13 @@
         "sources": [".github/workflows/ci.yml", ".github/workflows/bump-version.yml"]
       }
     ]
+  },
+  {
+    "version": "unreleased",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": []
   }
 ]
