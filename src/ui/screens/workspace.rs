@@ -4,6 +4,7 @@ use crate::{
     app::{App, Message, Navigation, Panel, error_key},
     domain::workspace::{DiffView, Preferences},
     i18n::{FluentArgs, Key},
+    modules::ModuleId,
     ui::{
         changed_tree, code, context_menu, file_icons,
         icons::{Icon, icon, sized_icon},
@@ -24,18 +25,36 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         settings::view(app)
     } else {
         let panes = pane_grid(&app.panes, |_, panel, _| {
+            let content: Element<'_, Message> = match panel {
+                Panel::Workspace => {
+                    responsive(move |size| deployment_content(app, size.width)).into()
+                }
+                Panel::Module(id) => {
+                    let content = match id {
+                        ModuleId::Git => git::view(app),
+                        ModuleId::Pipelines => pipelines::view(app),
+                        _ => crate::ui::modules::panel(app, *id),
+                    };
+                    row![
+                        container(scrollable(
+                            column(panel_buttons(app, tooltip::Position::Right))
+                                .spacing(theme::FILE_PANEL_TOOL_INSET)
+                        ))
+                        .width(theme::FILE_PANEL_HEADER_HEIGHT)
+                        .height(Length::Fill)
+                        .padding(theme::FILE_PANEL_TOOL_INSET)
+                        .style(theme::sidebar),
+                        vertical_divider(),
+                        container(content).width(Length::Fill).height(Length::Fill),
+                    ]
+                    .into()
+                }
+            };
             pane_grid::Content::new(
-                container(match panel {
-                    Panel::Workspace => {
-                        responsive(move |size| deployment_content(app, size.width)).into()
-                    }
-                    Panel::Module(crate::modules::ModuleId::Git) => git::view(app),
-                    Panel::Module(crate::modules::ModuleId::Pipelines) => pipelines::view(app),
-                    Panel::Module(id) => crate::ui::modules::panel(app, *id),
-                })
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(theme::surface),
+                container(content)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .style(theme::surface),
             )
         })
         .spacing(1)
@@ -201,6 +220,49 @@ fn sidebar_header() -> Element<'static, Message> {
     .into()
 }
 
+fn panel_buttons(
+    app: &App,
+    position: tooltip::Position,
+) -> impl Iterator<Item = Element<'_, Message>> {
+    [
+        (
+            ModuleId::Terminal,
+            Icon::Terminal,
+            Key::Terminal,
+            "nav-terminal",
+        ),
+        (ModuleId::Git, Icon::Branch, Key::Git, "nav-git"),
+        (
+            ModuleId::Pipelines,
+            Icon::Play,
+            Key::Pipelines,
+            "nav-pipelines",
+        ),
+    ]
+    .into_iter()
+    .filter(|(id, ..)| app.panel_available(*id))
+    .map(move |(id, symbol, label, widget_id)| {
+        let active = app.module_open(id);
+        tooltip::view(
+            container(
+                button(icon(
+                    symbol,
+                    if active { theme::TEXT } else { theme::MUTED },
+                ))
+                .on_press(Message::Module(crate::app::modules::Event::Toggle(id)))
+                .width(theme::FILE_PANEL_TOOL_SIZE)
+                .height(theme::FILE_PANEL_TOOL_SIZE)
+                .padding(10)
+                .style(theme::action(active)),
+            )
+            .id(widget_id),
+            text(app.i18n.text(label)).size(12),
+            position,
+        )
+        .into()
+    })
+}
+
 fn footer(app: &App) -> Element<'_, Message> {
     let path = app
         .preview()
@@ -239,9 +301,22 @@ fn footer(app: &App) -> Element<'_, Message> {
                 .map(crate::app::modules::deployment_message),
         );
     }
-    container(content.align_y(Alignment::Center))
-        .padding([6, 16])
-        .into()
+    let content = container(content.align_y(Alignment::Center)).padding([6, 16]);
+    if app.panes.len() == 1 {
+        let mut buttons = panel_buttons(app, tooltip::Position::Top).peekable();
+        if buttons.peek().is_some() {
+            return row![
+                container(row(buttons).spacing(theme::FILE_PANEL_TOOL_INSET))
+                    .padding(theme::FILE_PANEL_TOOL_INSET)
+                    .style(theme::sidebar),
+                container(vertical_divider()).height(theme::FILE_PANEL_HEADER_HEIGHT),
+                content,
+            ]
+            .align_y(Alignment::Center)
+            .into();
+        }
+    }
+    content.into()
 }
 
 fn sidebar(app: &App) -> Element<'_, Message> {
@@ -464,71 +539,21 @@ fn sidebar(app: &App) -> Element<'_, Message> {
         }
     }
     let mut tools = Column::new().spacing(4);
-    if app.workspace.directory().is_some() && app.module_enabled(crate::modules::ModuleId::Git) {
-        tools = tools.push(
-            container(
-                text(app.i18n.text(Key::Panels))
-                    .size(12)
-                    .style(theme::FAINT.text()),
-            )
-            .padding([8, 12]),
-        );
-        tools = tools.push(navigation_button(
-            app,
-            Icon::Branch,
-            Key::Git,
-            Some(Message::TogglePanel(Panel::Module(
-                crate::modules::ModuleId::Git,
-            ))),
-            app.workspace.preferences.show_git,
-            "nav-git",
-        ));
-    }
-    if app.has_remote() && app.module_enabled(crate::modules::ModuleId::Pipelines) {
-        tools = tools.push(navigation_button(
-            app,
-            Icon::Play,
-            Key::Pipelines,
-            Some(Message::TogglePanel(Panel::Module(
-                crate::modules::ModuleId::Pipelines,
-            ))),
-            app.workspace.preferences.show_pipelines,
-            "nav-pipelines",
-        ));
-    }
-    if app.workspace.directory().is_some() {
-        for module in crate::modules::MODULES {
-            if module.id != crate::modules::ModuleId::Terminal || !app.module_enabled(module.id) {
-                continue;
-            }
-            tools = tools.push(navigation_button(
-                app,
-                match module.id {
-                    crate::modules::ModuleId::Git => Icon::Branch,
-                    crate::modules::ModuleId::Pipelines => Icon::Play,
-                    crate::modules::ModuleId::Terminal => Icon::Terminal,
-                    crate::modules::ModuleId::Deployment => Icon::Server,
-                },
-                crate::ui::modules::title(module.id),
-                Some(Message::Module(crate::app::modules::Event::Toggle(
-                    module.id,
-                ))),
-                app.module_open(module.id),
-                "nav-terminal",
-            ));
-        }
-    }
     if let Some(update) = crate::ui::updates::sidebar(app) {
         tools = tools.push(update);
     }
-    tools = tools.push(space().height(8)).push(navigation_button(
-        app,
-        Icon::Settings,
-        Key::Settings,
-        Some(Message::Navigate(Navigation::Settings)),
-        app.navigation == Navigation::Settings,
-        "nav-settings",
-    ));
+    tools = tools.push(
+        container(navigation_button(
+            app,
+            Icon::Settings,
+            Key::Settings,
+            Some(Message::Navigate(Navigation::Settings)),
+            app.navigation == Navigation::Settings,
+            "nav-settings",
+        ))
+        .padding(1)
+        .style(theme::settings_section),
+    );
     container(column![
         navigation,
         space().height(8),
@@ -665,10 +690,16 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
             tooltip::Position::Right,
         ));
     }
-    let tools = container(reorder::fixed_column(tools, Message::MoveFilePanel))
-        .padding(theme::FILE_PANEL_TOOL_INSET)
-        .height(Length::Fill)
-        .style(theme::sidebar);
+    let tools = row![
+        container(reorder::fixed_column(tools, Message::MoveFilePanel))
+            .padding(iced::Padding {
+                right: theme::FILE_PANEL_TOOL_INSET - 1.,
+                ..iced::Padding::new(theme::FILE_PANEL_TOOL_INSET)
+            })
+            .height(Length::Fill)
+            .style(theme::sidebar),
+        vertical_divider(),
+    ];
     let content: Element<'_, Message> = match app.file_panel {
         FilePanel::Project => {
             let root = app.workspace.directory().unwrap();
@@ -744,6 +775,11 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
     .height(Length::Fill)
     .style(theme::surface);
     // Keep the preview in the same child slot when the file panel is hidden.
+    let file_divider = if app.file_panel_visible {
+        vertical_divider()
+    } else {
+        space().width(1).into()
+    };
     resize::horizontal(
         Row::from_vec(vec![
             tools.into(),
@@ -755,9 +791,7 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
                 })
                 .clip(true)
                 .into(),
-            container(vertical_divider())
-                .id("file-panel-divider")
-                .into(),
+            container(file_divider).id("file-panel-divider").into(),
             container(preview(app))
                 .id("source-preview")
                 .width(Length::Fill)
@@ -957,25 +991,18 @@ pub(crate) fn navigation_button<'a>(
     selected: bool,
     id: &'static str,
 ) -> Element<'a, Message> {
-    let panel_control = matches!(&message, Some(Message::TogglePanel(_)));
-    let mut content = row![
+    let content = row![
         icon(symbol, if selected { theme::TEXT } else { theme::MUTED }),
         text(app.i18n.text(label)).size(14).width(Length::Fill),
     ]
     .spacing(12)
     .align_y(Alignment::Center);
-    if panel_control {
-        content = content.push(icon(
-            if selected { Icon::Close } else { Icon::Plus },
-            theme::FAINT,
-        ));
-    }
     container(
         button(content)
             .padding([10, 12])
             .width(Length::Fill)
             .on_press_maybe(message)
-            .style(theme::action(selected && !panel_control)),
+            .style(theme::action(selected)),
     )
     .id(id)
     .into()

@@ -338,6 +338,17 @@ pub(crate) fn file_tab_indicator(active: bool) -> impl Fn(&Theme) -> container::
     }
 }
 
+pub(crate) fn settings_section(theme: &Theme) -> container::Style {
+    container::Style {
+        border: Border {
+            color: LINE.resolve(theme),
+            width: 1.,
+            radius: 8.0.into(),
+        },
+        ..Default::default()
+    }
+}
+
 pub(crate) fn separator(theme: &Theme) -> container::Style {
     container::Style {
         background: Some(LINE.resolve(theme).into()),

@@ -68,8 +68,8 @@ fn install(model: Model) -> muda::Result<Installed> {
     let mut actions = BTreeMap::new();
     let application = Submenu::new(&model.application, true);
     application.append(&item(&model.about, true, Action::About, None, &mut actions))?;
-    let settings = Submenu::new(&model.settings, model.enabled);
-    settings.append(&item(
+    application.append(&PredefinedMenuItem::separator())?;
+    application.append(&item(
         &model.settings,
         model.enabled,
         Action::Settings,
@@ -125,7 +125,6 @@ fn install(model: Model) -> muda::Result<Installed> {
     menu.append(&application)?;
     menu.append(&spaces)?;
     menu.append(&projects)?;
-    menu.append(&settings)?;
     let deployment = Submenu::new(&model.deployment, model.enabled && model.deployment_enabled);
     for (label, action) in [
         (&model.connections, Action::DeploymentConnections),

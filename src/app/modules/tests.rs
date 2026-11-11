@@ -115,7 +115,7 @@ fn disabled_terminal_rejects_events_and_reenable_starts_a_new_session() {
 }
 
 #[test]
-fn sidebar_opens_and_hides_the_terminal_through_module_events() {
+fn bottom_toolbar_opens_and_hides_the_terminal_through_module_events() {
     let mut app = app();
     for opened in [true, false] {
         let mut ui = iced_test::Simulator::with_size(

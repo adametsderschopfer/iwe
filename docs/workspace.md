@@ -547,16 +547,18 @@ English, Russian, Spanish, or the system language. Language changes apply immedi
 switches between **Dark** and **Light** appearance. Dark remains the default. Appearance changes
 apply immediately to panels, dialogs, source code, and both diff views. The choice survives
 restarts. Switching themes preserves open files and scroll positions. Code adjusts the source font
-size and line numbers. Opening Git closes pipelines. Opening pipelines closes Git. Both panels can
-remain hidden. Drag the horizontal divider to resize the visible panel.
+size and line numbers. The bottom toolbar lists Terminal, Git, and Pipelines in that order. Opening
+one panel hides the current panel. Select the active button again to collapse its panel. The toolbar
+sits to the left of the open panel and runs horizontally along the bottom when collapsed. Drag the
+horizontal divider to resize the open panel. The sidebar keeps Settings in its own section.
 
-On macOS, **Spaces**, **Projects**, **Settings**, and **Deployment** appear beside the **IWE Code**
-application menu. **Deployment** offers separate windows for connections and servers. The SFTP key
-selector opens the shared key manager. **Spaces** contains only **New space**. **Settings** opens
-the settings window through its menu item. **Projects** groups projects by their space. An empty
-**Projects** menu shows a disabled **No projects yet** item. Choosing a project brings the workspace
-window forward. The menu follows language and workspace changes. Modal dialogs disable workspace
-navigation in the menu. Windows and Linux retain their existing sidebar controls.
+On macOS, choose **IWE Code** → **Settings** to open the settings window. **Spaces**, **Projects**,
+and **Deployment** appear beside the **IWE Code** application menu. **Deployment** offers separate
+windows for connections and servers. The SFTP key selector opens the shared key manager. **Spaces**
+contains only **New space**. **Projects** groups projects by their space. An empty **Projects** menu
+shows a disabled **No projects yet** item. Choosing a project brings the workspace window forward.
+The menu follows language and workspace changes. Modal dialogs disable workspace navigation in the
+menu. Windows and Linux retain their existing sidebar controls.
 
 Escape dismisses dialogs and context menus, including forms with focused text fields. Escape closes
 the focused settings or deployment window. If a nested dialog is open, Escape dismisses that dialog
@@ -589,7 +591,7 @@ lists the defaults.
 
 Open **Settings → Modules** to enable or disable Git, Pipelines, Terminal, and Deployment. All
 modules are enabled by default. Disabling preserves their saved settings. Modules cannot be removed.
-Open **Terminal** in the sidebar to run commands in the selected project's folder. See
+Open **Terminal** from the bottom toolbar to run commands in the selected project's folder. See
 [modules and terminal sessions](modules.md) for controls, session behavior, and limits.
 
 ## Application updates

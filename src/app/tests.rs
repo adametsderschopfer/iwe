@@ -2404,7 +2404,7 @@ fn stale_file_and_repository_results_cannot_replace_current_selection() {
 }
 
 #[test]
-fn git_and_pipeline_panels_open_exclusively_and_can_both_close() {
+fn bottom_panels_open_exclusively_and_keep_terminal_tabs() {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
     app.workspace
         .create_space("Work".to_owned(), vec![PathBuf::from("project")]);
@@ -2472,6 +2472,29 @@ fn git_and_pipeline_panels_open_exclusively_and_can_both_close() {
     assert_eq!(app.panes.len(), 1);
     assert!(!app.workspace.preferences.show_git);
     assert!(!app.workspace.preferences.show_pipelines);
+
+    use crate::{app::modules::Event, modules::ModuleId};
+    let mut terminal_tab = None;
+    for id in [
+        ModuleId::Pipelines,
+        ModuleId::Terminal,
+        ModuleId::Git,
+        ModuleId::Terminal,
+        ModuleId::Pipelines,
+        ModuleId::Terminal,
+    ] {
+        let _ = app.update(Message::Module(Event::Toggle(id)));
+        assert_eq!(app.panes.len(), 2);
+        assert!(app.panes.iter().any(|(_, pane)| *pane == Panel::Module(id)));
+        for module in [ModuleId::Terminal, ModuleId::Git, ModuleId::Pipelines] {
+            assert_eq!(app.module_open(module), module == id);
+        }
+        if id == ModuleId::Terminal {
+            let active = app.modules.terminal.active.unwrap();
+            assert_eq!(*terminal_tab.get_or_insert(active), active);
+            assert_eq!(app.modules.terminal.tabs.len(), 1);
+        }
+    }
 }
 
 #[test]

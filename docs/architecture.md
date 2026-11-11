@@ -484,8 +484,8 @@ converts physical keyboard events without coupling stored preferences to Iced. S
 widgets use the same preferences for copy and select-all actions. The macOS menu suspends its
 accelerators while settings records a shortcut.
 
-Git and pipelines share one optional panel position. The workspace guide lists platform-specific
-keyboard shortcuts. Middle-click closes the targeted tab.
+Terminal, Git, and Pipelines share one optional bottom panel position. The workspace guide lists
+platform-specific keyboard shortcuts. Middle-click closes the targeted tab.
 
 Native Liquid Glass remains beneath the renderer on supported macOS versions. The renderer keeps an
 opaque neutral fallback until native initialization succeeds. The fallback follows the selected

@@ -43,20 +43,24 @@ impl App {
             {
                 match id {
                     ModuleId::Git | ModuleId::Pipelines => {
-                        return self.update(Message::TogglePanel(super::Panel::Module(id)));
+                        self.update(Message::TogglePanel(super::Panel::Module(id)))
                     }
                     ModuleId::Deployment => {
-                        return self.update_deployment(crate::modules::deployment::Event::Toggle);
+                        self.update_deployment(crate::modules::deployment::Event::Toggle)
                     }
                     ModuleId::Terminal => {
-                        self.modules.terminal.open = !self.modules.terminal.open;
-                        self.sync_panels();
-                        if self.modules.terminal.open && self.modules.terminal.tabs.is_empty() {
+                        if self.modules.terminal.open {
+                            return self.update_terminal(terminal::Event::Hide);
+                        }
+                        if self.modules.terminal.tabs.is_empty() {
                             return self.update_terminal(terminal::Event::Start);
                         }
+                        self.modules.terminal.open = true;
+                        let save = self.select_terminal_panel();
+                        self.sync_panels();
+                        save
                     }
                 }
-                Task::none()
             }
             Event::Terminal(event) if self.module_enabled(ModuleId::Terminal) => {
                 self.update_terminal(event)
@@ -123,9 +127,24 @@ impl App {
             )
             .map(terminal_message);
         if panel_changed {
+            let save = if self.modules.terminal.open {
+                self.select_terminal_panel()
+            } else {
+                Task::none()
+            };
             self.sync_panels();
+            return Task::batch([task, save]);
         }
         task
+    }
+
+    fn select_terminal_panel(&mut self) -> Task<Message> {
+        let preferences = &self.workspace.preferences;
+        let changed = preferences.show_git || preferences.show_pipelines;
+        self.hide_other_bottom_panels(ModuleId::Terminal);
+        self.modules.git.branch_attention = None;
+        self.modules.pipelines.jobs.overview.popup = None;
+        if changed { self.save() } else { Task::none() }
     }
 
     pub(crate) fn module_open(&self, id: ModuleId) -> bool {

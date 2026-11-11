@@ -12,17 +12,15 @@ cleared. Git and provider operations already submitted can finish externally. Th
 cannot replace current module state. Re-enabling never repeats a write operation automatically.
 Existing source and comparison tabs remain available.
 
-Module panels start collapsed when no visibility preference exists. Modules remain enabled. Click a
-module's sidebar control to expand or collapse its panel. Deployment uses the right server icon. The
-minus button in each panel header collapses that panel without disabling its module. Existing Git
-and Pipelines visibility preferences remain unchanged. Terminal and Deployment start collapsed after
-each application restart.
+Module panels start collapsed when no visibility preference exists. Use the bottom toolbar to toggle
+Terminal, Git, or Pipelines. Only one bottom panel can open at a time. Deployment uses the right
+server icon. The minus button in each panel header collapses that panel. Terminal and Deployment
+start collapsed after each application restart.
 
 ## Git and Pipelines
 
 Git owns history panels, branch selection, branch operations, and their presentation state.
-Pipelines owns run lists, job details, status popups, caches, and provider adapters. They share the
-existing lower panel position. Terminal and Deployment keep their independent panel positions.
+Pipelines owns run lists, job details, status popups, caches, and provider adapters.
 
 Pipelines works with Git disabled. Shared repository discovery reads provider endpoints without
 loading history or branches. Disabling Git stops status polling and new working-file comparisons.
@@ -40,11 +38,10 @@ behavior, keyboard shortcuts, and verification limits.
 
 ## Terminal
 
-Select a project, then choose **Terminal** in the sidebar. Compact module rows show the name, system
-badge, and activation switch. The first opening creates a terminal tab in the project's directory.
-Later openings restore existing tabs. Each tab owns an independent interactive shell. Commands
-inherit your account's permissions and environment. Commands can modify files, launch programs, and
-access the network.
+Select a project, then choose **Terminal** in the bottom toolbar. The first opening creates a
+terminal tab in the project's directory. Later openings restore existing tabs. Each tab owns an
+independent interactive shell. Commands inherit your account's permissions and environment. Commands
+can modify files, launch programs, and access the network.
 
 Click the terminal area before typing. The terminal supports Unicode text, colors, cursor movement,
 command history, Tab completion, and common function keys. Ctrl+C interrupts the current command.

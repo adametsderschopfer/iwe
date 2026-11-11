@@ -1097,21 +1097,17 @@ impl App {
             Message::TogglePanel(panel) => {
                 self.modules.git.branch_attention = None;
                 self.modules.pipelines.jobs.overview.popup = None;
-                match panel {
-                    Panel::Module(crate::modules::ModuleId::Git) => {
-                        self.workspace.preferences.show_git ^= true;
-                        if self.workspace.preferences.show_git {
-                            self.workspace.preferences.show_pipelines = false;
-                        }
-                    }
-                    Panel::Module(crate::modules::ModuleId::Pipelines) => {
-                        self.workspace.preferences.show_pipelines ^= true;
-                        if self.workspace.preferences.show_pipelines {
-                            self.workspace.preferences.show_git = false;
-                        }
-                    }
-                    Panel::Workspace => {}
-                    Panel::Module(id) => return self.update_module(modules::Event::Toggle(id)),
+                let Panel::Module(id) = panel else {
+                    return Task::none();
+                };
+                let open = !self.module_open(id);
+                match id {
+                    ModuleId::Git => self.workspace.preferences.show_git = open,
+                    ModuleId::Pipelines => self.workspace.preferences.show_pipelines = open,
+                    _ => return self.update_module(modules::Event::Toggle(id)),
+                }
+                if open {
+                    self.hide_other_bottom_panels(id);
                 }
                 self.sync_panels();
                 let pipelines = if (self.workspace.preferences.show_pipelines
@@ -1439,55 +1435,43 @@ impl App {
             .is_some_and(|repo| repo.remote.is_some())
     }
 
+    pub(crate) fn panel_available(&self, id: ModuleId) -> bool {
+        self.module_enabled(id)
+            && match id {
+                ModuleId::Terminal | ModuleId::Git => self.workspace.directory().is_some(),
+                ModuleId::Pipelines => self.has_remote(),
+                ModuleId::Deployment => false,
+            }
+    }
+
+    fn hide_other_bottom_panels(&mut self, id: ModuleId) {
+        self.workspace.preferences.show_git &= id == ModuleId::Git;
+        self.workspace.preferences.show_pipelines &= id == ModuleId::Pipelines;
+        self.modules.terminal.open &= id == ModuleId::Terminal;
+    }
+
     fn sync_panels(&mut self) {
-        let show_git = self.module_open(ModuleId::Git) && self.workspace.directory().is_some();
-        let show_pipelines = self.module_open(ModuleId::Pipelines) && self.has_remote();
-        let show_terminal =
-            self.module_open(ModuleId::Terminal) && self.workspace.directory().is_some();
-        if self
-            .panes
-            .iter()
-            .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Git))
-            == show_git
-            && self
-                .panes
-                .iter()
-                .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Pipelines))
-                == show_pipelines
-            && self
-                .panes
-                .iter()
-                .any(|(_, panel)| *panel == Panel::Module(crate::modules::ModuleId::Terminal))
-                == show_terminal
+        let visible = [
+            (ModuleId::Terminal, 0.68),
+            (ModuleId::Git, 0.62),
+            (ModuleId::Pipelines, 0.72),
+        ]
+        .into_iter()
+        .find(|(id, _)| self.panel_available(*id) && self.module_open(*id));
+        let panel = visible.map(|(id, _)| Panel::Module(id));
+        if self.panes.iter().find_map(|(_, pane)| match pane {
+            Panel::Module(_) => Some(*pane),
+            Panel::Workspace => None,
+        }) == panel
         {
             return;
         }
         let (mut panes, top) = pane_grid::State::new(Panel::Workspace);
-        if show_terminal
-            && let Some((_, split)) = panes.split(
-                pane_grid::Axis::Horizontal,
-                top,
-                Panel::Module(crate::modules::ModuleId::Terminal),
-            )
+        if let Some((id, ratio)) = visible
+            && let Some((_, split)) =
+                panes.split(pane_grid::Axis::Horizontal, top, Panel::Module(id))
         {
-            panes.resize(split, 0.68);
-        }
-        if show_git
-            && let Some((_, split)) = panes.split(
-                pane_grid::Axis::Horizontal,
-                top,
-                Panel::Module(crate::modules::ModuleId::Git),
-            )
-        {
-            panes.resize(split, 0.62);
-        } else if show_pipelines
-            && let Some((_, split)) = panes.split(
-                pane_grid::Axis::Horizontal,
-                top,
-                Panel::Module(crate::modules::ModuleId::Pipelines),
-            )
-        {
-            panes.resize(split, 0.72);
+            panes.resize(split, ratio);
         }
         self.panes = panes;
     }

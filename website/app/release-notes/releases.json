@@ -1363,6 +1363,35 @@
     ]
   },
   {
+    "version": "1.0.6",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "shared-bottom-panel",
+        "category": "changed",
+        "text": {
+          "en": "Terminal, Git, and Pipelines share one bottom panel. Switching panels keeps terminal sessions running.",
+          "ru": "Терминал, Git и пайплайны используют одну нижнюю панель. При переключении панели сеансы терминала продолжают работать.",
+          "es": "Terminal, Git y las ejecuciones comparten un panel inferior. Las sesiones de terminal siguen activas al cambiar de panel."
+        },
+        "sources": ["src/ui/screens/workspace.rs", "src/app/mod.rs", "src/app/modules/mod.rs"]
+      },
+      {
+        "id": "settings-in-app-menu",
+        "category": "changed",
+        "text": {
+          "en": "On macOS, open Settings from the IWE Code menu.",
+          "ru": "На macOS настройки открываются из меню IWE Code.",
+          "es": "En macOS, abre Ajustes desde el menú de IWE Code."
+        },
+        "sources": ["src/infrastructure/native_menu.rs"]
+      }
+    ]
+  },
+  {
     "version": "unreleased",
     "status": "prepared",
     "publishedAt": null,
