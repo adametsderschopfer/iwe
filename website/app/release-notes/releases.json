@@ -1496,6 +1496,16 @@
           "src/infrastructure/workspace.rs",
           "src/modules/deployment/transfer/mod.rs"
         ]
+      },
+      {
+        "id": "ubuntu-mirror-fallback",
+        "category": "maintenance",
+        "text": {
+          "en": "Linux builds and website checks retry with a backup Ubuntu mirror when dependency setup fails.",
+          "ru": "Сборки Linux и проверки сайта используют резервное зеркало Ubuntu при сбое установки зависимостей.",
+          "es": "Las compilaciones de Linux y las comprobaciones del sitio usan un repositorio alternativo de Ubuntu si falla la instalación de dependencias."
+        },
+        "sources": [".github/scripts/with-ubuntu-apt.sh"]
       }
     ]
   },

@@ -92,6 +92,10 @@ IDs in release builds. These values are public identifiers, not secrets. Missing
 browser sign-in unconfigured. See [authentication setup](authentication.md) for provider
 registration.
 
+Linux builds and website browser tests share an APT setup script. If setup fails, the script
+replaces the configured Azure Ubuntu mirror with the official Ubuntu archive and retries. It
+preserves the Ubuntu release, security repositories, and signature checks.
+
 Local workflow validation uses actionlint and ShellCheck. Packaging checks do not publish releases
 or create remote tags. Actual Windows and Linux builds require their GitHub runners or equivalent
 local environments.

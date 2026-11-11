@@ -7,11 +7,13 @@ on:
       - website/**
       - LICENSE
       - .github/workflows/website.yml
+      - .github/scripts/with-ubuntu-apt.sh
   pull_request:
     paths:
       - website/**
       - LICENSE
       - .github/workflows/website.yml
+      - .github/scripts/with-ubuntu-apt.sh
   workflow_dispatch:
 
 permissions:
@@ -103,7 +105,7 @@ jobs:
         env:
           NUXT_APP_BASE_URL: ${{ steps.pages.outputs.base_path || format('/{0}', github.event.repository.name) }}/
       - name: Install browser test runtime
-        run: npx playwright install --with-deps chromium
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/with-ubuntu-apt.sh" npx playwright install --with-deps chromium
       - name: Verify scrolling in the browser
         run: npm run test:browser
         env:
