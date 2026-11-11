@@ -17,7 +17,6 @@ jobs:
     name: Plan / Platform scope
     runs-on: ubuntu-24.04
     outputs:
-      platform: ${{ steps.plan.outputs.platform }}
       checks: ${{ steps.plan.outputs.checks }}
       targets: ${{ steps.plan.outputs.targets }}
     steps:
@@ -189,8 +188,8 @@ jobs:
 
   windows_package:
     name: Build / Windows installer (${{ matrix.platform }})
-    if: github.ref_type == 'tag' && (needs.plan.outputs.platform == 'all' || needs.plan.outputs.platform == 'windows')
-    needs: [plan, build]
+    if: github.ref_type == 'tag'
+    needs: build
     runs-on: windows-2022
     environment: windows-signing
     permissions:
@@ -249,13 +248,8 @@ jobs:
 
   publish:
     name: Publish / GitHub Release
-    if: >-
-      ${{ !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' &&
-      needs.plan.result == 'success' && needs.build.result == 'success' &&
-      (needs.windows_package.result == 'success' ||
-      (needs.plan.outputs.platform != 'all' && needs.plan.outputs.platform != 'windows' &&
-      needs.windows_package.result == 'skipped')) }}
-    needs: [plan, build, windows_package]
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [build, windows_package]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -263,7 +257,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ github.ref_name }}
-      RELEASE_PLATFORM: ${{ needs.plan.outputs.platform }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

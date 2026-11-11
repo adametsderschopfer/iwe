@@ -55,15 +55,14 @@ An unreleased item has this shape:
 6. Update download links only after verifying the corresponding published packages.
 7. Run `python3 .github/scripts/release-notes.py --check --version VERSION`.
 8. Complete the authorized checks, commit, tag, and publication steps.
-9. Verify the actual GitHub release before setting `released`, `publishedAt`, and its public tags.
-10. Keep other platform tags absent until their individual releases succeed.
-11. Update the website metadata through the authorized commit workflow after publication.
+9. Verify the actual GitHub release before setting `released`, `publishedAt`, and its public tag.
+10. Update the website metadata through the authorized commit workflow after publication.
 
 A version request includes preparation of its release notes. Do not postpone writing them until
-after publication. One version record serves shared and platform-specific tags with that version.
-Historical development versions use `development` and do not claim published downloads. The
-unreleased record always uses `prepared`, a null publication date, and an empty tag list. Keep
-already published notes intact unless correcting a verified error.
+after publication. Use one record and one public tag for each new version. Historical development
+versions use `development` and do not claim published downloads. The unreleased record always uses
+`prepared`, a null publication date, and an empty tag list. Keep already published notes intact
+unless correcting a verified error.
 
 ## Verification and publication
 
@@ -76,10 +75,8 @@ record with items. A missing release note stops release jobs before builds begin
 script supplies the authored English body with `gh release create --notes-file`. Each body links to
 the version's English, Russian, and Spanish website pages.
 
-Shared Latest summaries collect authored items since the preceding shared release. They link to
-verified platform releases and retain six signed update packages for older installations. Never mark
-an incomplete platform set Latest. Follow [the CI guide](../ci.md#shared-latest-summary) for summary
-publication and recovery.
+Publish the release only after packages for all six targets are available. Follow
+[the CI guide](../ci.md#publish-a-version).
 
 Follow [website instructions](../website.md) for formatting, lint, type checks, and route
 verification. Do not run forbidden checks merely to complete this workflow.

@@ -9,10 +9,9 @@ GitHub Actions runs these sequential stages:
 5. GitHub Release publication for version tags.
 
 Clippy, type checks, tests, and builds run on macOS, Windows, and Linux. Unit tests and release
-builds use the same six-target matrix for ordinary branches and shared release tags. Platform
-release tags scope lint, type checks, tests, and builds to the selected operating system and both
-architectures. Integration discovery runs once per selected operating system. Formatting and
-dependency security checks run on Linux. Each stage requires the preceding stage to succeed.
+builds use the same six-target matrix for branches and release tags. Integration discovery runs once
+per operating system. Formatting and dependency security checks run on Linux. Each stage requires
+the preceding stage to succeed.
 
 The application has no root integration test targets. CI reports their absence explicitly. Adjacent
 tests cover local Git repositories, persistence, previews, provider responses, translated layouts,
@@ -66,36 +65,27 @@ systems can require confirmation when opening downloaded packages.
 1. Update the package version in Cargo.toml and refresh Cargo.lock.
 2. Prepare its authored release notes following [release-note rules](rules/release-notes.md).
 3. Commit the release changes and notes after the authorized checks pass.
-4. Create platform tags, such as `macos-v0.1.12`, `windows-v0.1.12`, and `linux-v0.1.12`.
-5. Push the required platform tags to GitHub. Each tag publishes its own release independently.
-6. Verify publication, then update the website's publication metadata through the authorized commit
+4. Create and push one stable tag in the form `vMAJOR.MINOR.PATCH`.
+5. Verify publication, then update the website's publication metadata through the authorized commit
    workflow.
 
 Planning validates the release-note ledger. Version tags require a matching prepared or released
 version with authored items. Missing or incomplete notes stop release jobs before builds begin. The
-publication script renders the English GitHub release body from the website ledger and links to all
-three translations.
+publication script renders the English GitHub release body and links to all three translations.
 
-The push starts CI for the tagged commit. Each platform tag requires that platform's checks, tests,
-and two architecture builds before publication. Formatting and dependency security remain mandatory.
-Windows additionally requires both installer packaging jobs. macOS and Linux do not wait for Windows
-packaging. Failed or cancelled prerequisites prevent publication. Tag versions must match
-Cargo.toml. Only stable version tags qualify. Branch pushes and pull requests build all targets
-without publishing releases. Manual workflow runs on tags create packages without publishing them.
+The tag push starts CI for the tagged commit. CI requires checks, tests, and builds for all six
+targets. Both Windows installer jobs must also succeed. The tag version must match Cargo.toml.
+Failed or cancelled prerequisites prevent publication. Branch pushes and pull requests build all
+targets. Manual workflow runs on release tags also create packages. Only tag pushes publish
+releases.
 
-All three platform tags use the same application version. A platform can publish later without
-blocking the others. Reuse the same commit for all three tags when releasing identical source.
-Shared tags such as `v0.1.12` remain supported for migration releases covering all six targets.
-
-The final job downloads the selected platform's installation packages and two update archives.
-Shared tags still require eight installation packages and six update archives. The job verifies each
-required package, signs the update manifest, adds SHA256SUMS, and creates a separate release.
-Platform releases include their platform in the title and do not replace GitHub's shared Latest
-release. Configure `IWE_UPDATE_SIGNING_KEY` before publishing. See
-[application updates](updates.md#release-signing) for key handling. Only that job receives contents:
-write permission. Build jobs retain read-only repository access. Existing releases are not
-overwritten. If uploading fails, inspect the remaining draft before retrying publication. Tag
-workflows are not canceled by newer pushes. Branch workflows still cancel superseded runs.
+The final job signs one update manifest and publishes one GitHub Release with all eight installation
+packages and six update archives. It verifies the required files and adds SHA256SUMS. Configure
+`IWE_UPDATE_SIGNING_KEY` before publishing. See [application updates](updates.md#release-signing)
+for key handling. Only the publication job can write to the repository. Build jobs have read-only
+access. Existing releases are not overwritten. If uploading fails, inspect the remaining draft
+before retrying publication. New pushes leave tag workflows running and cancel superseded branch
+workflows.
 
 Set repository variables IWE_GITHUB_CLIENT_ID and IWE_GITLAB_CLIENT_ID to embed public OAuth Client
 IDs in release builds. These values are public identifiers, not secrets. Missing values leave
@@ -112,28 +102,3 @@ Public downloads use the `iwe-code-` prefix. Executables retain `iwe` or `iwe.ex
 identifier and existing workspace paths remain unchanged. Update archives retain the `iwe-` prefix
 and their previous payload roots, including `IWE.app`. Existing updater versions require those
 names. The GitHub repository redirect preserves their previous update URLs.
-
-## Shared Latest summary
-
-The Release summary workflow runs after successful platform CI or through a manual version input.
-Its privileged job checks out trusted main, never the triggering branch. Fork workflow runs cannot
-start publication. The job requires three published platform releases with identical versions and
-commits. Missing platforms leave Latest unchanged. Global publication concurrency prevents competing
-summary uploads.
-
-The summary tag targets current release metadata on main. Its application inputs must match the
-platform commit, and Cargo.toml must retain the published version. Changed application inputs stop
-publication. This permits GitHub's default token without granting workflow modification access.
-
-`publish-summary.py` checks both installation packages for macOS and Linux, plus all four Windows
-packages. It verifies each platform manifest signature with the embedded public key. It checks
-archive sizes and digests before copying the six update archives. The existing signing script signs
-their shared manifest with the repository signing key.
-
-The summary uses `vVERSION`, links to platform downloads, and collects authored changes since the
-previous shared release. It includes update archives and their signed manifest for older clients.
-Only complete summaries receive Latest. Late workflows cannot replace a newer shared Latest.
-Platform releases remain independently available while other platforms finish.
-
-Run the summary manually with `gh workflow run release-summary.yml -f version=VERSION`. Do not push
-a shared tag for this operation. Ordinary shared tag pushes still start the complete build matrix.

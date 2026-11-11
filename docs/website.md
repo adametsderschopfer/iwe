@@ -117,7 +117,7 @@ version and language for GitHub Pages.
 references. The index includes public releases and identified historical development versions. The
 `unreleased` page marks current drafts as unpublished. Source references remain authoring metadata,
 outside the displayed change text. Publication dates and package links appear only when verified.
-Platform releases share one version page.
+Historical platform releases share one version page.
 
 Follow [release-note rules](rules/release-notes.md) on every commit and version request. Commit
 preparation collects items under `unreleased`. Version preparation moves reviewed items into the

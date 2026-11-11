@@ -34,13 +34,13 @@ updater accepts HTTPS redirects only to GitHub API, release, and asset hosts. It
 provider credentials. Metadata reads have size limits and a 45-second combined deadline. Downloads
 have a five-minute deadline and a 512 MiB maximum.
 
-Each platform release includes `updates.json`, its Ed25519 signature `updates.sig`, and two update
-archives for that operating system. Shared migration releases contain six archives. The embedded
-public key verifies the manifest before version or package data becomes trusted. The signed manifest
-identifies each package's version, platform, byte size, and SHA-256 digest. The updater verifies
-package bytes before extraction and repeats verification immediately before installation. Archives
-may contain only regular files and directories beneath the expected application root. Extraction
-rejects links, path traversal, duplicate paths, excess entries, and oversized expanded content.
+Each new release includes six update archives, `updates.json`, and its Ed25519 signature
+`updates.sig`. Historical platform releases contain two update archives. The embedded public key
+verifies the manifest before version or package data becomes trusted. The signed manifest identifies
+each package's version, platform, byte size, and SHA-256 digest. The updater verifies package bytes
+before extraction and repeats verification immediately before installation. Archives may contain
+only regular files and directories beneath the expected application root. Extraction rejects links,
+path traversal, duplicate paths, excess entries, and oversized expanded content.
 
 ## Installation and recovery
 
@@ -65,32 +65,22 @@ background cleanup deletes unrelated application directories.
 
 ## Release signing
 
-Platform tags use `macos-vVERSION`, `windows-vVERSION`, or `linux-vVERSION`. Their numeric version
-must match Cargo.toml. The updater reads at most three pages of 100 GitHub releases and selects the
-highest eligible version. Equal versions prefer a platform release over a shared release. Drafts,
-prereleases, unrelated tags, and other operating systems do not qualify. List responses are bounded
-to 4 MiB per page and share the existing 45-second metadata deadline.
+Release tags use `vMAJOR.MINOR.PATCH`. Their numeric version must match Cargo.toml. The updater
+reads at most three pages of 100 GitHub releases and selects the highest eligible version. For equal
+versions, it prefers a historical platform release over a shared release. Drafts, prereleases,
+unrelated tags, and other operating systems do not qualify. List responses have a 4 MiB limit per
+page and share the 45-second metadata deadline.
 
-Older updater versions only understand the shared Latest release and six-archive manifests. Publish
-one shared migration release containing this updater before relying on platform-only tags. Platform
-releases do not replace Latest directly. The release-summary workflow waits for all three published
-platform releases of one version and commit. It verifies their signed manifests and archive digests.
-It publishes a shared Latest with platform download links, collected changes, and six update
-archives. The shared manifest preserves older updater compatibility. Incomplete platform releases
-leave Latest unchanged. Existing published packages remain unchanged.
-
-The publication job signs the manifest only after its selected platform packages pass their CI
-prerequisites. Shared release tags still require every platform. Only the publication step receives
-the repository secret `IWE_UPDATE_SIGNING_KEY`. That secret contains an Ed25519 private key in PEM
-format. Keep its backup outside the repository. `assets/update-public-key.bin` contains the matching
-32-byte public key. The signing script rejects a private key that does not match the embedded public
-key. Missing or invalid signing configuration prevents publication. Unsigned updates are never
-accepted.
+The publication job signs the shared manifest after all six targets pass their CI prerequisites.
+Only the publication step receives the repository secret `IWE_UPDATE_SIGNING_KEY`. That secret
+contains an Ed25519 private key in PEM format. Keep its backup outside the repository.
+`assets/update-public-key.bin` contains the matching 32-byte public key. The signing script rejects
+a private key that does not match the embedded public key. Missing or invalid signing configuration
+prevents publication. Unsigned updates are never accepted.
 
 The signing script requires Python 3.11 or newer and OpenSSL with Ed25519 support. Run
 `.github/scripts/sign-updates.py` with `RELEASE_TAG` and `IWE_UPDATE_SIGNING_KEY` after generating
-the selected platform's two archives, or all six archives for a shared tag. Never print the private
-key or place it in command arguments.
+all six update archives. Never print the private key or place it in command arguments.
 
 ## Verification
 

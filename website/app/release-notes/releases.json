@@ -1279,6 +1279,17 @@
     "publishedAt": null,
     "tags": [],
     "source": null,
-    "items": []
+    "items": [
+      {
+        "id": "single-release-tag",
+        "category": "maintenance",
+        "text": {
+          "en": "One GitHub release contains installers and updates for macOS, Windows, and Linux.",
+          "ru": "Один релиз на GitHub содержит установочные пакеты и обновления для macOS, Windows и Linux.",
+          "es": "Una sola publicación en GitHub incluye instaladores y actualizaciones para macOS, Windows y Linux."
+        },
+        "sources": [".github/workflows/ci.yml", ".github/scripts/publish-release.sh"]
+      }
+    ]
   }
 ]
