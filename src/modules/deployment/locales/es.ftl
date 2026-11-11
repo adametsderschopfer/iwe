@@ -1,7 +1,7 @@
 deployment = Despliegue
 deployment-connections = Conexiones
 deployment-connections-help = Las conexiones y claves están disponibles en todos los espacios.
-deployment-profiles-help = Los servidores pertenecen a este espacio. Cada servidor corresponde a un proyecto.
+deployment-profiles-help = La lista incluye los servidores de todos los proyectos.
 deployment-new-connection = Añadir conexión
 deployment-new-profile = Añadir servidor de despliegue
 deployment-name = Nombre

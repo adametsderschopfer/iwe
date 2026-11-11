@@ -515,27 +515,6 @@ pub(crate) fn window_control(theme: &Theme, status: button::Status) -> button::S
     style
 }
 
-pub(crate) fn file_tree_text_width(name: &str) -> f32 {
-    name.chars()
-        .map(|c| {
-            if matches!(c, 'W' | 'M' | '@') || !c.is_ascii() {
-                12.
-            } else if c == 'm' {
-                10.5
-            } else if c == 'w' {
-                9.
-            } else if c.is_ascii_uppercase() {
-                8.5
-            } else if matches!(c, '.' | '-' | 'i' | 'l' | 'r') {
-                4.5
-            } else {
-                6.8
-            }
-        })
-        .sum::<f32>()
-        * (FILE_TREE_TEXT_SIZE / 12.)
-}
-
 pub(crate) fn tree_item(selected: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |theme, status| {
         let mut style = action(selected)(theme, status);
@@ -612,6 +591,10 @@ pub(crate) fn code_scroll(theme: &Theme, status: scrollable::Status) -> scrollab
     style
 }
 
+pub(crate) fn scrollbar_thumb(theme: &Theme, highlighted: bool) -> Color {
+    if highlighted { THUMB_HOVER } else { THUMB }.resolve(theme)
+}
+
 pub(crate) fn scroll(theme: &Theme, status: scrollable::Status) -> scrollable::Style {
     let mut style = scrollable::default(theme, status);
     let (horizontal_disabled, vertical_disabled) = match status {
@@ -633,12 +616,7 @@ pub(crate) fn scroll(theme: &Theme, status: scrollable::Status) -> scrollable::S
             is_vertical_scrollbar_disabled,
         ),
     };
-    let thumb = if matches!(status, scrollable::Status::Active { .. }) {
-        THUMB
-    } else {
-        THUMB_HOVER
-    }
-    .resolve(theme);
+    let thumb = scrollbar_thumb(theme, !matches!(status, scrollable::Status::Active { .. }));
     for (rail, disabled) in [
         (&mut style.horizontal_rail, horizontal_disabled),
         (&mut style.vertical_rail, vertical_disabled),

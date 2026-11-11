@@ -267,13 +267,12 @@ pub(crate) fn activity<'a>(state: &'a State, i18n: &'a I18n) -> Element<'a, Even
             row![
                 icon(Icon::Server, theme::MUTED),
                 text(i18n.text(key)).size(12).wrapping(text::Wrapping::None),
-                crate::ui::ellipsis::text(state.operation_name.as_str(), 12.)
+                crate::ui::ellipsis::compact_text(state.operation_name.as_str(), 12.)
             ]
             .spacing(8)
             .align_y(Alignment::Center)
         )
         .on_press(Event::ToggleActivity)
-        .width(Length::Fill)
         .padding([4, 8])
         .style(theme::action(state.activity_expanded))
     ]
@@ -296,7 +295,7 @@ pub(crate) fn activity<'a>(state: &'a State, i18n: &'a I18n) -> Element<'a, Even
     }
     container(controls)
         .id("background-activity")
-        .width(440)
+        .max_width(440)
         .clip(true)
         .into()
 }

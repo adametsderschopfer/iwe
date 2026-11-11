@@ -38,7 +38,7 @@ pub(crate) fn activity<'a>(app: View<'a>) -> Option<Element<'a, Message>> {
         container(tooltip::view(
             row![
                 icon(Icon::Branch, theme::MUTED),
-                container(ellipsis::text(app.i18n.text(status), 12.)).width(180)
+                container(ellipsis::compact_text(app.i18n.text(status), 12.)).max_width(180)
             ]
             .spacing(6)
             .align_y(Alignment::Center),

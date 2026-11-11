@@ -82,7 +82,7 @@ pub(crate) enum Event {
     Test,
     NewKey,
     CloseDialog,
-    CloseSettings,
+    CloseSettings(bool),
     PickKey,
     KeyPicked(u64, Option<PathBuf>),
     AddKey,
@@ -90,6 +90,7 @@ pub(crate) enum Event {
     NewProfile,
     EditProfile(String),
     ProfileConnection(String),
+    ProfileProject(usize, PathBuf),
     AddMapping,
     MappingLocal(usize, String),
     MappingRemote(usize, String),
@@ -159,9 +160,11 @@ pub(crate) struct State {
     activity_deadline: Option<std::time::Instant>,
     pub operation_label: Option<Key>,
     pub test_connection: Option<Connection>,
+    pub test_profile: Option<String>,
     pub test_result: Option<Result<(), Error>>,
     pub operation_path: String,
     pub profile_tab: ProfileTab,
+    pub profile_destination: Option<usize>,
     pub keys_open: bool,
     pub key_editing: Option<String>,
     pub naming: Option<NameAction>,
@@ -239,6 +242,30 @@ impl State {
             || self.target.is_some()
     }
 
+    pub(crate) fn has_settings_dialog(&self, connections: bool) -> bool {
+        if self.key_dialog || self.keys_open {
+            return connections;
+        }
+        if self.browsing {
+            return !connections;
+        }
+        let action = self.naming.or(match self.pending.as_deref() {
+            Some(Event::BeginName(action)) => Some(*action),
+            Some(Event::EditConnection(_)) => Some(NameAction::NewConnection),
+            Some(Event::EditProfile(_)) => Some(NameAction::NewProfile),
+            _ => None,
+        });
+        action.is_some_and(|action| {
+            connections
+                == matches!(
+                    action,
+                    NameAction::NewConnection
+                        | NameAction::DuplicateConnection
+                        | NameAction::RenameConnection
+                )
+        })
+    }
+
     fn close_key_dialog(&mut self) {
         self.key_request += 1;
         self.key_dialog = false;
@@ -252,26 +279,26 @@ impl State {
         self.connection = None;
         self.secret = Secret::default();
         self.secret_changed = false;
-        self.queue
-            .retain(|request| !matches!(request.operation, Operation::Test));
-        if self
-            .current
-            .as_ref()
-            .is_some_and(|request| matches!(request.operation, Operation::Test))
-        {
+        self.queue.retain(|request| {
+            !matches!(request.operation, Operation::Test) || !request.profile.id.is_empty()
+        });
+        if self.current.as_ref().is_some_and(|request| {
+            matches!(request.operation, Operation::Test) && request.profile.id.is_empty()
+        }) {
             self.progress.cancel.cancel();
             self.request += 1;
             self.busy = false;
             self.current = None;
         }
-        if self
-            .failed
-            .as_ref()
-            .is_some_and(|request| matches!(request.operation, Operation::Test))
-        {
+        if self.failed.as_ref().is_some_and(|request| {
+            matches!(request.operation, Operation::Test) && request.profile.id.is_empty()
+        }) {
             self.failed = None;
         }
-        self.error = None;
+        if self.test_profile.is_none() {
+            self.error = None;
+            self.test_connection = None;
+        }
         if !self.busy
             && let Some(request) = self.queue.pop_front()
         {
@@ -311,7 +338,6 @@ impl State {
         self.selected = None;
         self.selected_profile = None;
         self.target = None;
-        self.profile = None;
         self.browsing = false;
         self.browse_mapping = None;
         self.error = None;
@@ -367,6 +393,8 @@ impl State {
         self.test_result = None;
         self.test_connection =
             matches!(request.operation, Operation::Test).then(|| request.connection.clone());
+        self.test_profile = (self.test_connection.is_some() && !request.profile.id.is_empty())
+            .then(|| request.profile.id.clone());
         self.operation_name = if request.profile.name.is_empty() {
             request.connection.name.clone()
         } else {
@@ -686,7 +714,9 @@ impl State {
                 }
             },
             Event::Password(secret) => {
-                self.test_connection = None;
+                if self.test_profile.is_none() {
+                    self.test_connection = None;
+                }
                 self.secret = secret;
                 self.secret_changed = true;
             }
@@ -812,19 +842,19 @@ impl State {
                     return (self.close_connection(), effect);
                 }
             }
-            Event::CloseSettings => {
+            Event::CloseSettings(connections) => {
+                if self.has_settings_dialog(connections) {
+                    self.naming = None;
+                    self.pending = None;
+                }
+                if !connections {
+                    return self.update(Event::StopBrowsing, settings, profiles, project);
+                }
                 self.close_key_dialog();
                 self.keys_open = false;
-                self.naming = None;
-                self.pending = None;
-                let (cleanup, effect) =
-                    self.update(Event::StopBrowsing, settings, profiles, project);
-                let connection = if self.saving {
-                    Task::none()
-                } else {
-                    self.close_connection()
-                };
-                return (Task::batch([cleanup, connection]), effect);
+                if !self.saving {
+                    return (self.close_connection(), effect);
+                }
             }
             Event::PickKey if self.key_dialog => {
                 self.key_request += 1;
@@ -899,6 +929,7 @@ impl State {
                 }
             }
             Event::NewProfile => {
+                self.profile_destination = None;
                 self.profile_tab = ProfileTab::Connection;
                 if let (Some(project), Ok(id)) = (project, identifier()) {
                     self.profile = Some(Profile {
@@ -924,7 +955,18 @@ impl State {
                 let _ = self.update(Event::StopBrowsing, settings, profiles, project);
                 self.profile_tab = ProfileTab::Connection;
                 self.profile = profiles.iter().find(|p| p.id == id).cloned();
+                self.profile_destination = None;
                 self.error = None;
+            }
+            Event::ProfileProject(_, project) => {
+                if let Some(profile) = &mut self.profile
+                    && profile.project != project
+                {
+                    *profile = settings::normalized_profile(profile);
+                    profile.project = project;
+                    profile.default = false;
+                    self.error = None;
+                }
             }
             Event::ProfileConnection(id) => {
                 if let Some(profile) = &mut self.profile {
@@ -1007,6 +1049,7 @@ impl State {
                             profiles.retain(|p| p.id != profile.id);
                             profiles.push(profile.clone());
                             self.profile = Some(profile);
+                            self.profile_destination = None;
                             self.status = Some(Key::DeploymentSaved);
                             if !self.busy {
                                 self.activity_expanded = false;
@@ -1025,6 +1068,7 @@ impl State {
             }
             Event::DeleteProfile if !self.busy => {
                 if let Some(profile) = self.profile.take() {
+                    self.profile_destination = None;
                     profiles.retain(|p| p.id != profile.id);
                     self.tree.clear();
                     self.expanded.clear();

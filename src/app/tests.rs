@@ -878,13 +878,14 @@ fn file_panel_buttons_toggle_without_changing_open_files() {
         let expected_x = theme::SIDEBAR_WIDTH
             + 1.
             + 48.
+            + 1.
             + if visible {
-                app.workspace.preferences.file_panel_width + 1.
+                app.workspace.preferences.file_panel_width
             } else {
                 0.
             };
         assert_eq!(source.x, expected_x);
-        assert_eq!(source.width, content_width(&app, 1080.) - expected_x - 48.);
+        assert_eq!(source.width, content_width(&app, 1080.) - expected_x - 49.);
         let files = ui
             .find(Id::new("project-files-panel"))
             .ok()
@@ -1351,7 +1352,7 @@ async fn resizing_reuses_layout_without_scaling_text_or_adding_source_insets() {
                 - 48.
                 - 48.
                 - app.workspace.preferences.file_panel_width
-                - 2.
+                - 3.
         );
         assert_eq!(number.y, source.y);
         assert_eq!(number.x - source.x, 13.);
@@ -3551,8 +3552,7 @@ export function App() {
     app.workspace.deployment.connections.push(connection);
     app.workspace.spaces[0].deployments.push(profile.clone());
     app.modules.deployment.profile = Some(profile);
-    let _ = app.open_deployment_settings();
-    app.windows.deployment_connections = false;
+    let _ = app.open_deployment_settings(false);
     let mut ui = iced_test::Simulator::with_size(
         ui_settings(),
         (1200., 800.),

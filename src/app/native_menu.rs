@@ -104,9 +104,7 @@ impl App {
                                 Action::DeploymentConnections => SettingsTab::Connections,
                                 _ => SettingsTab::Deployment,
                             };
-                            let select = self.update(Message::SelectSettingsTab(tab));
-                            let open = self.open_deployment_settings();
-                            Task::batch([select, open])
+                            self.update(Message::SelectSettingsTab(tab))
                         }
                         Action::About if !self.modules.deployment.has_dialog() => {
                             self.shortcuts = super::shortcuts::State::default();

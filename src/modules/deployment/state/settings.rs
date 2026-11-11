@@ -13,7 +13,8 @@ impl State {
 
     pub(crate) fn profile_dirty(&self, profiles: &[Profile]) -> bool {
         self.profile.as_ref().is_some_and(|draft| {
-            profiles.iter().find(|p| p.id == draft.id) != Some(&normalized_profile(draft))
+            self.profile_destination.is_some()
+                || profiles.iter().find(|p| p.id == draft.id) != Some(&normalized_profile(draft))
         })
     }
 
@@ -126,6 +127,7 @@ impl State {
                 };
                 profiles.push(copy.clone());
                 self.profile = Some(copy);
+                self.profile_destination = None;
                 (Task::none(), Effect::Save)
             }
         };

@@ -419,6 +419,42 @@ fn editor_line_numbers_follow_scroll_and_settings_without_a_save_toolbar() {
 }
 
 #[test]
+fn large_editor_scrollbar_thumb_can_be_dragged_without_moving_the_caret() {
+    use iced::{Event as IcedEvent, mouse, widget::Id};
+    let mut app = app();
+    let id = app.preview().id;
+    let _ = app.finish_preview(id, Ok(Document::plain("source line\n".repeat(12_000))));
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
+    let rail = ui
+        .find(Id::new("editor-scrollbar"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    ui.point_at((rail.center_x(), rail.y + 20.));
+    ui.simulate([IcedEvent::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    ))]);
+    let position = iced::Point::new(rail.center_x(), rail.y + rail.height * 0.5);
+    ui.point_at(position);
+    ui.simulate([
+        IcedEvent::Mouse(mouse::Event::CursorMoved { position }),
+        IcedEvent::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+    ]);
+    let messages = ui.into_messages().collect::<Vec<_>>();
+    assert!(messages.iter().any(|message| matches!(
+        message,
+        Message::Editor(Event::Action(_, text_editor::Action::Scroll { lines })) if *lines > 5_000
+    )));
+    for message in messages {
+        let _ = app.update(message);
+    }
+    let buffer = app.editor_buffer().unwrap();
+    assert_eq!(buffer.content.cursor().position.line, 0);
+    assert!(!buffer.document.dirty());
+}
+
+#[test]
 fn deployment_flushes_local_drafts_before_starting_and_keeps_failed_drafts() {
     use crate::{
         app::modules::deployment_message,

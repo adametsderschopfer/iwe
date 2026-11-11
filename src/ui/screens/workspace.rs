@@ -565,7 +565,7 @@ fn deployment_content(app: &App, width: f32) -> Element<'_, Message> {
         .deployment_panel_width
         .clamp(220., maximum);
     let visible = app.modules.deployment.open;
-    let reserved = toolbar_width + if visible { panel_width + 1. } else { 0. };
+    let reserved = toolbar_width + 1. + if visible { panel_width } else { 0. };
     let tools = container(tooltip::view(
         container(
             button(icon(Icon::Server, theme::MUTED))
@@ -586,9 +586,7 @@ fn deployment_content(app: &App, width: f32) -> Element<'_, Message> {
         container(project_content(app, (width - reserved).max(0.)))
             .width(Length::Fill)
             .height(Length::Fill),
-        container(vertical_divider())
-            .width(if visible { 1. } else { 0. })
-            .clip(true),
+        vertical_divider(),
         container(
             crate::modules::deployment::panel(
                 &app.modules.deployment,
@@ -759,8 +757,6 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
                 .into(),
             container(vertical_divider())
                 .id("file-panel-divider")
-                .width(if app.file_panel_visible { 1. } else { 0. })
-                .clip(true)
                 .into(),
             container(preview(app))
                 .id("source-preview")
@@ -990,7 +986,9 @@ fn tree_width(app: &App, path: &Path, depth: usize) -> f32 {
         .file_name()
         .unwrap_or(path.as_os_str())
         .to_string_lossy();
-    let width = 72. + depth as f32 * theme::FILE_TREE_INDENT + theme::file_tree_text_width(&name);
+    let width = 46.
+        + depth as f32 * theme::FILE_TREE_INDENT
+        + crate::ui::ellipsis::measured_width(&name, theme::FILE_TREE_TEXT_SIZE).ceil();
     if depth <= 24 && app.expanded.contains(path) {
         app.tree
             .get(path)
@@ -1097,7 +1095,7 @@ fn file_tree<'a>(
                     .id(format!("file-tree-{}", entry.path.to_string_lossy()))
                     .width(Length::Fill),
                     text(hint).size(12),
-                    tooltip::Position::Right,
+                    tooltip::Position::FollowCursor,
                 ),
                 |point| {
                     Message::Files(crate::app::files::Event::OpenMenu(
@@ -1763,7 +1761,7 @@ fn preview(app: &App) -> Element<'_, Message> {
                 .style(theme::source_progress)
         ]
         .height(Length::Fill);
-        column![file_tabs(app), file_part_controls(app), content]
+        column![file_tabs(app), divider(), file_part_controls(app), content]
             .height(Length::Fill)
             .into()
     } else {

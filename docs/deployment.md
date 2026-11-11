@@ -10,47 +10,52 @@ remain unchanged. Escape dismisses the current dialog or context menu before clo
 window.
 
 Open **Deployment → Connections** to manage connections in a separate window. Connections remain
-available across all spaces. The server panel and space context menu also open this window. Select a
-server in the left list. Edit its aligned fields on the right. The plus button opens a name and
-protocol dialog. The toolbar also supports deletion, duplication, and renaming. Protocol and
-authentication controls use dropdown lists. **Save** applies the selected draft. Selecting another
-item asks before discarding an edited draft. Switching deployment sections preserves each draft.
-Duplicating a password connection requires entering its password again.
+available across all spaces. A notice above **Save** explains this. The server panel and space
+context menu also open this window. Select a server in the left list. Edit its aligned fields on the
+right. The plus button opens a name and protocol dialog. The toolbar also supports deletion,
+duplication, and renaming. Protocol and authentication controls use dropdown lists. **Save** applies
+the selected draft. Selecting another item asks before discarding an edited draft. Connections and
+Servers open in independent windows. Duplicating a password connection requires entering its
+password again.
 
-Open **Shared SSH keys** inside Connections to manage key files. Keys have no separate settings
-navigation item. **Add key** opens a focused dialog with a name and file picker. Existing keys
-support editing and deletion. The key selector also provides an add button. Saving through that
-button selects the new key for the connection. The key manager preserves the connection's
-authentication choice. Cancel returns without adding a key. SFTP supports passwords, private key
-files, and the system SSH agent. Windows builds use bundled OpenSSL for Ed25519 host and user keys.
-The shared key list stores names and file paths. IWE Code does not copy private key files. Entering
-a password replaces the saved password or key passphrase. Leaving the field untouched preserves the
-existing secret. Passwords use Keychain, Windows Credential Manager, or Linux Secret Service.
-Workspace metadata never stores passwords or private key contents. Use **Test connection** before
-saving. The test status appears directly above its button. Progress uses neutral text; success uses
-green, and failure uses red. The button stays unavailable while the test runs. Cancellation and SSH
-fingerprint confirmation remain available beside the test controls.
+Choose SSH key authentication in an SFTP connection to show the key selector. Use the plus button
+beside the selector to add a key. The dialog asks for a name and file. Saving selects the new key
+for the connection. Use the settings button beside the selector to edit or delete saved keys. The
+key manager preserves the connection's authentication choice. Cancel returns without adding a key.
+SFTP supports passwords, private key files, and the system SSH agent. Windows builds use bundled
+OpenSSL for Ed25519 host and user keys. The shared key list stores names and file paths. IWE Code
+does not copy private key files. Entering a password replaces the saved password or key passphrase.
+Leaving the field untouched preserves the existing secret. Passwords use Keychain, Windows
+Credential Manager, or Linux Secret Service. Workspace metadata never stores passwords or private
+key contents. Use **Test connection** before saving. The test status appears directly above its
+button. Progress uses neutral text; success uses green, and failure uses red. The button stays
+unavailable while the test runs. Cancellation and SSH fingerprint confirmation remain available
+beside the test controls.
+
+The workspace shows file operation progress and results outside deployment settings.
 
 An unknown SSH server requires fingerprint confirmation before authentication. A changed server key
 blocks the connection. Verify the server independently before replacing its saved connection. FTPS
 verifies certificates and server names. FTPS supports explicit TLS and implicit TLS. FTP uses
 unencrypted connections. FTP and FTPS use passive data connections and binary transfers.
 
-Open **Deployment → Servers** for the selected space. The space context menu also opens deployment
-settings. Each server belongs to one space and targets one project. Several servers can target the
+Open **Deployment → Servers** to see servers from all projects and spaces. Each row shows the
+project below the server name. Each server belongs to one project. Several servers can target the
 same project. Select a server in the left list. The right editor separates **Connection**,
-**Mappings**, and **Excluded paths** into tabs. Connection selects the saved server, root directory,
-and default server behavior. The settings button beside the connection selector opens shared
-connections. A separate folder dialog selects the server root. Cancel leaves the root unchanged and
-ignores late directory responses. Mappings pairs local and remote directories. Excluded paths lists
-project-relative paths. Server duplication preserves mappings and exclusions without copying the
-default flag. Confirming duplication saves a separate server immediately. An unsaved source also
-remains available in the list. Choose one server as the project's default in its Connection tab.
-Selecting another server in the server panel changes only the browsed server. Local upload and
-comparison commands continue using the default server. Without a default, these commands open a
-compact server chooser inside the file area. The first server starts selected. Up and Down select
-another server; Enter confirms. Escape or an outside click dismisses the chooser. The chooser has no
-Cancel button. Choosing a target applies only to that operation.
+**Mappings**, and **Excluded paths** into tabs. Choose a project in the Connection tab. **Save**
+moves the server to that project and retains its relative mappings and exclusions. Choose the saved
+connection, root directory, and default server behavior in the same tab. The settings button beside
+the connection selector opens the Connections window. A separate folder dialog selects the server
+root. Cancel leaves the root unchanged and ignores late directory responses. Mappings pairs local
+and remote directories. Excluded paths lists project-relative paths. Server duplication preserves
+mappings and exclusions without copying the default flag. Confirming duplication saves a separate
+server immediately. An unsaved source also remains available in the list. Choose one server as the
+project's default in its Connection tab. Selecting another server in the server panel changes only
+the browsed server. Local upload and comparison commands continue using the default server. Without
+a default, these commands open a compact server chooser inside the file area. The first server
+starts selected. Up and Down select another server; Enter confirms. Escape or an outside click
+dismisses the chooser. The chooser has no Cancel button. Choosing a target applies only to that
+operation.
 
 Server tabs fit their translated labels and share one baseline. The active tab has a blue underline.
 Narrow editors allow horizontal scrolling without wrapping tab labels.

@@ -11,30 +11,18 @@ use iced::{
 };
 
 pub(crate) fn view(app: &App) -> Element<'_, Message> {
-    view_for(app, false)
+    view_for(app, None)
 }
 
-pub(crate) fn deployment_view(app: &App) -> Element<'_, Message> {
-    let base = view_for(app, true);
-    crate::modules::deployment::overlay(
-        &app.modules.deployment,
-        &app.i18n,
-        base,
-        app.deployment_profiles(),
-        app.workspace.directory().map(|path| path.as_path()),
-        crate::app::modules::deployment_message,
-    )
+pub(crate) fn deployment_view(app: &App, connections: bool) -> Element<'_, Message> {
+    view_for(app, Some(connections))
 }
 
-fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
-    let selected = if deployment {
-        if app.windows.deployment_connections {
-            SettingsTab::Connections
-        } else {
-            SettingsTab::Deployment
-        }
-    } else {
-        app.settings_tab
+fn view_for(app: &App, deployment: Option<bool>) -> Element<'_, Message> {
+    let selected = match deployment {
+        Some(true) => SettingsTab::Connections,
+        Some(false) => SettingsTab::Deployment,
+        None => app.settings_tab,
     };
     let t = |key| app.i18n.text(key);
     let preferences = &app.workspace.preferences;
@@ -58,7 +46,7 @@ fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
         (SettingsTab::About, Key::About, "about"),
     ];
     for &(tab, key, id) in &sections {
-        if matches!(tab, SettingsTab::Connections | SettingsTab::Deployment) != deployment {
+        if matches!(tab, SettingsTab::Connections | SettingsTab::Deployment) {
             continue;
         }
         tabs = tabs.push(
@@ -182,8 +170,8 @@ fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
         SettingsTab::Deployment => crate::modules::deployment::profiles_view(
             &app.modules.deployment,
             &app.workspace.deployment,
-            app.deployment_profiles(),
-            app.workspace.directory().map(std::path::PathBuf::as_path),
+            &app.workspace.spaces,
+            app.workspace.selected_space,
             &app.i18n,
         )
         .map(crate::app::modules::deployment_message),
@@ -276,7 +264,7 @@ fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
     .width(theme::SETTINGS_SIDEBAR_WIDTH)
     .height(Length::Fill)
     .style(theme::sidebar);
-    let body: Element<'_, Message> = if deployment {
+    let body: Element<'_, Message> = if deployment.is_some() {
         container(section)
             .id("settings-content")
             .height(Length::Fill)
@@ -312,14 +300,16 @@ fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
     ]
     .height(Length::Fill)
     .width(Length::Fill);
-    let base = row![navigation, super::workspace::vertical_divider(), content]
-        .height(Length::Fill)
-        .width(Length::Fill)
-        .into();
-    let window = if deployment {
-        app.windows.deployment
-    } else {
-        app.windows.settings
+    let (base, window) = match deployment {
+        Some(true) => (content.into(), app.windows.connections),
+        Some(false) => (content.into(), app.windows.deployment),
+        None => (
+            row![navigation, super::workspace::vertical_divider(), content]
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .into(),
+            app.windows.settings,
+        ),
     };
     let base = if app.shortcuts.recording.is_none() {
         let dismiss = window.map_or(Message::Navigate(crate::app::Navigation::Projects), |id| {
@@ -329,7 +319,7 @@ fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
     } else {
         base
     };
-    if deployment
+    if deployment.is_some_and(|connections| app.modules.deployment.has_settings_dialog(connections))
         && let Some(dialog) = crate::modules::deployment::settings_dialog(
             &app.modules.deployment,
             &app.workspace.deployment,

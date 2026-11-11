@@ -1,7 +1,7 @@
 deployment = Деплоймент
 deployment-connections = Подключения
 deployment-connections-help = Подключения доступны во всех пространствах.
-deployment-profiles-help = Серверы принадлежат этому пространству. Каждый сервер связан с одним проектом.
+deployment-profiles-help = В списке показаны серверы всех проектов.
 deployment-new-connection = Добавить подключение
 deployment-new-profile = Добавить сервер деплоймента
 deployment-name = Название

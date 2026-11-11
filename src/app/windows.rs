@@ -12,7 +12,9 @@ use iced::{Element, Length, Size, Task, widget::container, window};
 pub(crate) struct State {
     pub settings: Option<window::Id>,
     pub deployment: Option<window::Id>,
-    pub deployment_connections: bool,
+    pub connections: Option<window::Id>,
+    #[cfg(target_os = "windows")]
+    pub connections_maximized: bool,
     #[cfg(target_os = "windows")]
     pub deployment_maximized: bool,
     #[cfg(target_os = "windows")]
@@ -21,12 +23,18 @@ pub(crate) struct State {
 
 impl State {
     pub(crate) fn is_secondary(&self, id: window::Id) -> bool {
-        self.settings == Some(id) || self.deployment == Some(id)
+        self.settings == Some(id) || self.is_deployment(id)
+    }
+
+    pub(crate) fn is_deployment(&self, id: window::Id) -> bool {
+        self.deployment == Some(id) || self.connections == Some(id)
     }
 
     #[cfg(target_os = "windows")]
     pub(crate) fn secondary_maximized(&self, id: window::Id) -> bool {
-        if self.deployment == Some(id) {
+        if self.connections == Some(id) {
+            self.connections_maximized
+        } else if self.deployment == Some(id) {
             self.deployment_maximized
         } else {
             self.maximized
@@ -103,17 +111,24 @@ impl App {
         open.map(Message::WindowOpened)
     }
 
-    pub(super) fn open_deployment_settings(&mut self) -> Task<Message> {
+    pub(super) fn open_deployment_settings(&mut self, connections: bool) -> Task<Message> {
         if !self.module_enabled(crate::modules::ModuleId::Deployment) {
             return Task::none();
         }
-        if let Some(id) = self.windows.deployment {
+        let slot = if connections {
+            &mut self.windows.connections
+        } else {
+            &mut self.windows.deployment
+        };
+        if let Some(id) = *slot {
             return window::minimize::<Message>(id, false).chain(window::gain_focus(id));
         }
         let (id, open) = window::open(settings_settings());
-        self.windows.deployment = Some(id);
+        *slot = Some(id);
         #[cfg(target_os = "windows")]
-        {
+        if connections {
+            self.windows.connections_maximized = false;
+        } else {
             self.windows.deployment_maximized = false;
         }
         open.map(Message::WindowOpened)
@@ -140,13 +155,7 @@ impl App {
 
     pub(super) fn update_window(&mut self, event: Event) -> Task<Message> {
         match event {
-            Event::Close(id) if self.windows.deployment == Some(id) => {
-                let cleanup = self.update_module(super::modules::Event::Deployment(
-                    crate::modules::deployment::Event::CloseSettings,
-                ));
-                return Task::batch([cleanup, window::close(id)]);
-            }
-            Event::Close(id) if self.windows.settings == Some(id) => return window::close(id),
+            Event::Close(id) if self.windows.is_secondary(id) => return window::close(id),
             Event::Close(id) if self.window_id == Some(id) => {
                 if self.protect_editor(&Message::Window(Event::Close(id))) {
                     return self.flush_editor();
@@ -157,10 +166,15 @@ impl App {
                 self.windows.settings = None;
                 self.shortcuts = super::shortcuts::State::default();
             }
-            Event::Closed(id) if self.windows.deployment == Some(id) => {
-                self.windows.deployment = None;
+            Event::Closed(id) if self.windows.is_deployment(id) => {
+                let connections = self.windows.connections == Some(id);
+                if connections {
+                    self.windows.connections = None;
+                } else {
+                    self.windows.deployment = None;
+                }
                 return self.update_module(super::modules::Event::Deployment(
-                    crate::modules::deployment::Event::CloseSettings,
+                    crate::modules::deployment::Event::CloseSettings(connections),
                 ));
             }
             Event::Closed(id) if self.window_id == Some(id) => return iced::exit(),
@@ -176,6 +190,10 @@ impl App {
                     window::is_maximized(id)
                         .map(move |value| Message::Window(Event::Maximized(id, value))),
                 );
+            }
+            #[cfg(target_os = "windows")]
+            Event::Maximized(id, value) if self.windows.connections == Some(id) => {
+                self.windows.connections_maximized = value
             }
             #[cfg(target_os = "windows")]
             Event::Maximized(id, value) if self.windows.deployment == Some(id) => {
@@ -201,8 +219,10 @@ impl App {
     }
 
     pub(super) fn window_title(&self, id: window::Id) -> String {
-        self.i18n.text(if self.windows.deployment == Some(id) {
-            Key::Deployment
+        self.i18n.text(if self.windows.connections == Some(id) {
+            Key::DeploymentConnections
+        } else if self.windows.deployment == Some(id) {
+            Key::DeploymentProfiles
         } else if self.windows.settings == Some(id) {
             Key::Settings
         } else {
@@ -214,8 +234,8 @@ impl App {
         if !self.windows.is_secondary(id) {
             return self.view();
         }
-        let content = if self.windows.deployment == Some(id) {
-            screens::settings::deployment_view(self)
+        let content = if self.windows.is_deployment(id) {
+            screens::settings::deployment_view(self, self.windows.connections == Some(id))
         } else {
             screens::settings::view(self)
         };
@@ -244,7 +264,11 @@ impl App {
             )
             .on_press(Message::Window(Event::Drag(id)))
             .on_double_click(Message::Window(Event::ToggleMaximized(id)));
-            column![header, content].height(Length::Fill).into()
+            let border = container(iced::widget::space())
+                .height(1)
+                .width(Length::Fill)
+                .style(theme::separator);
+            column![header, border, content].height(Length::Fill).into()
         };
         #[cfg(target_os = "windows")]
         let content = crate::ui::window_chrome::settings_overlay(self, content, id);

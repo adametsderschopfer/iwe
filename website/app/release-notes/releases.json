@@ -1274,7 +1274,7 @@
     ]
   },
   {
-    "version": "unreleased",
+    "version": "1.0.5",
     "status": "prepared",
     "publishedAt": null,
     "tags": [],
@@ -1289,7 +1289,85 @@
           "es": "Una sola publicación en GitHub incluye instaladores y actualizaciones para macOS, Windows y Linux."
         },
         "sources": [".github/workflows/ci.yml", ".github/scripts/publish-release.sh"]
+      },
+      {
+        "id": "separate-deployment-windows",
+        "category": "changed",
+        "text": {
+          "en": "Connections and Servers open in separate windows. The server list shows the project beneath each server name.",
+          "ru": "Подключения и серверы открываются в отдельных окнах. В списке под названием сервера указан его проект.",
+          "es": "Las conexiones y los servidores se abren en ventanas separadas. La lista muestra el proyecto debajo de cada servidor."
+        },
+        "sources": ["src/app/windows.rs", "src/modules/deployment/view/settings.rs"]
+      },
+      {
+        "id": "server-project-selection",
+        "category": "added",
+        "text": {
+          "en": "See servers from every project in one list. Select another project in the server settings to move the server.",
+          "ru": "Просматривайте серверы всех проектов в одном списке. Чтобы перенести сервер, выберите другой проект в его настройках.",
+          "es": "Consulta los servidores de todos los proyectos en una lista. Selecciona otro proyecto en la configuración para mover el servidor."
+        },
+        "sources": ["src/app/modules/deployment.rs", "src/modules/deployment/view/settings.rs"]
+      },
+      {
+        "id": "deployment-settings-feedback",
+        "category": "fixed",
+        "text": {
+          "en": "Deployment settings show connection test results beside the test button. File operations appear in the workspace status bar.",
+          "ru": "Настройки деплоймента показывают результат проверки рядом с кнопкой. Операции с файлами отображаются в нижней строке рабочей области.",
+          "es": "La configuración muestra el resultado de la prueba junto a su botón. Las operaciones con archivos aparecen en la barra de estado."
+        },
+        "sources": ["src/modules/deployment/view/settings.rs", "src/ui/screens/workspace.rs"]
+      },
+      {
+        "id": "ssh-key-entry",
+        "category": "changed",
+        "text": {
+          "en": "Add and select SSH keys in SFTP connection settings. A notice above Save explains that connections are available in every space.",
+          "ru": "Добавляйте и выбирайте SSH-ключи в настройках SFTP. Предупреждение над кнопкой «Сохранить» сообщает, что подключения доступны во всех пространствах.",
+          "es": "Añade y selecciona claves SSH en la configuración de SFTP. Un aviso sobre Guardar indica que las conexiones están disponibles en todos los espacios."
+        },
+        "sources": ["src/modules/deployment/view/settings.rs"]
+      },
+      {
+        "id": "workspace-boundaries-and-activity",
+        "category": "changed",
+        "text": {
+          "en": "Borders separate the code area from its side panels and file tabs. Background operations align to the right.",
+          "ru": "Границы отделяют область кода от боковых панелей и вкладок файлов. Строка фоновых операций выровнена вправо.",
+          "es": "Los bordes separan el área de código de los paneles laterales y las pestañas. Las operaciones en segundo plano se alinean a la derecha."
+        },
+        "sources": ["src/ui/screens/workspace.rs", "src/app/windows.rs"]
+      },
+      {
+        "id": "file-tree-hover-and-scroll",
+        "category": "fixed",
+        "text": {
+          "en": "File hints follow the pointer in project files and uncommitted files. Horizontal scrolling fits the width of visible rows.",
+          "ru": "Подсказки следуют за курсором в файлах проекта и незакоммиченных файлах. Горизонтальная прокрутка учитывает ширину видимых строк.",
+          "es": "Las ayudas siguen el puntero en los archivos del proyecto y sin confirmar. El desplazamiento horizontal se ajusta al ancho de las filas visibles."
+        },
+        "sources": ["src/ui/screens/workspace.rs", "src/ui/changed_tree/mod.rs"]
+      },
+      {
+        "id": "large-editor-scrollbar",
+        "category": "fixed",
+        "text": {
+          "en": "The editor keeps its vertical scrollbar visible and draggable in large files.",
+          "ru": "В больших файлах редактор показывает вертикальный ползунок, который можно перетаскивать.",
+          "es": "El editor mantiene visible y arrastrable la barra de desplazamiento vertical en archivos grandes."
+        },
+        "sources": ["src/ui/editor/scrollbar.rs"]
       }
     ]
+  },
+  {
+    "version": "unreleased",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": []
   }
 ]

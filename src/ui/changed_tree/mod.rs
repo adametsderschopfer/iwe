@@ -1,6 +1,6 @@
 //! Display changed files with compact folders, file counts, and status colors.
 
-use super::{file_icons, theme};
+use super::{ellipsis, file_icons, theme};
 use crate::ui::tooltip;
 use crate::{
     domain::changes::FileStatus,
@@ -98,9 +98,9 @@ fn rows<'a, Message: Clone + 'a>(
         let count = i18n.format(Key::FileCount, &args);
         width = width.max(
             depth as f32 * theme::FILE_TREE_INDENT
-                + theme::file_tree_text_width(&name)
-                + theme::file_tree_text_width(&count)
-                + 64.,
+                + ellipsis::measured_width(&name, theme::FILE_TREE_TEXT_SIZE).ceil()
+                + ellipsis::measured_width(&count, 12.).ceil()
+                + 50.,
         );
         let label = row![
             space().width(depth as f32 * theme::FILE_TREE_INDENT),
@@ -148,7 +148,9 @@ fn rows<'a, Message: Clone + 'a>(
             .to_owned();
         let key = status_key(entry.status);
         width = width.max(
-            depth as f32 * theme::FILE_TREE_INDENT + theme::file_tree_text_width(&filename) + 48.,
+            depth as f32 * theme::FILE_TREE_INDENT
+                + ellipsis::measured_width(&filename, theme::FILE_TREE_TEXT_SIZE).ceil()
+                + 42.,
         );
         let label = row![
             space().width(depth as f32 * theme::FILE_TREE_INDENT + 10.),
@@ -168,7 +170,7 @@ fn rows<'a, Message: Clone + 'a>(
                 .style(theme::tree_item(entry.selected))
                 .width(Length::Fill),
             text(format!("{}\n{}", entry.path, i18n.text(key))).size(12),
-            tooltip::Position::Bottom,
+            tooltip::Position::FollowCursor,
         ));
     }
     (result, width)

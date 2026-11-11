@@ -1,6 +1,7 @@
 //! Render editable source buffers and unsaved-change decisions.
 
 mod gutter;
+mod scrollbar;
 mod syntax;
 
 const TEXT_PADDING: f32 = 12.;
@@ -94,9 +95,9 @@ pub(crate) fn view<'a>(app: &'a App, buffer: &'a Buffer) -> Element<'a, Message>
             selection: theme::CODE_SELECTION.resolve(style_theme),
         });
     let cursor = buffer.content.cursor().position;
+    let size = app.workspace.preferences.code_size as f32;
     let mut body = row![];
     if app.workspace.preferences.line_numbers {
-        let size = app.workspace.preferences.code_size as f32;
         let digits = buffer.content.line_count().max(1).ilog10() + 1;
         body = body.push(
             container(
@@ -110,7 +111,21 @@ pub(crate) fn view<'a>(app: &'a App, buffer: &'a Buffer) -> Element<'a, Message>
             .id("editor-line-numbers"),
         );
     }
-    body = body.push(editor).height(Length::Fill);
+    body = body
+        .push(editor)
+        .push(
+            container(
+                iced::widget::canvas(scrollbar::Scrollbar {
+                    content: &buffer.content,
+                    tab: id,
+                    row_height: size * LINE_HEIGHT,
+                })
+                .width(theme::CODE_SCROLLBAR_WIDTH)
+                .height(Length::Fill),
+            )
+            .id("editor-scrollbar"),
+        )
+        .height(Length::Fill);
     column![
         body,
         container(

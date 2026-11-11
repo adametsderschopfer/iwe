@@ -220,9 +220,9 @@ async fn escape_closes_only_the_focused_secondary_window() {
 fn escape_dismisses_nested_dialogs_and_shortcut_recording_before_closing_windows() {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
     let settings = window::Id::unique();
-    let deployment = window::Id::unique();
+    let connections = window::Id::unique();
     app.windows.settings = Some(settings);
-    app.windows.deployment = Some(deployment);
+    app.windows.connections = Some(connections);
     app.settings_tab = SettingsTab::Shortcuts;
     let _ = app.update_shortcuts(Event::Record(Command::CloseTab));
     assert_eq!(
@@ -236,12 +236,12 @@ fn escape_dismisses_nested_dialogs_and_shortcut_recording_before_closing_windows
         crate::modules::deployment::Event::NewKey,
     ));
     assert_eq!(
-        app.update_shortcuts(escape(deployment, Status::Ignored))
+        app.update_shortcuts(escape(connections, Status::Ignored))
             .units(),
         0
     );
     assert!(!app.modules.deployment.has_dialog());
-    assert_eq!(app.windows.deployment, Some(deployment));
+    assert_eq!(app.windows.connections, Some(connections));
     assert_eq!(
         app.update_shortcuts(escape(settings, Status::Captured))
             .units(),

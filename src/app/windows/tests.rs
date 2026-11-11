@@ -217,10 +217,17 @@ fn deployment_editors_fit_the_settings_window_and_keep_keys_inside_connections()
         };
         app.workspace.spaces[0].deployments.push(profile.clone());
         app.modules.deployment.profile = Some(profile);
-        let _ = app.open_deployment_settings();
-        let id = app.windows.deployment.unwrap();
+        app.modules.deployment.operation_label = Some(Key::DeploymentCompare);
+        app.modules.deployment.operation_path = "/sample-shop/index.html".into();
+        app.modules.deployment.status = Some(Key::DeploymentComparisonReady);
+        let _ = app.open_deployment_settings(false);
+        let _ = app.open_deployment_settings(true);
         for tab in [SettingsTab::Connections, SettingsTab::Deployment] {
-            app.windows.deployment_connections = tab == SettingsTab::Connections;
+            let id = if tab == SettingsTab::Connections {
+                app.windows.connections.unwrap()
+            } else {
+                app.windows.deployment.unwrap()
+            };
             for size in [
                 settings_settings().size,
                 settings_settings().min_size.unwrap(),
@@ -237,6 +244,10 @@ fn deployment_editors_fit_the_settings_window_and_keep_keys_inside_connections()
                     ui.find(iced::widget::Id::new("settings-tab-deployment-keys"))
                         .is_err()
                 );
+                assert!(
+                    ui.find(iced::widget::Id::new("settings-navigation"))
+                        .is_err()
+                );
                 assert!(ui.find(app.i18n.text(Key::SettingsSaved)).is_err());
                 let save = ui
                     .find(app.i18n.text(Key::DeploymentSave))
@@ -248,17 +259,41 @@ fn deployment_editors_fit_the_settings_window_and_keep_keys_inside_connections()
                     .unwrap()
                     .visible_bounds()
                     .unwrap();
-                assert!(name.x >= theme::SETTINGS_SIDEBAR_WIDTH + 176.);
+                assert!(name.x >= 176.);
                 assert!(save.x + save.width <= size.width && save.y + save.height <= size.height);
                 if tab == SettingsTab::Connections {
-                    ui.click(app.i18n.text(Key::DeploymentKeys)).unwrap();
-                    assert!(ui.into_messages().any(|event| matches!(
-                        event,
-                        Message::Module(crate::app::modules::Event::Deployment(
-                            crate::modules::deployment::Event::OpenKeys
-                        ))
-                    )));
+                    assert!(ui.find(app.i18n.text(Key::DeploymentKeys)).is_err());
+                    let warning = ui
+                        .find(app.i18n.text(Key::DeploymentConnectionsHelp))
+                        .unwrap()
+                        .visible_bounds()
+                        .unwrap();
+                    assert!(warning.y > name.y && warning.y + warning.height <= save.y);
                 }
+            }
+            if tab == SettingsTab::Deployment {
+                for key in [Key::DeploymentMappings, Key::DeploymentExclusions] {
+                    let mut ui = iced_test::Simulator::with_size(
+                        iced::Settings::default(),
+                        settings_settings().size,
+                        app.view_window(id),
+                    );
+                    ui.click(app.i18n.text(key)).unwrap();
+                    for message in ui.into_messages() {
+                        let _ = app.update(message);
+                    }
+                    let mut ui = iced_test::Simulator::with_size(
+                        iced::Settings::default(),
+                        settings_settings().size,
+                        app.view_window(id),
+                    );
+                    assert!(ui.find("/sample-shop/index.html").is_err());
+                    assert!(
+                        ui.find(app.i18n.text(Key::DeploymentComparisonReady))
+                            .is_err()
+                    );
+                }
+                app.modules.deployment.profile_tab = Default::default();
             }
             if let Some(output) =
                 std::env::var_os("IWE_DEPLOYMENT_RENDER_DIR").map(std::path::PathBuf::from)
@@ -343,11 +378,18 @@ fn deployment_window_is_separate_reused_and_closes_independently() {
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
     let _ = app.open_settings();
     let settings = app.windows.settings.unwrap();
-    let _ = app.open_deployment_settings();
+    let _ = app.open_deployment_settings(false);
     let deployment = app.windows.deployment.unwrap();
+    let _ = app.open_deployment_settings(true);
+    let connections = app.windows.connections.unwrap();
     assert_ne!(settings, deployment);
-    assert_eq!(app.window_title(deployment), app.i18n.text(Key::Deployment));
-    let _ = app.open_deployment_settings();
+    assert_ne!(connections, deployment);
+    assert_ne!(connections, settings);
+    assert_eq!(
+        app.window_title(deployment),
+        app.i18n.text(Key::DeploymentProfiles)
+    );
+    let _ = app.open_deployment_settings(false);
     assert_eq!(app.windows.deployment, Some(deployment));
     let mut ui = iced_test::Simulator::with_size(
         iced::Settings::default(),
@@ -368,6 +410,66 @@ fn deployment_window_is_separate_reused_and_closes_independently() {
     assert!(app.windows.settings.is_none());
     let _ = app.update(Message::Window(Event::Closed(deployment)));
     assert!(app.windows.deployment.is_none());
+    assert_eq!(app.windows.connections, Some(connections));
+}
+
+#[test]
+fn server_editor_lists_other_spaces_and_saves_project_moves() {
+    use crate::{
+        app::modules::deployment_message,
+        domain::deployment::{Connection, Mapping, Profile},
+        modules::deployment::Event as DeploymentEvent,
+    };
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    let first = std::path::PathBuf::from("/first-project");
+    let second = std::path::PathBuf::from("/second-project");
+    app.workspace
+        .create_space("First".into(), vec![first.clone()]);
+    app.workspace
+        .create_space("Second".into(), vec![second.clone()]);
+    app.workspace.selected_space = Some(0);
+    app.workspace.selected_project = Some(0);
+    app.workspace.deployment.connections.push(Connection {
+        id: "connection".into(),
+        ..Connection::default()
+    });
+    app.workspace.spaces[1].deployments.push(Profile {
+        id: "server".into(),
+        name: "Shared server".into(),
+        project: second,
+        connection: "connection".into(),
+        root: "/site".into(),
+        mappings: vec![Mapping {
+            local: "public".into(),
+            remote: "www".into(),
+        }],
+        default: true,
+        ..Profile::default()
+    });
+    let _ = app.update(Message::SelectSettingsTab(
+        crate::app::SettingsTab::Deployment,
+    ));
+    let id = app.windows.deployment.unwrap();
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings::default(),
+        settings_settings().size,
+        app.view_window(id),
+    );
+    assert!(ui.find("Shared server").is_ok());
+    assert!(ui.find("second-project").is_ok());
+    drop(ui);
+    let _ = app.update(deployment_message(DeploymentEvent::ProfileProject(
+        0,
+        first.clone(),
+    )));
+    assert_eq!(app.workspace.spaces[1].deployments.len(), 1);
+    let _ = app.update(deployment_message(DeploymentEvent::SaveProfile));
+    assert!(app.workspace.spaces[1].deployments.is_empty());
+    let saved = &app.workspace.spaces[0].deployments[0];
+    assert_eq!(saved.id, "server");
+    assert_eq!(saved.project, first);
+    assert_eq!(saved.mappings[0].local, std::path::Path::new("public"));
+    assert!(!saved.default);
 }
 
 #[test]
@@ -375,8 +477,8 @@ fn escape_in_secondary_window_closes_only_the_top_dialog() {
     use iced::keyboard::{self, key::Named};
     for nested in [false, true] {
         let mut app = App::new(Rc::new(I18n::new(Language::English)));
-        let _ = app.open_deployment_settings();
-        let id = app.windows.deployment.unwrap();
+        let _ = app.open_deployment_settings(true);
+        let id = app.windows.connections.unwrap();
         app.modules.deployment.key_dialog = nested;
         let mut ui = iced_test::Simulator::with_size(
             iced::Settings::default(),
@@ -419,7 +521,7 @@ fn escape_in_secondary_window_closes_only_the_top_dialog() {
                 },
                 iced::event::Status::Captured,
             ));
-            assert_eq!(app.windows.deployment, Some(id));
+            assert_eq!(app.windows.connections, Some(id));
         } else {
             assert!(
                 matches!(&events[0], Message::WindowShortcut(window, message) if *window == id && matches!(**message, Message::DismissDialog))

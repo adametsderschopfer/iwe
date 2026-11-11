@@ -89,11 +89,11 @@ fn deployment_menu_opens_matching_settings_and_preserves_project() {
         (Action::DeploymentProfiles, SettingsTab::Deployment),
     ] {
         let _ = app.update_native_menu(Event::Polled(Ok(vec![action])));
-        assert_eq!(
-            app.windows.deployment_connections,
-            tab == SettingsTab::Connections
-        );
-        assert!(app.windows.deployment.is_some());
+        assert!(if tab == SettingsTab::Connections {
+            app.windows.connections.is_some()
+        } else {
+            app.windows.deployment.is_some()
+        });
         assert!(app.windows.settings.is_none());
         assert_eq!(app.workspace.directory(), project.as_ref());
     }
@@ -166,7 +166,7 @@ async fn quit_flushes_edits_before_exit_and_keeps_conflicting_drafts_open() {
                 Some(Key::EditorConflict)
             );
             let _ = app.open_settings();
-            let _ = app.open_deployment_settings();
+            let _ = app.open_deployment_settings(false);
             for window in [
                 app.windows.settings.unwrap(),
                 app.windows.deployment.unwrap(),

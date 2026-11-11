@@ -27,15 +27,17 @@ credential namespace. Views never perform network or filesystem operations. See
 [deployment](deployment.md) for behavior, limits, and verification.
 
 The settings window uses persistent left navigation and a separate scrollable section on the right.
-Deployment uses an independent secondary window for connections and space servers. The interface
-labels stored deployment profiles as servers without changing their data format. Each editor uses a
-server list, aligned fields, independent scrolling, and a persistent save footer. Profile tabs
-separate connection settings, mappings, and exclusions. Shared SSH keys open from the connections
-editor. Module-owned dialogs name new items, select server folders, edit SSH key references, and
-confirm discarded drafts. The host supplies the shared modal overlay and explicit Escape dismissal
-messages. The operation target chooser uses an editor-local context popup with keyboard selection.
-The key dialog preserves its parent connection draft and rejects obsolete file-picker responses. The
-settings window extends into the macOS titlebar, with an opaque header below native window controls.
+Deployment uses separate secondary windows for shared connections and servers. The interface labels
+stored deployment profiles as servers without changing their data format. Each editor uses a server
+list, aligned fields, independent scrolling, and a persistent save footer. The server editor lists
+profiles across spaces. Saving a project change moves the profile between space records. Profile
+tabs separate connection settings, mappings, and exclusions. The SFTP key selector opens the shared
+key manager. Module-owned dialogs name new items, select server folders, edit SSH key references,
+and confirm discarded drafts. The host supplies the shared modal overlay and explicit Escape
+dismissal messages. The operation target chooser uses an editor-local context popup with keyboard
+selection. The key dialog preserves its parent connection draft and rejects obsolete file-picker
+responses. The settings window extends into the macOS titlebar, with an opaque header below native
+window controls.
 
 `app/repository_cache/` keeps the last successful initial Git snapshot for eight recent project
 directories. Snapshots include repository identities, history cursors, the selected branch, and
@@ -411,12 +413,12 @@ for the extension boundary.
 
 ## Window and graphics
 
-`app/windows.rs` owns independent settings and deployment windows and routes window-specific closing
-and keyboard actions. The Iced daemon opens the workspace explicitly and exits when that window
-closes. Settings reuses one window and keeps workspace navigation, tabs, and scroll positions
-intact. Deployment reuses its own window. Failed-save quit decisions appear above content in every
-window. macOS and Linux keep native settings window controls. Windows uses the existing application
-caption and resize handles.
+`app/windows.rs` owns independent settings, connections, and servers windows and routes
+window-specific closing and keyboard actions. The Iced daemon opens the workspace explicitly and
+exits when that window closes. Settings reuses one window and keeps workspace navigation, tabs, and
+scroll positions intact. Deployment reuses each of its two windows. Failed-save quit decisions
+appear above content in every window. macOS and Linux keep native settings window controls. Windows
+uses the existing application caption and resize handles.
 
 On macOS, `app/native_menu.rs` projects localized workspace data into a native application menu.
 `infrastructure/native_menu.rs` retains Muda menu objects on the AppKit event-loop thread. A guarded

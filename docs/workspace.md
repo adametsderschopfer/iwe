@@ -551,12 +551,12 @@ size and line numbers. Opening Git closes pipelines. Opening pipelines closes Gi
 remain hidden. Drag the horizontal divider to resize the visible panel.
 
 On macOS, **Spaces**, **Projects**, **Settings**, and **Deployment** appear beside the **IWE Code**
-application menu. **Deployment** opens a separate window with connection and space profile sections.
-Shared SSH keys open from the connection section. **Spaces** contains only **New space**.
-**Settings** opens the settings window through its menu item. **Projects** groups projects by their
-space. An empty **Projects** menu shows a disabled **No projects yet** item. Choosing a project
-brings the workspace window forward. The menu follows language and workspace changes. Modal dialogs
-disable workspace navigation in the menu. Windows and Linux retain their existing sidebar controls.
+application menu. **Deployment** offers separate windows for connections and servers. The SFTP key
+selector opens the shared key manager. **Spaces** contains only **New space**. **Settings** opens
+the settings window through its menu item. **Projects** groups projects by their space. An empty
+**Projects** menu shows a disabled **No projects yet** item. Choosing a project brings the workspace
+window forward. The menu follows language and workspace changes. Modal dialogs disable workspace
+navigation in the menu. Windows and Linux retain their existing sidebar controls.
 
 Escape dismisses dialogs and context menus, including forms with focused text fields. Escape closes
 the focused settings or deployment window. If a nested dialog is open, Escape dismisses that dialog
@@ -647,3 +647,10 @@ recovery is not provided.
 Project clicks remain active after scrolling the sidebar. Small pointer movements do not start
 reordering. Only space headers start space reordering. The path-copy highlight fits the displayed
 path in the footer.
+
+The file panel, file tabs, and deployment panel have borders against the code area. File hints
+follow the cursor. File lists scroll horizontally when a visible row exceeds their width. The status
+bar aligns background operations to the right.
+
+The editor keeps its vertical scrollbar handle visible in large files. Drag the handle or click its
+track to scroll without moving the text cursor.

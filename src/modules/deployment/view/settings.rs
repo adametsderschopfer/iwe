@@ -1,8 +1,11 @@
 //! Present compact server lists, aligned forms, and focused settings dialogs.
 
-use super::{error_key, status, style, tree};
+use super::{error_key, style, tree};
 use crate::{
-    domain::deployment::{Authentication, Connections, Error, Profile, Protocol, safe_text},
+    domain::{
+        deployment::{Authentication, Connections, Error, Profile, Protocol, safe_text},
+        workspace::Space,
+    },
     i18n::{I18n, Key},
     modules::deployment::{
         state::{Event, Field, NameAction, ProfileTab, State},
@@ -70,23 +73,15 @@ fn select<'a, T: Clone + PartialEq + 'a>(
         .into()
 }
 
-fn feedback<'a>(state: &'a State, i18n: &'a I18n) -> Element<'a, Event> {
-    if let Some(error @ (Error::Configuration | Error::Mapping)) = &state.error {
-        text(i18n.text(error_key(error))).size(13).into()
-    } else if state.busy || state.error.is_some() || state.status.is_some() {
-        status(state, i18n)
-    } else {
-        column![].into()
-    }
-}
-
 fn test_controls<'a>(
     state: &'a State,
     i18n: &I18n,
     event: Event,
     connection: Option<&crate::domain::deployment::Connection>,
+    profile: Option<&str>,
 ) -> Element<'a, Event> {
     let relevant = state.operation_label == Some(Key::DeploymentTest)
+        && state.test_profile.as_deref() == profile
         && state.test_connection.is_some()
         && state.test_connection.as_ref() == connection;
     let outcome = if !relevant {
@@ -201,19 +196,25 @@ fn tool<'a>(i18n: &I18n, symbol: Icon, key: Key, event: Option<Event>) -> Elemen
 
 fn list_row<'a>(
     name: &'a str,
+    project: Option<&'a str>,
     selected: bool,
     event: Option<Event>,
     default: bool,
 ) -> Element<'a, Event> {
-    let mut line = row![
-        icon(Icon::Server, theme::MUTED),
-        text(name)
-            .size(13)
-            .width(Length::Fill)
-            .wrapping(text::Wrapping::None)
-    ]
-    .spacing(6)
-    .align_y(Alignment::Center);
+    let mut labels = column![text(name).size(13).wrapping(text::Wrapping::None)]
+        .spacing(3)
+        .width(Length::Fill);
+    if let Some(project) = project {
+        labels = labels.push(
+            text(project)
+                .size(11)
+                .style(theme::MUTED.text())
+                .wrapping(text::Wrapping::None),
+        );
+    }
+    let mut line = row![icon(Icon::Server, theme::MUTED), labels]
+        .spacing(6)
+        .align_y(Alignment::Center);
     if default {
         line = line.push(icon(Icon::Check, theme::BLUE));
     }
@@ -323,6 +324,7 @@ pub(crate) fn connections_view<'a>(
         let draft = selected.filter(|c| c.id == connection.id);
         list = list.push(list_row(
             draft.map_or(&connection.name, |c| &c.name),
+            None,
             draft.is_some(),
             enabled.then(|| Event::EditConnection(connection.id.clone())),
             false,
@@ -331,17 +333,8 @@ pub(crate) fn connections_view<'a>(
     if let Some(draft) =
         selected.filter(|c| !settings.connections.iter().any(|saved| saved.id == c.id))
     {
-        list = list.push(list_row(&draft.name, true, None, false));
+        list = list.push(list_row(&draft.name, None, true, None, false));
     }
-    let header = row![
-        text(i18n.text(Key::DeploymentConnectionsHelp))
-            .size(12)
-            .style(theme::MUTED.text())
-            .width(Length::Fill),
-        action(i18n, Key::DeploymentKeys, Event::OpenKeys)
-    ]
-    .spacing(12)
-    .align_y(Alignment::Center);
     let body = if selected.is_some() {
         if state.saving {
             text(i18n.text(Key::DeploymentSaving)).into()
@@ -364,9 +357,18 @@ pub(crate) fn connections_view<'a>(
     };
     let detail = container(
         column![
-            header,
-            rule(),
             scrollable(body).style(theme::scroll).height(Length::Fill),
+            container(
+                row![
+                    icon(Icon::Warning, theme::YELLOW),
+                    text(i18n.text(Key::DeploymentConnectionsHelp)).size(13)
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding([10, 12])
+            .style(style::warning),
             footer(
                 i18n,
                 Event::SaveConnection,
@@ -504,27 +506,58 @@ pub(super) fn connection_form<'a>(
                 .spacing(12),
             );
     }
-    if state.operation_label.is_none() && state.error.is_some() {
-        form = form.push(feedback(state, i18n));
+    if state.operation_label.is_none()
+        && let Some(error) = &state.error
+    {
+        form = form.push(text(i18n.text(error_key(error))).size(13));
     }
-    form.push(test_controls(state, i18n, Event::Test, Some(connection)))
-        .into()
+    form.push(test_controls(
+        state,
+        i18n,
+        Event::Test,
+        Some(connection),
+        None,
+    ))
+    .into()
 }
 
 pub(crate) fn profiles_view<'a>(
     state: &'a State,
     settings: &'a Connections,
-    profiles: &'a [Profile],
-    project: Option<&Path>,
+    spaces: &'a [Space],
+    active_space: Option<usize>,
     i18n: &'a I18n,
 ) -> Element<'a, Event> {
     let selected = state.profile.as_ref();
+    let project_name = |profile: &'a Profile, owner: Option<usize>| {
+        owner
+            .and_then(|index| spaces.get(index))
+            .into_iter()
+            .chain(spaces.iter())
+            .flat_map(|space| &space.projects)
+            .find(|project| project.directory == profile.project)
+            .map_or_else(
+                || profile.project.file_name().and_then(|name| name.to_str()),
+                |project| Some(project.name.as_str()),
+            )
+    };
+    let has_projects = spaces.iter().any(|space| !space.projects.is_empty());
+    let owner = selected.and_then(|draft| {
+        spaces.iter().position(|space| {
+            space
+                .deployments
+                .iter()
+                .any(|profile| profile.id == draft.id)
+        })
+    });
+    let destination = state.profile_destination.or(owner).or(active_space);
+    let saved = owner.map_or(&[][..], |index| spaces[index].deployments.as_slice());
     let tools = row![
         tool(
             i18n,
             Icon::Plus,
             Key::DeploymentNewProfile,
-            project.map(|_| Event::BeginName(NameAction::NewProfile))
+            has_projects.then_some(Event::BeginName(NameAction::NewProfile))
         ),
         tool(
             i18n,
@@ -548,23 +581,40 @@ pub(crate) fn profiles_view<'a>(
     .spacing(2)
     .into();
     let mut list = column![];
-    for profile in profiles {
-        let draft = selected.filter(|p| p.id == profile.id);
+    for (index, space) in spaces.iter().enumerate() {
+        for profile in &space.deployments {
+            let draft = selected.filter(|draft| draft.id == profile.id);
+            let shown = draft.unwrap_or(profile);
+            list = list.push(list_row(
+                &shown.name,
+                project_name(
+                    shown,
+                    if draft.is_some() {
+                        destination
+                    } else {
+                        Some(index)
+                    },
+                ),
+                draft.is_some(),
+                Some(Event::EditProfile(profile.id.clone())),
+                shown.default,
+            ));
+        }
+    }
+    if let Some(draft) = selected.filter(|_| owner.is_none()) {
         list = list.push(list_row(
-            draft.map_or(&profile.name, |p| &p.name),
-            draft.is_some(),
-            Some(Event::EditProfile(profile.id.clone())),
-            draft.unwrap_or(profile).default,
+            &draft.name,
+            project_name(draft, destination),
+            true,
+            None,
+            draft.default,
         ));
     }
-    if let Some(draft) = selected.filter(|p| !profiles.iter().any(|saved| saved.id == p.id)) {
-        list = list.push(list_row(&draft.name, true, None, draft.default));
-    }
     let body = if let Some(profile) = selected {
-        profile_form(state, settings, profile, i18n)
+        profile_form(state, settings, profile, spaces, destination, i18n)
     } else {
         column![
-            text(i18n.text(if project.is_some() {
+            text(i18n.text(if has_projects {
                 Key::DeploymentChooseProfile
             } else {
                 Key::DeploymentSelectProject
@@ -582,12 +632,7 @@ pub(crate) fn profiles_view<'a>(
                 .style(theme::MUTED.text()),
             profile_tabs(state.profile_tab, i18n),
             scrollable(body).style(theme::scroll).height(Length::Fill),
-            footer(
-                i18n,
-                Event::SaveProfile,
-                state.profile_dirty(profiles),
-                false
-            )
+            footer(i18n, Event::SaveProfile, state.profile_dirty(saved), false)
         ]
         .spacing(12),
     )
@@ -654,11 +699,34 @@ fn profile_form<'a>(
     state: &'a State,
     settings: &'a Connections,
     profile: &'a Profile,
+    spaces: &[Space],
+    destination: Option<usize>,
     i18n: &'a I18n,
 ) -> Element<'a, Event> {
     let mut form = column![].spacing(12);
     match state.profile_tab {
         ProfileTab::Connection => {
+            let projects: Vec<_> = spaces
+                .iter()
+                .enumerate()
+                .flat_map(|(index, space)| {
+                    space.projects.iter().map(move |project| {
+                        (
+                            (index, project.directory.clone()),
+                            format!("{} / {}", space.name, project.name),
+                        )
+                    })
+                })
+                .collect();
+            let selected = destination
+                .map(|index| (index, profile.project.clone()))
+                .filter(|key| projects.iter().any(|(candidate, _)| candidate == key))
+                .or_else(|| {
+                    projects
+                        .iter()
+                        .find(|((_, path), _)| path == &profile.project)
+                        .map(|(key, _)| key.clone())
+                });
             form = form
                 .push(form_row(
                     i18n,
@@ -668,7 +736,9 @@ fn profile_form<'a>(
                 .push(form_row(
                     i18n,
                     Key::DeploymentProject,
-                    text(profile.project.to_string_lossy().into_owned()).size(13),
+                    select(projects, selected.as_ref(), |(index, path)| {
+                        Event::ProfileProject(index, path)
+                    }),
                 ))
                 .push(form_row(
                     i18n,
@@ -714,6 +784,7 @@ fn profile_form<'a>(
                         .connections
                         .iter()
                         .find(|c| c.id == profile.connection),
+                    Some(&profile.id),
                 ))
                 .push(
                     toggler(profile.default)
@@ -819,10 +890,8 @@ fn profile_form<'a>(
             ));
         }
     }
-    if state.profile_tab != ProfileTab::Connection
-        || matches!(state.error, Some(Error::Configuration | Error::Mapping))
-    {
-        form = form.push(feedback(state, i18n));
+    if let Some(error @ (Error::Configuration | Error::Mapping)) = &state.error {
+        form = form.push(text(i18n.text(error_key(error))).size(13));
     }
     form.into()
 }
@@ -865,8 +934,10 @@ pub(super) fn keys_view<'a>(
             .align_y(Alignment::Center),
         );
     }
+    if let Some(error @ Error::Configuration) = &state.error {
+        list = list.push(text(i18n.text(error_key(error))).size(13));
+    }
     list.push(action(i18n, Key::DeploymentAddIdentity, Event::NewKey))
-        .push(feedback(state, i18n))
         .push(row![
             space().width(Length::Fill),
             action(i18n, Key::DeploymentClose, Event::CloseDialog)

@@ -217,7 +217,13 @@ impl App {
                 ModuleId::Terminal => self.modules.terminal.reset(),
                 ModuleId::Deployment => {
                     self.modules.deployment.suspend();
-                    if let Some(window) = self.windows.deployment.take() {
+                    for window in [
+                        self.windows.deployment.take(),
+                        self.windows.connections.take(),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    {
                         tasks.push(iced::window::close(window));
                     }
                 }

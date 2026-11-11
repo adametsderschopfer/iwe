@@ -619,8 +619,11 @@ impl App {
                             self.update_editor(editor::Event::Cancel)
                         }
                         Message::DismissDialog
-                            if self.windows.deployment == Some(id)
-                                && self.modules.deployment.has_dialog() =>
+                            if self.windows.is_deployment(id)
+                                && self
+                                    .modules
+                                    .deployment
+                                    .has_settings_dialog(self.windows.connections == Some(id)) =>
                         {
                             self.update_module(modules::Event::Deployment(
                                 crate::modules::deployment::Event::CloseDialog,
@@ -721,32 +724,23 @@ impl App {
                 return self.refresh_pipeline_overviews(false);
             }
             Message::SelectSettingsTab(tab) => {
-                if self.modules.deployment.has_dialog() {
-                    return Task::none();
-                }
                 self.shortcuts = shortcuts::State::default();
-                if matches!(tab, SettingsTab::Connections | SettingsTab::Deployment) {
-                    self.windows.deployment_connections = tab == SettingsTab::Connections;
-                } else {
-                    self.settings_tab = tab;
-                    return Task::none();
-                }
-                let stop = self.update_module(modules::Event::Deployment(
-                    crate::modules::deployment::Event::StopBrowsing,
-                ));
-                let open = match tab {
+                let (connections, event) = match tab {
                     SettingsTab::Connections => {
-                        Some(crate::modules::deployment::Event::OpenConnections)
+                        (true, crate::modules::deployment::Event::OpenConnections)
                     }
                     SettingsTab::Deployment => {
-                        Some(crate::modules::deployment::Event::OpenProfiles)
+                        (false, crate::modules::deployment::Event::OpenProfiles)
                     }
-                    _ => None,
+                    _ => {
+                        self.settings_tab = tab;
+                        return Task::none();
+                    }
                 };
-                let open = open.map_or_else(Task::none, |event| {
-                    self.update_module(modules::Event::Deployment(event))
-                });
-                return Task::batch([stop, open]);
+                return Task::batch([
+                    self.update_module(modules::Event::Deployment(event)),
+                    self.open_deployment_settings(connections),
+                ]);
             }
             Message::Shortcut(event) => return self.update_shortcuts(event),
             Message::Module(event) => return self.update_module(event),

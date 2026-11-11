@@ -4,7 +4,7 @@ use super::deployment_message;
 use crate::{
     app::{App, Message, Navigation, SettingsTab},
     domain::deployment::Profile,
-    modules::deployment::{Effect, Event, Operation, Output},
+    modules::deployment::{Effect, Event, NameAction, Operation, Output},
 };
 use iced::Task;
 
@@ -57,11 +57,10 @@ impl App {
                 self.workspace.selected_space = Some(index);
             }
             self.space_menu = None;
-            self.windows.deployment_connections = false;
             return Task::batch([
                 self.load_directory(),
                 self.save(),
-                self.open_deployment_settings(),
+                self.update(Message::SelectSettingsTab(SettingsTab::Deployment)),
             ]);
         }
         let project = self.workspace.directory().cloned();
@@ -113,19 +112,125 @@ impl App {
             self.modules.deployment.error = Some(crate::domain::deployment::Error::Configuration);
             return Task::none();
         }
-        let mut empty = Vec::new();
-        let profiles = self
-            .workspace
-            .selected_space
-            .and_then(|index| self.workspace.spaces.get_mut(index))
-            .map(|space| &mut space.deployments)
-            .unwrap_or(&mut empty);
+        let duplicate = matches!(event, Event::ConfirmName)
+            && self.modules.deployment.naming == Some(NameAction::DuplicateProfile);
+        let saving = matches!(event, Event::SaveProfile);
+        let deleting = matches!(event, Event::DeleteProfile);
+        let draft = self.modules.deployment.profile.as_ref().filter(|_| {
+            saving || duplicate || deleting || matches!(event, Event::ProfileProject(..))
+        });
+        let owner = draft.and_then(|draft| {
+            self.workspace.spaces.iter().position(|space| {
+                space
+                    .deployments
+                    .iter()
+                    .any(|profile| profile.id == draft.id)
+            })
+        });
+        if let Event::ProfileProject(index, ref directory) = event {
+            if draft.is_none()
+                || !self.workspace.spaces.get(index).is_some_and(|space| {
+                    space
+                        .projects
+                        .iter()
+                        .any(|project| &project.directory == directory)
+                })
+            {
+                return Task::none();
+            }
+            self.modules.deployment.profile_destination = (owner != Some(index)).then_some(index);
+        }
+        let destination = draft.and_then(|draft| {
+            self.modules
+                .deployment
+                .profile_destination
+                .or(owner)
+                .filter(|&index| {
+                    self.workspace.spaces.get(index).is_some_and(|space| {
+                        space
+                            .projects
+                            .iter()
+                            .any(|project| project.directory == draft.project)
+                    })
+                })
+                .or_else(|| {
+                    self.workspace.spaces.iter().position(|space| {
+                        space
+                            .projects
+                            .iter()
+                            .any(|project| project.directory == draft.project)
+                    })
+                })
+        });
+        if (saving || duplicate) && destination.is_none() {
+            self.modules.deployment.error = Some(crate::domain::deployment::Error::Configuration);
+            return Task::none();
+        }
+        let source_id = draft.map(|draft| draft.id.clone());
+        let index = if saving || duplicate {
+            destination
+        } else if deleting {
+            owner
+        } else {
+            self.workspace.selected_space
+        };
+        let creating = matches!(event, Event::NewProfile | Event::DiscardChanges)
+            || matches!(event, Event::ConfirmName)
+                && self.modules.deployment.naming == Some(NameAction::NewProfile);
+        let fallback = if creating && project.is_none() {
+            self.workspace
+                .spaces
+                .iter()
+                .find_map(|space| space.projects.first())
+                .map(|project| project.directory.clone())
+        } else {
+            None
+        };
+        let mut temporary = Vec::new();
+        let global_selection = matches!(event, Event::OpenProfiles | Event::EditProfile(_))
+            || matches!(event, Event::DiscardChanges)
+                && self.modules.deployment.has_settings_dialog(false);
+        let profiles =
+            if global_selection {
+                temporary.extend(
+                    self.workspace
+                        .selected_space
+                        .and_then(|index| self.workspace.spaces.get(index))
+                        .into_iter()
+                        .chain(self.workspace.spaces.iter().enumerate().filter_map(
+                            |(index, space)| {
+                                (self.workspace.selected_space != Some(index)).then_some(space)
+                            },
+                        ))
+                        .flat_map(|space| space.deployments.iter().cloned()),
+                );
+                &mut temporary
+            } else {
+                index
+                    .and_then(|index| self.workspace.spaces.get_mut(index))
+                    .map_or(&mut temporary, |space| &mut space.deployments)
+            };
         let (task, effect) = self.modules.deployment.update(
             event,
             &mut self.workspace.deployment,
             profiles,
-            project.as_deref(),
+            project.as_deref().or(fallback.as_deref()),
         );
+        if matches!(effect, Effect::Save)
+            && owner != destination
+            && let Some(id) = source_id
+            && let Some(index) = if saving {
+                owner
+            } else if duplicate && owner.is_some() {
+                destination
+            } else {
+                None
+            }
+        {
+            self.workspace.spaces[index]
+                .deployments
+                .retain(|profile| profile.id != id);
+        }
         let task = task.map(deployment_message);
         match effect {
             Effect::None => task,
@@ -153,14 +258,14 @@ impl App {
                 task
             }
             Effect::Save => Task::batch([task, self.save()]),
-            Effect::Connections => {
-                let select = self.update(Message::SelectSettingsTab(SettingsTab::Connections));
-                Task::batch([task, select, self.open_deployment_settings()])
-            }
-            Effect::Settings => {
-                let select = self.update(Message::SelectSettingsTab(SettingsTab::Deployment));
-                Task::batch([task, select, self.open_deployment_settings()])
-            }
+            Effect::Connections => Task::batch([
+                task,
+                self.update(Message::SelectSettingsTab(SettingsTab::Connections)),
+            ]),
+            Effect::Settings => Task::batch([
+                task,
+                self.update(Message::SelectSettingsTab(SettingsTab::Deployment)),
+            ]),
             Effect::Preview(Output::Preview {
                 profile_id,
                 label,

@@ -1,7 +1,7 @@
 deployment = Deployment
 deployment-connections = Connections
 deployment-connections-help = Connections are available across all spaces.
-deployment-profiles-help = Servers belong to this space. Each server targets one project.
+deployment-profiles-help = This list includes servers from all projects.
 deployment-new-connection = Add connection
 deployment-new-profile = Add deployment server
 deployment-name = Name
