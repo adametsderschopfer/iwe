@@ -1388,6 +1388,26 @@
           "es": "En macOS, abre Ajustes desde el menú de IWE Code."
         },
         "sources": ["src/infrastructure/native_menu.rs"]
+      },
+      {
+        "id": "compact-git-dates",
+        "category": "fixed",
+        "text": {
+          "en": "Commit dates fit in Git history at the minimum window width.",
+          "ru": "Даты коммитов помещаются в истории Git при минимальной ширине окна.",
+          "es": "Las fechas de los commits caben en el historial de Git con el ancho mínimo de la ventana."
+        },
+        "sources": ["src/modules/git/view/mod.rs"]
+      },
+      {
+        "id": "release-build-on-tag",
+        "category": "maintenance",
+        "text": {
+          "en": "Version tags build release packages. Pushes to the main branch run checks and tests.",
+          "ru": "Теги версий запускают сборку пакетов. Пуши в основную ветку запускают проверки и тесты.",
+          "es": "Las etiquetas de versión generan los paquetes. Los cambios en la rama principal ejecutan las comprobaciones y pruebas."
+        },
+        "sources": [".github/workflows/ci.yml", "docs/ci.md"]
       }
     ]
   },

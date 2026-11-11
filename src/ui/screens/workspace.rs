@@ -540,7 +540,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
     }
     let mut tools = Column::new().spacing(4);
     if let Some(update) = crate::ui::updates::sidebar(app) {
-        tools = tools.push(update);
+        tools = tools.push(container(update).padding(1));
     }
     tools = tools.push(
         container(navigation_button(

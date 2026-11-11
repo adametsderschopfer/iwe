@@ -134,6 +134,7 @@ jobs:
 
   build:
     name: Build / Release (${{ matrix.platform }})
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
     needs: [plan, unit_tests, integration_tests]
     strategy:
       fail-fast: false

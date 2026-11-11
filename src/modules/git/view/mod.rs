@@ -673,7 +673,7 @@ fn commit_table<'a>(
         68.
     };
     let table_width = available_width
-        .max(widest_graph + 372. + theme::COMMIT_DATE_WIDTH + theme::COMMIT_HASH_WIDTH + 8.);
+        .max(widest_graph + 312. + theme::COMMIT_DATE_WIDTH + theme::COMMIT_HASH_WIDTH + 8.);
     let start = (((app.state.history_scroll_y - 28.).max(0.) / 30.) as usize)
         .saturating_sub(8)
         .min(matching.len());

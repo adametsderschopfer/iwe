@@ -9,7 +9,8 @@ GitHub Actions runs these sequential stages:
 5. GitHub Release publication for version tags.
 
 Clippy, type checks, tests, and builds run on macOS, Windows, and Linux. Unit tests and release
-builds use the same six-target matrix for branches and release tags. Integration discovery runs once
+builds use the same six-target matrix. Pushes to `main` run checks and tests. They skip the release
+build, so a simultaneous version tag push builds the release once. Integration discovery runs once
 per operating system. Formatting and dependency security checks run on Linux. Each stage requires
 the preceding stage to succeed.
 
@@ -75,9 +76,9 @@ publication script renders the English GitHub release body and links to all thre
 
 The tag push starts CI for the tagged commit. CI requires checks, tests, and builds for all six
 targets. Both Windows installer jobs must also succeed. The tag version must match Cargo.toml.
-Failed or cancelled prerequisites prevent publication. Branch pushes and pull requests build all
-targets. Manual workflow runs on release tags also create packages. Only tag pushes publish
-releases.
+Failed or cancelled prerequisites prevent publication. Pull requests, pushes to other branches, and
+manual runs build all targets. Manual runs on release tags also create packages. Only tag pushes
+publish releases.
 
 The final job signs one update manifest and publishes one GitHub Release with all eight installation
 packages and six update archives. It verifies the required files and adds SHA256SUMS. Configure

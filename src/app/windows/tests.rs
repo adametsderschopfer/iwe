@@ -421,8 +421,8 @@ fn server_editor_lists_other_spaces_and_saves_project_moves() {
         modules::deployment::Event as DeploymentEvent,
     };
     let mut app = App::new(Rc::new(I18n::new(Language::English)));
-    let first = std::path::PathBuf::from("/first-project");
-    let second = std::path::PathBuf::from("/second-project");
+    let first = std::env::temp_dir().join("first-project");
+    let second = std::env::temp_dir().join("second-project");
     app.workspace
         .create_space("First".into(), vec![first.clone()]);
     app.workspace
