@@ -520,6 +520,7 @@ impl App {
             return self.select_tab(self.tabs.files[index].id);
         }
 
+        self.modules.deployment.target = None;
         self.file_request += 1;
         let preview = Preview {
             remote: matches!(source, Source::Remote { .. }),
@@ -891,6 +892,7 @@ impl App {
     }
 
     pub(super) fn select_tab(&mut self, id: u64) -> Task<Message> {
+        self.modules.deployment.target = None;
         self.tabs.menu = None;
         let Some(index) = self.tabs.files.iter().position(|preview| preview.id == id) else {
             return Task::none();
@@ -907,6 +909,7 @@ impl App {
     }
 
     pub(super) fn close_tab(&mut self, id: u64) -> Task<Message> {
+        self.modules.deployment.target = None;
         self.tabs.menu = None;
         let Some(index) = self.tabs.files.iter().position(|preview| preview.id == id) else {
             return Task::none();

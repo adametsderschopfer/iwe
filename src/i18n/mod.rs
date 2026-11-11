@@ -85,7 +85,6 @@ macro_rules! message_keys {
 }
 
 message_keys! {
-    DeploymentChooseTarget => "deployment-choose-target",
     DeploymentCompareLocal => "deployment-compare-local",
     DeploymentOpenLocal => "deployment-open-local",
     DeploymentOpenRemote => "deployment-open-remote",

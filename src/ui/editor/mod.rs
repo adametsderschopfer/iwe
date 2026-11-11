@@ -159,5 +159,5 @@ pub(crate) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         ]
         .spacing(8),
     );
-    crate::ui::modal::overlay(base, files.into(), 560.)
+    crate::ui::modal::overlay(base, files.into(), 560., Message::Editor(Event::Cancel))
 }

@@ -27,13 +27,15 @@ credential namespace. Views never perform network or filesystem operations. See
 [deployment](deployment.md) for behavior, limits, and verification.
 
 The settings window uses persistent left navigation and a separate scrollable section on the right.
-Deployment uses an independent secondary window for connections and space profiles. Each editor uses
-a server list, aligned fields, independent scrolling, and a persistent save footer. Profile tabs
+Deployment uses an independent secondary window for connections and space servers. The interface
+labels stored deployment profiles as servers without changing their data format. Each editor uses a
+server list, aligned fields, independent scrolling, and a persistent save footer. Profile tabs
 separate connection settings, mappings, and exclusions. Shared SSH keys open from the connections
 editor. Module-owned dialogs name new items, select server folders, edit SSH key references, and
-confirm discarded drafts. The host supplies the shared modal overlay. The key dialog preserves its
-parent connection draft and rejects obsolete file-picker responses. The settings window extends into
-the macOS titlebar, with an opaque header below native window controls.
+confirm discarded drafts. The host supplies the shared modal overlay and explicit Escape dismissal
+messages. The operation target chooser uses an editor-local context popup with keyboard selection.
+The key dialog preserves its parent connection draft and rejects obsolete file-picker responses. The
+settings window extends into the macOS titlebar, with an opaque header below native window controls.
 
 `app/repository_cache/` keeps the last successful initial Git snapshot for eight recent project
 directories. Snapshots include repository identities, history cursors, the selected branch, and

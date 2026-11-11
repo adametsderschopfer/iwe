@@ -932,3 +932,45 @@ fn cancelling_host_confirmation_replaces_the_test_result_without_retrying() {
     assert!(state.failed.is_none());
     assert!(!state.busy);
 }
+
+#[test]
+fn completed_activity_expires_but_transfers_and_open_details_remain_available() {
+    use std::time::{Duration, Instant};
+    let (mut state, mut settings, mut profiles, root) = transfer_context();
+    let _ = state.update(
+        Event::Run(Operation::Upload(root.join("file.txt"))),
+        &mut settings,
+        &mut profiles,
+        Some(&root),
+    );
+    let now = Instant::now();
+    state.expire_activity(now);
+    state.expire_activity(now + Duration::from_secs(6));
+    assert!(state.activity_visible && state.busy);
+    let _ = state.update(
+        Event::Finished(state.request, Ok(Output::Transferred)),
+        &mut settings,
+        &mut profiles,
+        Some(&root),
+    );
+    state.expire_activity(now);
+    state.expire_activity(now + Duration::from_secs(4));
+    assert!(state.activity_visible);
+    state.expire_activity(now + Duration::from_secs(5));
+    assert!(!state.activity_visible);
+    assert_eq!(state.status, Some(Key::DeploymentComplete));
+    state.activity_visible = true;
+    state.activity_expanded = true;
+    state.expire_activity(now + Duration::from_secs(10));
+    assert!(state.activity_visible);
+    let _ = state.update(
+        Event::ToggleActivity,
+        &mut settings,
+        &mut profiles,
+        Some(&root),
+    );
+    state.expire_activity(now + Duration::from_secs(12));
+    assert!(state.activity_visible);
+    state.expire_activity(now + Duration::from_secs(17));
+    assert!(!state.activity_visible);
+}

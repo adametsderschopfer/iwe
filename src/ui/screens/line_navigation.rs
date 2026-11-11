@@ -60,5 +60,5 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         ]
         .spacing(8),
     );
-    super::modal::overlay(base, content.into(), 420.)
+    super::modal::overlay(base, content.into(), 420., Message::GoToLine(Event::Cancel))
 }

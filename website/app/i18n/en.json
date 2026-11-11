@@ -31,7 +31,7 @@
     "altComparison": "IWE Code shows previous and current source files side by side with changed lines highlighted.",
     "altPipelines": "IWE Code pipeline list with the status of individual jobs.",
     "deployment": "Deployment",
-    "altDeployment": "IWE Code deployment settings with a Staging profile, a saved connection, and a server root folder."
+    "altDeployment": "IWE Code deployment settings with a Staging server, a saved connection, and a server root folder."
   },
   "features": {
     "title": "The tools you need.\nIn the same workspace.",

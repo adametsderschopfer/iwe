@@ -31,7 +31,7 @@
     "altComparison": "IWE Code muestra las versiones anterior y actual de un archivo en paralelo y resalta las líneas modificadas.",
     "altPipelines": "Lista de ejecuciones en IWE Code con el estado de cada tarea.",
     "deployment": "Despliegue",
-    "altDeployment": "Configuración de despliegue de IWE Code con perfil Staging, conexión guardada y carpeta raíz del servidor."
+    "altDeployment": "Configuración de despliegue de IWE Code con servidor Staging, conexión guardada y carpeta raíz del servidor."
   },
   "features": {
     "title": "Tus herramientas.\nEn un mismo espacio.",
@@ -64,7 +64,7 @@
       },
       {
         "title": "Configura cada despliegue",
-        "description": "Conecta por SFTP, FTP o FTPS. Asigna carpetas, excluye rutas y elige perfiles de despliegue para cada proyecto.",
+        "description": "Conecta por SFTP, FTP o FTPS. Asigna carpetas, excluye rutas y elige servidores de despliegue para cada proyecto.",
         "icon": "server"
       }
     ]

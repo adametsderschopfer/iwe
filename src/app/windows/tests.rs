@@ -369,3 +369,61 @@ fn deployment_window_is_separate_reused_and_closes_independently() {
     let _ = app.update(Message::Window(Event::Closed(deployment)));
     assert!(app.windows.deployment.is_none());
 }
+
+#[test]
+fn escape_in_secondary_window_closes_only_the_top_dialog() {
+    use iced::keyboard::{self, key::Named};
+    for nested in [false, true] {
+        let mut app = App::new(Rc::new(I18n::new(Language::English)));
+        let _ = app.open_deployment_settings();
+        let id = app.windows.deployment.unwrap();
+        app.modules.deployment.key_dialog = nested;
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings::default(),
+            (1120., 760.),
+            app.view_window(id),
+        );
+        ui.simulate([iced::Event::Keyboard(keyboard::Event::KeyPressed {
+            key: keyboard::Key::Named(Named::Escape),
+            modified_key: keyboard::Key::Named(Named::Escape),
+            physical_key: keyboard::key::Physical::Code(keyboard::key::Code::Escape),
+            location: keyboard::Location::Standard,
+            modifiers: keyboard::Modifiers::NONE,
+            repeat: false,
+            text: None,
+        })]);
+        let events: Vec<_> = ui.into_messages().collect();
+        assert_eq!(events.len(), 1);
+        if nested {
+            assert!(matches!(
+                events[0],
+                Message::Module(crate::app::modules::Event::Deployment(
+                    crate::modules::deployment::Event::CloseDialog
+                ))
+            ));
+            for event in events {
+                let _ = app.update(event);
+            }
+            assert!(!app.modules.deployment.key_dialog);
+            // The captured keyboard subscription must not close the parent after dismissal.
+            let _ = app.update_shortcuts(crate::app::shortcuts::Event::Key(
+                id,
+                keyboard::Event::KeyPressed {
+                    key: keyboard::Key::Named(Named::Escape),
+                    modified_key: keyboard::Key::Named(Named::Escape),
+                    physical_key: keyboard::key::Physical::Code(keyboard::key::Code::Escape),
+                    location: keyboard::Location::Standard,
+                    modifiers: keyboard::Modifiers::NONE,
+                    repeat: false,
+                    text: None,
+                },
+                iced::event::Status::Captured,
+            ));
+            assert_eq!(app.windows.deployment, Some(id));
+        } else {
+            assert!(
+                matches!(&events[0], Message::WindowShortcut(window, message) if *window == id && matches!(**message, Message::DismissDialog))
+            );
+        }
+    }
+}

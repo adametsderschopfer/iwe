@@ -124,17 +124,6 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
     );
     #[cfg(target_os = "windows")]
     let base = crate::ui::window_chrome::overlay(app, base);
-    let base = if let Some(dialog) =
-        crate::modules::deployment::target_dialog(&app.modules.deployment, &app.i18n)
-    {
-        super::modal::overlay(
-            base,
-            dialog.map(crate::app::modules::deployment_message),
-            520.,
-        )
-    } else {
-        base
-    };
     crate::ui::editor::overlay(app, base)
 }
 
@@ -220,24 +209,26 @@ fn footer(app: &App) -> Element<'_, Message> {
         .or(app.workspace.directory())
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| app.i18n.text(Key::LocalWorkspace));
-    let mut content = row![tooltip::view(
-        container(
-            button(
-                text(short_path(&path, 100))
-                    .size(12)
-                    .style(theme::FAINT.text())
-                    .wrapping(text::Wrapping::None)
+    let mut content = row![
+        container(tooltip::view(
+            container(
+                button(
+                    text(short_path(&path, 100))
+                        .size(12)
+                        .style(theme::FAINT.text())
+                        .wrapping(text::Wrapping::None)
+                )
+                .on_press(Message::CopyPath)
+                .padding([4, 8])
+                .style(theme::action(false))
             )
-            .on_press(Message::CopyPath)
-            .padding([4, 8])
-            .width(Length::Fill)
-            .style(theme::action(false))
-        )
-        .id("footer-path")
-        .width(Length::Fill),
-        text(format!("{}\n{}", path, app.i18n.text(Key::CopyPath))).size(12),
-        tooltip::Position::Top
-    ),]
+            .id("footer-path")
+            .clip(true),
+            text(format!("{}\n{}", path, app.i18n.text(Key::CopyPath))).size(12),
+            tooltip::Position::Top
+        ))
+        .width(Length::Fill)
+    ]
     .spacing(16);
     if let Some(activity) = git::activity(app) {
         content = content.push(activity);
@@ -1152,16 +1143,15 @@ fn file_tabs(app: &App) -> Element<'_, Message> {
 }
 
 fn file_tabs_bar(app: &App, available_width: f32) -> Element<'_, Message> {
-    let ready = app.preview().error.is_none()
-        && !app.preview().loading
-        && app.file_panel == crate::domain::workspace::FilePanel::Changes;
+    let ready =
+        app.preview().error.is_none() && !app.preview().loading && app.preview().editor.is_none();
     let comparison = ready
         && app
             .preview()
             .document
             .as_ref()
             .is_some_and(|document| document.comparison.is_some());
-    let folding = ready
+    let folding = comparison
         && app
             .preview()
             .document
@@ -1722,24 +1712,36 @@ fn preview(app: &App) -> Element<'_, Message> {
                 .padding([6, 12])
                 .width(Length::Fill)
         };
-        row![
-            column![
-                heading(Key::DeploymentRemote),
-                divider(),
-                container(text(app.i18n.text(key)).size(13)).center(Length::Fill)
-            ]
-            .width(Length::FillPortion(1))
-            .height(Length::Fill),
-            vertical_divider(),
-            column![heading(Key::DeploymentLocal), divider(), content]
-                .width(Length::FillPortion(1))
+        if app.workspace.preferences.diff_view == DiffView::Unified {
+            column![heading(key), divider(), content]
                 .height(Length::Fill)
-        ]
-        .height(Length::Fill)
-        .into()
+                .into()
+        } else {
+            row![
+                column![
+                    heading(Key::DeploymentRemote),
+                    divider(),
+                    container(text(app.i18n.text(key)).size(13)).center(Length::Fill)
+                ]
+                .width(Length::FillPortion(1))
+                .height(Length::Fill),
+                vertical_divider(),
+                column![heading(Key::DeploymentLocal), divider(), content]
+                    .width(Length::FillPortion(1))
+                    .height(Length::Fill)
+            ]
+            .height(Length::Fill)
+            .into()
+        }
     } else {
         content
     };
+    let content = crate::modules::deployment::target_popup(
+        &app.modules.deployment,
+        &app.i18n,
+        content,
+        crate::app::modules::deployment_message,
+    );
     if has_tabs {
         let progress = if app.preview().loading {
             match app.preview().preparation {

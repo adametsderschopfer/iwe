@@ -138,7 +138,12 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
             .id("clone-submit"),
         );
     }
-    modal::overlay(base, content.push(actions).into(), 600.)
+    modal::overlay(
+        base,
+        content.push(actions).into(),
+        600.,
+        Message::ProjectAdd(Event::Cancel),
+    )
 }
 
 fn error_key(error: crate::app::project_add::Error) -> Key {

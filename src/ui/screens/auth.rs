@@ -141,5 +141,10 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         );
     }
     content = content.push(space().height(4)).push(actions);
-    super::modal::overlay(base, content.into(), 520.)
+    super::modal::overlay(
+        base,
+        content.into(),
+        520.,
+        Message::Auth(AuthMessage::Cancel),
+    )
 }

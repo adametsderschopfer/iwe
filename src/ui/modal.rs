@@ -4,10 +4,11 @@ use iced::{
     widget::{container, opaque, stack},
 };
 
-pub(crate) fn overlay<'a, Message: 'a>(
+pub(crate) fn overlay<'a, Message: Clone + 'a>(
     base: Element<'a, Message>,
     content: Element<'a, Message>,
     width: f32,
+    dismiss: Message,
 ) -> Element<'a, Message> {
     let dialog = container(content)
         .width(width)
@@ -20,5 +21,5 @@ pub(crate) fn overlay<'a, Message: 'a>(
             background: Some(iced::Color::from_rgba(0., 0., 0., 0.5).into()),
             ..Default::default()
         });
-    stack![base, opaque(backdrop)].into()
+    super::context_menu::dismiss_on_escape(stack![base, opaque(backdrop)], dismiss)
 }

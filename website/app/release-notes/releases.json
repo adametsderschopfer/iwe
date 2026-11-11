@@ -1191,6 +1191,89 @@
     ]
   },
   {
+    "version": "1.0.4",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": [
+      {
+        "id": "inline-server-target-selector",
+        "category": "changed",
+        "text": {
+          "en": "Choose deployment servers in a compact file popup. Arrow keys select, Enter confirms, and Escape closes it.",
+          "ru": "Выбирайте сервер в компактном меню внутри файла. Стрелки меняют выбор, Enter подтверждает, Escape закрывает меню.",
+          "es": "Elige servidores en un menú compacto dentro del archivo. Las flechas seleccionan, Enter confirma y Escape cierra."
+        },
+        "sources": ["src/modules/deployment/view/mod.rs", "src/modules/deployment/state/mod.rs"]
+      },
+      {
+        "id": "deployment-server-terminology",
+        "category": "changed",
+        "text": {
+          "en": "Deployment profiles now appear as Servers. Existing connections, mappings, and saved configuration remain compatible.",
+          "ru": "Профили деплоймента теперь называются серверами. Существующие подключения, маппинги и сохранённые настройки совместимы.",
+          "es": "Los perfiles de despliegue ahora se llaman Servidores. Las conexiones, asignaciones y configuraciones guardadas siguen siendo compatibles."
+        },
+        "sources": [
+          "src/modules/deployment/locales/en.ftl",
+          "src/modules/deployment/locales/ru.ftl",
+          "src/modules/deployment/locales/es.ftl"
+        ]
+      },
+      {
+        "id": "escape-popup-dismissal",
+        "category": "fixed",
+        "text": {
+          "en": "Escape closes dialogs and context menus even with a focused text field. Nested dialogs close before their parent window.",
+          "ru": "Escape закрывает диалоги и контекстные меню, даже когда поле ввода активно. Вложенные диалоги закрываются раньше родительского окна.",
+          "es": "Escape cierra diálogos y menús contextuales incluso con un campo de texto activo. Los diálogos anidados se cierran primero."
+        },
+        "sources": ["src/ui/modal.rs", "src/ui/context_menu/mod.rs", "src/ui/screens/settings.rs"]
+      },
+      {
+        "id": "stable-server-comparison-controls",
+        "category": "fixed",
+        "text": {
+          "en": "Server comparisons keep the selected layout while loading. Comparison tabs provide layout and folding controls outside uncommitted files.",
+          "ru": "Сравнение с сервером сохраняет выбранный вид во время загрузки. Кнопки вида и сворачивания доступны независимо от раздела файлов.",
+          "es": "Las comparaciones con servidores conservan el diseño durante la carga. Sus controles de diseño y plegado funcionan en cualquier sección."
+        },
+        "sources": ["src/ui/screens/workspace.rs", "src/app/tabs/tests.rs"]
+      },
+      {
+        "id": "temporary-transfer-results",
+        "category": "changed",
+        "text": {
+          "en": "Completed deployment statuses disappear after five seconds. Active transfers and expanded details remain visible.",
+          "ru": "Завершённые статусы деплоймента исчезают через пять секунд. Активные операции и раскрытые подробности остаются видимыми.",
+          "es": "Los estados de despliegue completados desaparecen tras cinco segundos. Las transferencias activas y los detalles abiertos permanecen visibles."
+        },
+        "sources": ["src/modules/deployment/state/mod.rs"]
+      },
+      {
+        "id": "footer-copy-highlight",
+        "category": "fixed",
+        "text": {
+          "en": "The path-copy highlight fits the displayed path instead of filling the footer.",
+          "ru": "Подсветка копирования пути соответствует ширине текста, а не всей нижней панели.",
+          "es": "El resaltado para copiar rutas ocupa solo el ancho del texto, sin llenar la barra inferior."
+        },
+        "sources": ["src/ui/screens/workspace.rs"]
+      },
+      {
+        "id": "scrolled-project-selection",
+        "category": "fixed",
+        "text": {
+          "en": "Clicking projects after scrolling no longer starts dragging after tiny pointer movements. Space dragging stays restricted to space headers.",
+          "ru": "После прокрутки клик по проекту больше не запускает перетаскивание от небольшого движения мыши. Пространства перетаскиваются только за заголовки.",
+          "es": "Tras desplazar la lista, pequeños movimientos del puntero ya no arrastran los proyectos. Los espacios se arrastran desde sus encabezados."
+        },
+        "sources": ["src/ui/reorder/mod.rs", "src/ui/reorder/tests.rs"]
+      }
+    ]
+  },
+  {
     "version": "unreleased",
     "status": "prepared",
     "publishedAt": null,

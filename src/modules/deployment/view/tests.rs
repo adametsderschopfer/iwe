@@ -515,10 +515,16 @@ fn target_picker_selects_profiles_and_cancels_in_all_languages() {
         let mut ui = iced_test::Simulator::with_size(
             iced::Settings::default(),
             (520., 500.),
-            target_dialog(&state, &i18n).unwrap(),
+            target_popup(
+                &state,
+                &i18n,
+                iced::widget::space().into(),
+                std::convert::identity,
+            ),
         );
         ui.click("Production").unwrap();
-        ui.click(i18n.text(Key::DeploymentCancel)).unwrap();
+        assert!(ui.find(i18n.text(Key::DeploymentCancel)).is_err());
+        ui.simulate([popup_key(iced::keyboard::key::Named::Escape)]);
         let events: Vec<_> = ui.into_messages().collect();
         assert!(
             events
@@ -577,4 +583,66 @@ fn connection_test_status_does_not_leak_to_another_connection_or_transfer() {
         ui.find(iced::widget::Id::new("deployment-test-status"))
             .is_err()
     );
+}
+
+fn popup_key(key: iced::keyboard::key::Named) -> IcedEvent {
+    use iced::keyboard;
+    IcedEvent::Keyboard(keyboard::Event::KeyPressed {
+        key: keyboard::Key::Named(key),
+        modified_key: keyboard::Key::Named(key),
+        physical_key: keyboard::key::Physical::Unidentified(
+            keyboard::key::NativeCode::Unidentified,
+        ),
+        location: keyboard::Location::Standard,
+        modifiers: keyboard::Modifiers::NONE,
+        repeat: false,
+        text: None,
+    })
+}
+
+#[test]
+fn target_popup_uses_first_server_and_keyboard_navigation_without_editing_the_file() {
+    use iced::keyboard::key::Named;
+    let i18n = I18n::new(Language::English);
+    let mut state = State::default();
+    let mut settings = Connections::default();
+    let mut profiles = vec![];
+    state.target = Some((
+        Operation::Compare("file.txt".into()),
+        vec![
+            ("dev".into(), "Development".into()),
+            ("prod".into(), "Production".into()),
+        ],
+    ));
+    for (key, selected) in [
+        (Named::Enter, "dev"),
+        (Named::ArrowDown, "prod"),
+        (Named::ArrowUp, "dev"),
+        (Named::ArrowUp, "prod"),
+    ] {
+        let mut ui = iced_test::Simulator::with_size(
+            iced::Settings::default(),
+            (520., 400.),
+            target_popup(
+                &state,
+                &i18n,
+                button("Background").on_press(Event::Refresh).into(),
+                std::convert::identity,
+            ),
+        );
+        ui.simulate([popup_key(key)]);
+        let events: Vec<_> = ui.into_messages().collect();
+        if key == Named::Enter {
+            assert!(matches!(events.as_slice(), [Event::ChooseTarget(id)] if id == selected));
+        } else {
+            assert!(matches!(events.as_slice(), [Event::MoveTarget(_)]));
+            for event in events {
+                let _ = state.update(event, &mut settings, &mut profiles, None);
+            }
+            assert_eq!(
+                state.target.as_ref().unwrap().1[state.target_selection].0,
+                selected
+            );
+        }
+    }
 }

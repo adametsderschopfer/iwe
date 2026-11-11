@@ -209,5 +209,10 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
         actions,
     ]
     .spacing(14);
-    modal::overlay(base, content.into(), 560.)
+    modal::overlay(
+        base,
+        content.into(),
+        560.,
+        Message::Space(spaces::Message::Cancel),
+    )
 }

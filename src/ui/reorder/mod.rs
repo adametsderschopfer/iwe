@@ -180,9 +180,12 @@ impl<Message> Widget<Message, Theme, Renderer> for Reorder<'_, Message> {
                     return;
                 }
             }
-            Event::Mouse(mouse::Event::CursorMoved { position }) => {
-                if let Some(drag) = &mut state.drag {
-                    drag.active |= drag.origin.distance(*position) > 6.;
+            Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                if let Some(drag) = &mut state.drag
+                    && let Some(position) = cursor.position()
+                {
+                    // Scroll containers translate the cursor, but retain window coordinates in events.
+                    drag.active |= drag.origin.distance(position) > 6.;
                     if drag.active {
                         shell.request_redraw();
                     }

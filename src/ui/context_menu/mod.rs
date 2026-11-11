@@ -6,6 +6,7 @@ use iced::{
         Clipboard, Layout, Shell, Widget, layout, mouse, overlay, renderer,
         widget::{Operation, Tree},
     },
+    keyboard,
     widget::{container, mouse_area, opaque, responsive, stack},
 };
 
@@ -15,7 +16,8 @@ pub(crate) fn trigger<'a, Message: 'a>(
 ) -> Element<'a, Message> {
     Element::new(Trigger {
         content: content.into(),
-        on_open: Box::new(on_open),
+        on_open: Some(Box::new(on_open)),
+        on_key: None,
         anchored: false,
     })
 }
@@ -26,14 +28,47 @@ pub(crate) fn anchored<'a, Message: 'a>(
 ) -> Element<'a, Message> {
     Element::new(Trigger {
         content: content.into(),
-        on_open: Box::new(on_open),
+        on_open: Some(Box::new(on_open)),
+        on_key: None,
         anchored: true,
+    })
+}
+
+type KeyHandler<'a, Message> = Box<dyn Fn(&keyboard::Event) -> Option<Message> + 'a>;
+
+/// Handle popup keys before focused content can consume them.
+pub(crate) fn on_key<'a, Message: 'a>(
+    content: impl Into<Element<'a, Message>>,
+    handler: impl Fn(&keyboard::Event) -> Option<Message> + 'a,
+) -> Element<'a, Message> {
+    Element::new(Trigger {
+        content: content.into(),
+        on_open: None,
+        on_key: Some(Box::new(handler)),
+        anchored: false,
+    })
+}
+
+pub(crate) fn dismiss_on_escape<'a, Message: Clone + 'a>(
+    content: impl Into<Element<'a, Message>>,
+    dismiss: Message,
+) -> Element<'a, Message> {
+    on_key(content, move |event| {
+        matches!(
+            event,
+            keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(keyboard::key::Named::Escape),
+                ..
+            }
+        )
+        .then(|| dismiss.clone())
     })
 }
 
 struct Trigger<'a, Message> {
     content: Element<'a, Message>,
-    on_open: Box<dyn Fn(Point) -> Message + 'a>,
+    on_open: Option<Box<dyn Fn(Point) -> Message + 'a>>,
+    on_key: Option<KeyHandler<'a, Message>>,
     anchored: bool,
 }
 
@@ -79,12 +114,20 @@ impl<Message> Widget<Message, Theme, Renderer> for Trigger<'_, Message> {
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
+        if let Event::Keyboard(event) = event
+            && let Some(message) = self.on_key.as_ref().and_then(|handler| handler(event))
+        {
+            shell.publish(message);
+            shell.capture_event();
+            return;
+        }
         let button = if self.anchored {
             mouse::Button::Left
         } else {
             mouse::Button::Right
         };
         if matches!(event, Event::Mouse(mouse::Event::ButtonPressed(pressed)) if *pressed == button)
+            && let Some(on_open) = &self.on_open
             && let Some(position) = cursor
                 .position()
                 .filter(|point| layout.bounds().contains(*point) && viewport.contains(*point))
@@ -95,7 +138,7 @@ impl<Message> Widget<Message, Theme, Renderer> for Trigger<'_, Message> {
             } else {
                 position
             };
-            shell.publish((self.on_open)(position));
+            shell.publish(on_open(position));
             shell.capture_event();
             return;
         }
@@ -192,13 +235,16 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
         .height(Length::Fill)
         .into()
     });
-    stack![
+    let content = stack![
         base,
         opaque(
             mouse_area(popup)
                 .on_press(dismiss.clone())
-                .on_right_press(dismiss)
+                .on_right_press(dismiss.clone())
         )
-    ]
-    .into()
+    ];
+    dismiss_on_escape(content, dismiss)
 }
+
+#[cfg(test)]
+mod tests;

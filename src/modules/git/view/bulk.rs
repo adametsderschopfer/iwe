@@ -192,5 +192,5 @@ pub(crate) fn overlay<'a>(app: View<'a>, base: Element<'a, Message>) -> Element<
         .spacing(8)
         .align_y(Alignment::Center),
     );
-    crate::ui::modal::overlay(base, content.into(), 620.)
+    crate::ui::modal::overlay(base, content.into(), 620., Message::Git(GitMessage::Close))
 }

@@ -53,13 +53,10 @@ impl App {
         match event {
             Event::Finished(request, generation, outcomes)
                 if self.modules.git.git_actions.pending
-                    && request == self.modules.git.git_actions.request
-                    && self.modules.git.git_actions.bulk.dialog.is_some() =>
+                    && request == self.modules.git.git_actions.request =>
             {
                 self.modules.git.git_actions.pending = false;
-                let Some(mut dialog) = self.modules.git.git_actions.bulk.dialog.take() else {
-                    return Task::none();
-                };
+                let dialog = self.modules.git.git_actions.bulk.dialog.take();
                 if generation != self.generation {
                     return Task::none();
                 }
@@ -83,8 +80,10 @@ impl App {
                     self.notifications.success(Key::GitBulkDone, summary);
                 } else {
                     self.notifications.error(Key::GitBulkFailed, summary);
-                    dialog.targets = failures;
-                    self.modules.git.git_actions.bulk.dialog = Some(dialog);
+                    if let Some(mut dialog) = dialog {
+                        dialog.targets = failures;
+                        self.modules.git.git_actions.bulk.dialog = Some(dialog);
+                    }
                 }
                 return self.load_directory();
             }

@@ -590,3 +590,39 @@ fn branch_context_actions_and_translated_dialogs_fit_and_block_background_clicks
         }
     }
 }
+
+#[test]
+fn closing_a_running_git_dialog_keeps_completion_and_error_notifications() {
+    let mut app = app();
+    let _ = app.update_git(Message::Choose(
+        Action::Create,
+        branch_key("refs/heads/main"),
+    ));
+    let _ = app.update_git(Message::Name("topic".into()));
+    let _ = app.update_git(Message::Submit);
+    let request = app.modules.git.git_actions.request;
+    let _ = app.update_git(Message::Close);
+    assert!(app.modules.git.git_actions.pending);
+    assert!(!app.modules.git.git_actions.has_dialog());
+    let _ = app.update_git(Message::Finished(
+        request,
+        PathBuf::from("/test"),
+        Err(Error::Dirty),
+    ));
+    assert!(!app.modules.git.git_actions.pending);
+    assert!(!app.modules.git.git_actions.has_dialog());
+    assert_eq!(app.notifications.items.len(), 1);
+}
+
+#[test]
+fn closed_bulk_dialog_still_finishes_without_restoring_its_window() {
+    use crate::modules::git::actions::bulk::Event;
+    let mut app = app();
+    app.modules.git.git_actions.pending = true;
+    app.modules.git.git_actions.request = 5;
+    let _ = app.update_git(Message::Close);
+    let _ = app.update_git(Message::Bulk(Event::Finished(5, app.generation, vec![])));
+    assert!(!app.modules.git.git_actions.pending);
+    assert!(!app.modules.git.git_actions.has_dialog());
+    assert_eq!(app.notifications.items.len(), 1);
+}

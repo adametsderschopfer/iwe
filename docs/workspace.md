@@ -558,8 +558,9 @@ space. An empty **Projects** menu shows a disabled **No projects yet** item. Cho
 brings the workspace window forward. The menu follows language and workspace changes. Modal dialogs
 disable workspace navigation in the menu. Windows and Linux retain their existing sidebar controls.
 
-Escape closes the focused settings or deployment window. If a nested dialog is open, Escape
-dismisses that dialog first. While recording a shortcut, Escape cancels recording.
+Escape dismisses dialogs and context menus, including forms with focused text fields. Escape closes
+the focused settings or deployment window. If a nested dialog is open, Escape dismisses that dialog
+first. While recording a shortcut, Escape cancels recording.
 
 Preferences and projects are saved automatically in the system configuration directory. Writes
 replace the previous configuration atomically. A damaged configuration is preserved without
@@ -631,7 +632,8 @@ tooltip. Errors also appear in notifications. Failed saves stop automatic retrie
 further edits.
 
 Project files open without Git comparison preparation. The uncommitted-files section opens separate
-comparison tabs for the same paths. Comparison controls appear only in that section. Git revisions,
+comparison tabs for the same paths. Comparison controls appear in comparison tabs, including
+explicit server comparisons. Ordinary file tabs have no comparison controls. Git revisions,
 comparison snapshots, and paged files retain the source viewer.
 
 Closing edited tabs, switching projects, disabling modules, installing updates, and closing the
@@ -641,3 +643,7 @@ temporary file beside the destination and preserve file permissions. The editor 
 before replacement and refuses conflicting external edits. Symbolic link files must be opened
 through their original path before saving. Buffers and bounded undo history remain in memory; crash
 recovery is not provided.
+
+Project clicks remain active after scrolling the sidebar. Small pointer movements do not start
+reordering. Only space headers start space reordering. The path-copy highlight fits the displayed
+path in the footer.

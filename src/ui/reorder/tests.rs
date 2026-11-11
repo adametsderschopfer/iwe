@@ -121,3 +121,55 @@ fn dragging_at_the_visible_edge_requests_scrolling() {
             .any(|message| matches!(message, Message::Scroll(offset) if offset > 0.))
     );
 }
+
+#[test]
+fn scrolled_rows_keep_small_pointer_movements_as_clicks() {
+    for grouped in [false, true] {
+        let content = if grouped {
+            let groups = Column::with_children((0..4).map(|group| {
+                Column::new()
+                    .push(
+                        button(text(format!("Space {group}")))
+                            .height(38)
+                            .width(Length::Fill)
+                            .on_press(Message::Action(group)),
+                    )
+                    .push(column(
+                        Column::with_children((0..4).map(|index| {
+                            button(text(format!("Project {}", group * 4 + index)))
+                                .height(40)
+                                .width(Length::Fill)
+                                .on_press(Message::Click(group * 4 + index))
+                                .into()
+                        })),
+                        0.,
+                        Message::Move,
+                        Message::Scroll,
+                    ))
+                    .into()
+            }));
+            scrollable(super::groups(groups, 38., Message::Move, Message::Scroll))
+                .width(240)
+                .height(188)
+                .into()
+        } else {
+            view()
+        };
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), (280., 240.), content);
+        ui.point_at(Point::new(100., 90.));
+        ui.simulate([Event::Mouse(mouse::Event::WheelScrolled {
+            delta: mouse::ScrollDelta::Pixels { x: 0., y: -1000. },
+        })]);
+        let label = if grouped { "Project 15" } else { "7" };
+        let center = ui.find(label).unwrap().visible_bounds().unwrap().center();
+        drag(&mut ui, center, Point::new(center.x + 1., center.y + 1.));
+        ui.simulate([Event::Mouse(mouse::Event::ButtonReleased(
+            mouse::Button::Left,
+        ))]);
+        assert_eq!(
+            ui.into_messages().collect::<Vec<_>>(),
+            [Message::Click(if grouped { 15 } else { 7 })]
+        );
+    }
+}

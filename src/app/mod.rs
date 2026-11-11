@@ -761,6 +761,14 @@ impl App {
                         crate::modules::deployment::Event::CloseDialog,
                     ));
                 }
+                if self.modules.deployment.menu.take().is_some() {
+                    return Task::none();
+                }
+                if self.modules.deployment.activity_expanded {
+                    return self.update_module(modules::Event::Deployment(
+                        crate::modules::deployment::Event::DismissActivity,
+                    ));
+                }
                 if self.repository_menu.take().is_some() {
                     return Task::none();
                 }

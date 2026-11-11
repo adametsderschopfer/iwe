@@ -64,7 +64,7 @@ impl App {
                     }
                 }
             }
-            Message::Close if !self.modules.git.git_actions.pending => {
+            Message::Close => {
                 self.modules.git.branch_selection.selected.clear();
                 self.modules.git.git_actions.menu = None;
                 self.modules.git.git_actions.dialog = None;

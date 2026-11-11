@@ -387,33 +387,91 @@ pub(crate) fn overlay<'a, Message: Clone + 'a>(
     )
 }
 
-pub(crate) fn target_dialog<'a>(state: &'a State, i18n: &'a I18n) -> Option<Element<'a, Event>> {
-    let (operation, choices) = state.target.as_ref()?;
+pub(crate) fn target_popup<'a, Message: Clone + 'a>(
+    state: &'a State,
+    i18n: &'a I18n,
+    base: Element<'a, Message>,
+    map: impl Fn(Event) -> Message + Copy + 'a,
+) -> Element<'a, Message> {
+    let Some((operation, choices)) = &state.target else {
+        return base;
+    };
     let title = if matches!(operation, Operation::Compare(_)) {
         Key::DeploymentCompare
     } else {
         Key::DeploymentUpload
     };
-    let mut targets = column![].spacing(4);
-    for (id, name) in choices {
-        targets = targets.push(
-            button(text(name).size(14))
-                .width(Length::Fill)
-                .padding(10)
-                .style(theme::action(false))
-                .on_press(Event::ChooseTarget(id.clone())),
-        );
-    }
-    Some(
-        column![
-            text(i18n.text(title)).size(19),
-            text(i18n.text(Key::DeploymentChooseTarget)).size(13),
-            container(scrollable(targets).style(theme::scroll)).max_height(320),
-            action(i18n, Key::DeploymentCancel, Event::CloseDialog)
-        ]
-        .spacing(12)
-        .into(),
-    )
+    let popup = context_menu::overlay(
+        container(base)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into(),
+        iced::Point::new(16., 12.),
+        iced::Size::new(360., 56. + (choices.len() as f32 * 36.).min(288.)),
+        move || {
+            let targets = column(choices.iter().enumerate().map(|(index, (id, name))| {
+                container(
+                    button(
+                        row![
+                            icon(Icon::Server, theme::MUTED),
+                            crate::ui::ellipsis::text(name, 14.)
+                        ]
+                        .spacing(8)
+                        .align_y(Alignment::Center),
+                    )
+                    .width(Length::Fill)
+                    .height(36)
+                    .padding([8, 10])
+                    .style(move |theme, status| {
+                        if index == state.target_selection {
+                            style::primary(theme, status)
+                        } else {
+                            theme::action(false)(theme, status)
+                        }
+                    })
+                    .on_press(Event::ChooseTarget(id.clone())),
+                )
+                .id(format!("deployment-target-{index}"))
+                .into()
+            }));
+            Element::from(
+                column![
+                    text(i18n.text(title)).size(14).font(theme::semibold()),
+                    container(
+                        scrollable(targets)
+                            .id("deployment-targets")
+                            .style(theme::scroll)
+                    )
+                    .max_height(288),
+                ]
+                .spacing(8),
+            )
+            .map(map)
+        },
+        map(Event::CloseDialog),
+    );
+    context_menu::on_key(popup, move |event| {
+        use iced::keyboard::{Event as KeyEvent, Key, key::Named};
+        let event = match event {
+            KeyEvent::KeyPressed {
+                key: Key::Named(Named::ArrowDown),
+                ..
+            } => Some(Event::MoveTarget(true)),
+            KeyEvent::KeyPressed {
+                key: Key::Named(Named::ArrowUp),
+                ..
+            } => Some(Event::MoveTarget(false)),
+            KeyEvent::KeyPressed {
+                key: Key::Named(Named::Enter),
+                repeat: false,
+                ..
+            } => choices
+                .get(state.target_selection)
+                .map(|(id, _)| Event::ChooseTarget(id.clone())),
+            _ => None,
+        };
+        event.map(map)
+    })
 }
 
 #[cfg(test)]

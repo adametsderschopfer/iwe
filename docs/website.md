@@ -76,7 +76,7 @@ providers, or authenticate accounts. Respect explicit user restrictions on compi
 tests before invoking it.
 
 The captures show the editable workspace, Git history, comparison, pipelines, and deployment
-settings. Deployment settings use a fictional Staging profile and an invalid example hostname. The
+settings. Deployment settings use a fictional Staging server and an invalid example hostname. The
 gallery preserves each complete screenshot at every viewport width. Its buttons scroll horizontally
 on small screens.
 

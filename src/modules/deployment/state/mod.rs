@@ -115,6 +115,7 @@ pub(crate) enum Event {
     Run(Operation),
     RunOnProfile(String, Operation),
     ChooseTarget(String),
+    MoveTarget(bool),
     RemoteCompare(String),
     RemoteUpload(String),
     OpenLocal(String),
@@ -152,8 +153,10 @@ pub(crate) enum Effect {
 pub(crate) struct State {
     pub open: bool,
     pub target: Option<(Operation, Vec<(String, String)>)>,
+    pub target_selection: usize,
     pub activity_visible: bool,
     pub activity_expanded: bool,
+    activity_deadline: Option<std::time::Instant>,
     pub operation_label: Option<Key>,
     pub test_connection: Option<Connection>,
     pub test_result: Option<Result<(), Error>>,
@@ -298,6 +301,7 @@ impl State {
         self.context = context;
         self.activity_visible = false;
         self.activity_expanded = false;
+        self.activity_deadline = None;
         self.busy = false;
         self.current = None;
         self.failed = None;
@@ -338,7 +342,7 @@ impl State {
     }
 
     pub(crate) fn subscription(&self) -> Subscription<Event> {
-        if self.busy {
+        if self.busy || self.activity_visible {
             iced::time::every(std::time::Duration::from_millis(150)).map(|_| Event::Tick)
         } else {
             Subscription::none()
@@ -357,6 +361,7 @@ impl State {
         self.request += 1;
         let id = self.request;
         self.busy = true;
+        self.activity_deadline = None;
         self.error = None;
         self.status = None;
         self.test_result = None;
@@ -599,7 +604,11 @@ impl State {
                 }
                 self.error = Some(Error::Configuration);
             }
-            Event::ToggleActivity => self.activity_expanded = !self.activity_expanded,
+            Event::ToggleActivity => {
+                self.activity_expanded = !self.activity_expanded;
+                self.activity_deadline = None;
+            }
+            Event::Tick => self.expire_activity(std::time::Instant::now()),
             Event::DismissActivity => {
                 self.activity_expanded = false;
                 if !self.busy {
@@ -762,6 +771,10 @@ impl State {
                         self.secret = Secret::default();
                         self.secret_changed = false;
                         self.status = Some(Key::DeploymentSaved);
+                        if !self.busy {
+                            self.activity_expanded = false;
+                            self.activity_deadline = None;
+                        }
                         self.error = None;
                         effect = Effect::Save;
                     }
@@ -995,6 +1008,10 @@ impl State {
                             profiles.push(profile.clone());
                             self.profile = Some(profile);
                             self.status = Some(Key::DeploymentSaved);
+                            if !self.busy {
+                                self.activity_expanded = false;
+                                self.activity_deadline = None;
+                            }
                             self.error = None;
                             self.browsing = false;
                             self.tree.clear();
@@ -1247,6 +1264,27 @@ impl State {
                     );
                 }
             }
+            Event::MoveTarget(next) => {
+                if let Some((_, choices)) = &self.target
+                    && !choices.is_empty()
+                {
+                    self.target_selection = if next {
+                        (self.target_selection + 1) % choices.len()
+                    } else {
+                        (self.target_selection + choices.len() - 1) % choices.len()
+                    };
+                    return (
+                        iced::widget::operation::scroll_to(
+                            "deployment-targets",
+                            iced::widget::scrollable::AbsoluteOffset {
+                                x: 0.,
+                                y: self.target_selection.saturating_sub(4) as f32 * 36.,
+                            },
+                        ),
+                        Effect::None,
+                    );
+                }
+            }
             Event::Run(operation) => {
                 self.menu = None;
                 if matches!(operation, Operation::Upload(_) | Operation::Compare(_)) {
@@ -1270,6 +1308,7 @@ impl State {
                         return (Task::none(), Effect::Settings);
                     }
                     self.target = Some((operation, choices));
+                    self.target_selection = 0;
                     return (Task::none(), Effect::None);
                 }
                 return self
@@ -1387,6 +1426,20 @@ impl State {
             _ => {}
         }
         (Task::none(), effect)
+    }
+
+    fn expire_activity(&mut self, now: std::time::Instant) {
+        if self.busy || self.activity_expanded || !self.activity_visible {
+            self.activity_deadline = None;
+            return;
+        }
+        let deadline = self
+            .activity_deadline
+            .get_or_insert(now + std::time::Duration::from_secs(5));
+        if now >= *deadline {
+            self.activity_visible = false;
+            self.activity_deadline = None;
+        }
     }
 }
 

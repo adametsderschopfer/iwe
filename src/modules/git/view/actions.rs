@@ -183,7 +183,7 @@ pub(crate) fn overlay<'a>(app: View<'a>, base: Element<'a, Message>) -> Element<
         .spacing(8)
         .align_y(Alignment::Center),
     );
-    crate::ui::modal::overlay(base, content.into(), 560.)
+    crate::ui::modal::overlay(base, content.into(), 560., Message::Git(GitMessage::Close))
 }
 
 fn action_key(action: Action) -> Key {

@@ -810,7 +810,15 @@ async fn footer_copies_the_complete_active_file_path_and_falls_back_to_project()
     loaded(&mut app, id, "source");
     let mut ui =
         iced_test::Simulator::with_size(iced::Settings::default(), (1080., 720.), app.view());
-    ui.click(iced::widget::Id::new("footer-path")).unwrap();
+    let bounds = ui
+        .click(iced::widget::Id::new("footer-path"))
+        .unwrap()
+        .visible_bounds()
+        .unwrap();
+    assert!(
+        bounds.width < 300.,
+        "The copy target must fit the short path"
+    );
     assert!(matches!(
         ui.into_messages().collect::<Vec<_>>().as_slice(),
         [Message::CopyPath]
@@ -1903,7 +1911,7 @@ async fn project_files_skip_git_comparison_and_have_separate_change_tabs() {
 }
 
 #[test]
-fn comparison_controls_only_appear_in_the_changes_section() {
+fn comparison_controls_follow_the_document_in_every_file_section() {
     use crate::domain::workspace::FilePanel;
     use iced::widget::Id;
     let mut app = comparison_app();
@@ -1911,10 +1919,129 @@ fn comparison_controls_only_appear_in_the_changes_section() {
         app.file_panel = panel;
         let mut ui = iced_test::Simulator::with_size(diff_settings(), (1080., 720.), app.view());
         for control in ["toggle-diff-view", "fold-unchanged"] {
-            assert_eq!(
-                ui.find(Id::from(control)).is_ok(),
-                panel == FilePanel::Changes
-            );
+            assert!(ui.find(Id::from(control)).is_ok());
         }
+    }
+    app.preview_mut().document = Some(Arc::new(Document::plain("local file\n".into())));
+    for panel in [FilePanel::Project, FilePanel::Changes] {
+        app.file_panel = panel;
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1080., 720.), app.view());
+        for control in ["toggle-diff-view", "fold-unchanged"] {
+            assert!(ui.find(Id::from(control)).is_err());
+        }
+    }
+}
+
+#[test]
+fn server_comparisons_keep_the_saved_layout_and_controls_in_project_files() {
+    use iced::widget::Id;
+    for mode in [DiffView::Unified, DiffView::SideBySide] {
+        let mut app = app();
+        app.file_panel = crate::domain::workspace::FilePanel::Project;
+        app.workspace.preferences.diff_view = mode;
+        let path = PathBuf::from("project/compare.txt");
+        let local = "unchanged\n".repeat(30) + "local\n";
+        let remote = "unchanged\n".repeat(30) + "server\n";
+        let _ = app.begin_remote_comparison(
+            "server".into(),
+            "Test server".into(),
+            path.clone(),
+            "/srv/compare.txt".into(),
+        );
+        let id = app.preview().id;
+        let _ = app.finish_preview(id, Ok(Document::new(local.clone(), "txt")));
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1440., 920.), app.view());
+        let source = ui
+            .find(Id::new("source-code"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert_eq!(
+            ui.find(app.i18n.text(crate::i18n::Key::DeploymentLocal))
+                .is_ok(),
+            mode == DiffView::SideBySide
+        );
+        if mode == DiffView::Unified {
+            assert!(source.width > 600.);
+        }
+        drop(ui);
+        let _ = app.open_remote_preview(
+            path,
+            "/srv/compare.txt".into(),
+            ("server".into(), "Test server".into()),
+            Arc::new(local.clone()),
+            Some(Arc::new(remote.clone())),
+        );
+        let document = Document::from_source(
+            crate::domain::changes::Source {
+                text: local,
+                previous: Some(remote),
+                ..Default::default()
+            },
+            "txt",
+        );
+        let _ = app.finish_preview(app.preview().id, Ok(document));
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1440., 920.), app.view());
+        assert!(ui.find(Id::new("fold-unchanged")).is_ok());
+        assert_eq!(
+            ui.find(Id::new("source-before")).is_ok(),
+            mode == DiffView::SideBySide
+        );
+        ui.click(Id::new("toggle-diff-view")).unwrap();
+        for message in ui.into_messages() {
+            let _ = app.update(message);
+        }
+        assert_ne!(app.workspace.preferences.diff_view, mode);
+    }
+}
+
+#[test]
+fn server_target_popup_stays_inside_the_active_file() {
+    for language in [Language::English, Language::Russian, Language::Spanish] {
+        let mut app = app();
+        app.i18n = Rc::new(I18n::new(language));
+        app.workspace.preferences.show_git = false;
+        let id = open(&mut app, "example.rs");
+        loaded(&mut app, id, "fn main() {\n    println!(\"Hello\");\n}\n");
+        app.modules.deployment.target = Some((
+            crate::modules::deployment::Operation::Compare(PathBuf::from("project/example.rs")),
+            vec![
+                ("dev".into(), "Development".into()),
+                ("prod".into(), "Production".into()),
+            ],
+        ));
+        let mut ui = iced_test::Simulator::with_size(diff_settings(), (1440., 920.), app.view());
+        let tabs = ui
+            .find(iced::widget::Id::new("file-tabs-header"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        let target = ui
+            .find(iced::widget::Id::new("deployment-target-0"))
+            .unwrap()
+            .visible_bounds()
+            .unwrap();
+        assert!(target.x >= tabs.x && target.y >= tabs.y + tabs.height);
+        assert!(target.width < 400.);
+        assert!(
+            ui.find(app.i18n.text(crate::i18n::Key::DeploymentCancel))
+                .is_err()
+        );
+        if let Some(output) = std::env::var_os("IWE_RENDER_DIR").map(PathBuf::from) {
+            std::fs::create_dir_all(&output).unwrap();
+            ui.snapshot(&app.theme())
+                .unwrap()
+                .matches_image(output.join(format!("server-popup-{language:?}")))
+                .unwrap();
+        }
+        drop(ui);
+        let _ = open(&mut app, "other.rs");
+        assert!(app.modules.deployment.target.is_none());
+        app.modules.deployment.target = Some((
+            crate::modules::deployment::Operation::Compare(PathBuf::from("project/other.rs")),
+            vec![("dev".into(), "Development".into())],
+        ));
+        let _ = app.select_tab(id);
+        assert!(app.modules.deployment.target.is_none());
     }
 }

@@ -316,6 +316,19 @@ fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
         .height(Length::Fill)
         .width(Length::Fill)
         .into();
+    let window = if deployment {
+        app.windows.deployment
+    } else {
+        app.windows.settings
+    };
+    let base = if app.shortcuts.recording.is_none() {
+        let dismiss = window.map_or(Message::Navigate(crate::app::Navigation::Projects), |id| {
+            Message::WindowShortcut(id, Box::new(Message::DismissDialog))
+        });
+        crate::ui::context_menu::dismiss_on_escape(base, dismiss)
+    } else {
+        base
+    };
     if deployment
         && let Some(dialog) = crate::modules::deployment::settings_dialog(
             &app.modules.deployment,
@@ -327,6 +340,7 @@ fn view_for(app: &App, deployment: bool) -> Element<'_, Message> {
             base,
             dialog.map(crate::app::modules::deployment_message),
             640.,
+            crate::app::modules::deployment_message(crate::modules::deployment::Event::CloseDialog),
         )
     } else {
         base
