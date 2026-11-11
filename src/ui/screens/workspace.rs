@@ -36,15 +36,14 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                         _ => crate::ui::modules::panel(app, *id),
                     };
                     row![
-                        container(scrollable(
-                            column(panel_buttons(app, tooltip::Position::Right))
-                                .spacing(theme::FILE_PANEL_TOOL_INSET)
-                        ))
-                        .width(theme::FILE_PANEL_HEADER_HEIGHT)
-                        .height(Length::Fill)
-                        .padding(theme::FILE_PANEL_TOOL_INSET)
-                        .style(theme::sidebar),
-                        vertical_divider(),
+                        vertical_toolbar(
+                            scrollable(
+                                column(panel_buttons(app, tooltip::Position::Right))
+                                    .spacing(theme::FILE_PANEL_TOOL_INSET)
+                            )
+                            .into(),
+                            "bottom-toolbar-divider",
+                        ),
                         container(content).width(Length::Fill).height(Length::Fill),
                     ]
                     .into()
@@ -690,16 +689,10 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
             tooltip::Position::Right,
         ));
     }
-    let tools = row![
-        container(reorder::fixed_column(tools, Message::MoveFilePanel))
-            .padding(iced::Padding {
-                right: theme::FILE_PANEL_TOOL_INSET - 1.,
-                ..iced::Padding::new(theme::FILE_PANEL_TOOL_INSET)
-            })
-            .height(Length::Fill)
-            .style(theme::sidebar),
-        vertical_divider(),
-    ];
+    let tools = vertical_toolbar(
+        reorder::fixed_column(tools, Message::MoveFilePanel),
+        "file-toolbar-divider",
+    );
     let content: Element<'_, Message> = match app.file_panel {
         FilePanel::Project => {
             let root = app.workspace.directory().unwrap();
@@ -782,7 +775,7 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
     };
     resize::horizontal(
         Row::from_vec(vec![
-            tools.into(),
+            tools,
             container(files)
                 .width(if app.file_panel_visible {
                     panel_width
@@ -1875,6 +1868,24 @@ pub(super) fn vertical_divider<'a>() -> Element<'a, Message> {
         .height(Length::Fill)
         .style(theme::separator)
         .into()
+}
+
+fn vertical_toolbar<'a>(
+    content: Element<'a, Message>,
+    divider_id: &'static str,
+) -> Element<'a, Message> {
+    row![
+        container(content)
+            .width(theme::FILE_PANEL_HEADER_HEIGHT - 1.)
+            .height(Length::Fill)
+            .padding(iced::Padding {
+                right: theme::FILE_PANEL_TOOL_INSET - 1.,
+                ..iced::Padding::new(theme::FILE_PANEL_TOOL_INSET)
+            })
+            .style(theme::sidebar),
+        container(vertical_divider()).id(divider_id),
+    ]
+    .into()
 }
 
 pub(super) fn center_message(app: &App, key: Key) -> Element<'_, Message> {

@@ -1408,6 +1408,16 @@
           "es": "Las etiquetas de versión generan los paquetes. Los cambios en la rama principal ejecutan las comprobaciones y pruebas."
         },
         "sources": [".github/workflows/ci.yml", "docs/ci.md"]
+      },
+      {
+        "id": "aligned-workspace-dividers",
+        "category": "fixed",
+        "text": {
+          "en": "The file toolbar and bottom toolbar dividers align.",
+          "ru": "Разделители панели файлов и нижней панели выровнены.",
+          "es": "Los separadores de la barra de archivos y la barra inferior quedan alineados."
+        },
+        "sources": ["src/ui/screens/workspace.rs", "src/app/modules/tests.rs"]
       }
     ]
   },

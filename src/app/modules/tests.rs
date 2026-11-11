@@ -126,6 +126,15 @@ fn bottom_toolbar_opens_and_hides_the_terminal_through_module_events() {
             (1080., 720.),
             app.view(),
         );
+        if app.modules.terminal.open {
+            let [files, bottom] = ["file-toolbar-divider", "bottom-toolbar-divider"].map(|id| {
+                ui.find(iced::widget::Id::new(id))
+                    .unwrap()
+                    .visible_bounds()
+                    .unwrap()
+            });
+            assert_eq!((files.x, files.width), (bottom.x, bottom.width));
+        }
         ui.click(iced::widget::Id::new("nav-terminal")).unwrap();
         let messages = ui.into_messages().collect::<Vec<_>>();
         assert!(
