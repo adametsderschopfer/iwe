@@ -116,7 +116,21 @@ fn disabled_terminal_rejects_events_and_reenable_starts_a_new_session() {
 
 #[test]
 fn bottom_toolbar_opens_and_hides_the_terminal_through_module_events() {
+    use crate::domain::repository::{Remote, Repository};
+
     let mut app = app();
+    app.repository = Some(
+        Repository {
+            root: app.workspace.directory().unwrap().clone(),
+            branches: Vec::new(),
+            commits: Vec::new(),
+            next_history: None,
+            remote: Remote::parse("https://github.com/example/project.git"),
+            remotes: vec!["origin".into()],
+            head: "main".into(),
+        }
+        .into(),
+    );
     for opened in [true, false] {
         let mut ui = iced_test::Simulator::with_size(
             iced::Settings {
@@ -126,6 +140,16 @@ fn bottom_toolbar_opens_and_hides_the_terminal_through_module_events() {
             (1080., 720.),
             app.view(),
         );
+        let [terminal, git, pipelines] = ["nav-terminal", "nav-git", "nav-pipelines"].map(|id| {
+            ui.find(iced::widget::Id::new(id))
+                .unwrap()
+                .visible_bounds()
+                .unwrap()
+        });
+        assert_eq!(terminal.x, git.x);
+        assert_eq!(git.x, pipelines.x);
+        assert!(terminal.y + terminal.height <= git.y);
+        assert!(git.y + git.height <= pipelines.y);
         if app.modules.terminal.open {
             let [files, bottom] = ["file-toolbar-divider", "bottom-toolbar-divider"].map(|id| {
                 ui.find(iced::widget::Id::new(id))
@@ -134,6 +158,14 @@ fn bottom_toolbar_opens_and_hides_the_terminal_through_module_events() {
                     .unwrap()
             });
             assert_eq!((files.x, files.width), (bottom.x, bottom.width));
+        } else {
+            let files = ui
+                .find(iced::widget::Id::new("file-panel-project"))
+                .unwrap()
+                .visible_bounds()
+                .unwrap();
+            assert_eq!(files.x, terminal.x);
+            assert!(files.y + files.height <= terminal.y);
         }
         ui.click(iced::widget::Id::new("nav-terminal")).unwrap();
         let messages = ui.into_messages().collect::<Vec<_>>();

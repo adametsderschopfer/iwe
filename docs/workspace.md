@@ -549,8 +549,8 @@ apply immediately to panels, dialogs, source code, and both diff views. The choi
 restarts. Switching themes preserves open files and scroll positions. Code adjusts the source font
 size and line numbers. The bottom toolbar lists Terminal, Git, and Pipelines in that order. Opening
 one panel hides the current panel. Select the active button again to collapse its panel. The toolbar
-sits to the left of the open panel and runs horizontally along the bottom when collapsed. Drag the
-horizontal divider to resize the open panel. The sidebar keeps Settings in its own section.
+stays vertical. It sits beside the open panel or at the bottom of the file toolbar when collapsed.
+Drag the horizontal divider to resize the open panel. The sidebar keeps Settings in its own section.
 
 On macOS, choose **IWE Code** → **Settings** to open the settings window. **Spaces**, **Projects**,
 and **Deployment** appear beside the **IWE Code** application menu. **Deployment** offers separate

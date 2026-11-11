@@ -37,11 +37,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                     };
                     row![
                         vertical_toolbar(
-                            scrollable(
-                                column(panel_buttons(app, tooltip::Position::Right))
-                                    .spacing(theme::FILE_PANEL_TOOL_INSET)
-                            )
-                            .into(),
+                            scrollable(panel_buttons(app)).into(),
                             "bottom-toolbar-divider",
                         ),
                         container(content).width(Length::Fill).height(Length::Fill),
@@ -219,11 +215,8 @@ fn sidebar_header() -> Element<'static, Message> {
     .into()
 }
 
-fn panel_buttons(
-    app: &App,
-    position: tooltip::Position,
-) -> impl Iterator<Item = Element<'_, Message>> {
-    [
+fn panel_buttons(app: &App) -> Column<'_, Message> {
+    let buttons = [
         (
             ModuleId::Terminal,
             Icon::Terminal,
@@ -256,10 +249,11 @@ fn panel_buttons(
             )
             .id(widget_id),
             text(app.i18n.text(label)).size(12),
-            position,
+            tooltip::Position::Right,
         )
         .into()
-    })
+    });
+    column(buttons).spacing(theme::FILE_PANEL_TOOL_INSET)
 }
 
 fn footer(app: &App) -> Element<'_, Message> {
@@ -300,22 +294,9 @@ fn footer(app: &App) -> Element<'_, Message> {
                 .map(crate::app::modules::deployment_message),
         );
     }
-    let content = container(content.align_y(Alignment::Center)).padding([6, 16]);
-    if app.panes.len() == 1 {
-        let mut buttons = panel_buttons(app, tooltip::Position::Top).peekable();
-        if buttons.peek().is_some() {
-            return row![
-                container(row(buttons).spacing(theme::FILE_PANEL_TOOL_INSET))
-                    .padding(theme::FILE_PANEL_TOOL_INSET)
-                    .style(theme::sidebar),
-                container(vertical_divider()).height(theme::FILE_PANEL_HEADER_HEIGHT),
-                content,
-            ]
-            .align_y(Alignment::Center)
-            .into();
-        }
-    }
-    content.into()
+    container(content.align_y(Alignment::Center))
+        .padding([6, 16])
+        .into()
 }
 
 fn sidebar(app: &App) -> Element<'_, Message> {
@@ -689,10 +670,13 @@ fn project_content(app: &App, width: f32) -> Element<'_, Message> {
             tooltip::Position::Right,
         ));
     }
-    let tools = vertical_toolbar(
-        reorder::fixed_column(tools, Message::MoveFilePanel),
-        "file-toolbar-divider",
-    );
+    let tools = reorder::fixed_column(tools, Message::MoveFilePanel);
+    let tools = if app.panes.len() == 1 {
+        column![tools, space().height(Length::Fill), panel_buttons(app)].into()
+    } else {
+        tools
+    };
+    let tools = vertical_toolbar(tools, "file-toolbar-divider");
     let content: Element<'_, Message> = match app.file_panel {
         FilePanel::Project => {
             let root = app.workspace.directory().unwrap();

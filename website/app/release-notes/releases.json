@@ -1422,7 +1422,7 @@
     ]
   },
   {
-    "version": "unreleased",
+    "version": "1.0.7",
     "status": "prepared",
     "publishedAt": null,
     "tags": [],
@@ -1447,7 +1447,25 @@
           "es": "Git fetch, pull y push prescinden del llavero de macOS para autenticarse."
         },
         "sources": ["docs/git-actions.md", "src/modules/git/transport/mod.rs"]
+      },
+      {
+        "id": "vertical-bottom-toolbar",
+        "category": "fixed",
+        "text": {
+          "en": "Terminal, Git, and Pipelines buttons stay vertical when the bottom panel closes.",
+          "ru": "Кнопки терминала, Git и Pipelines остаются вертикальными после закрытия нижней панели.",
+          "es": "Los botones de terminal, Git y Pipelines siguen en vertical al cerrar el panel inferior."
+        },
+        "sources": ["src/ui/screens/workspace.rs", "src/app/modules/tests.rs"]
       }
     ]
+  },
+  {
+    "version": "unreleased",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": []
   }
 ]
