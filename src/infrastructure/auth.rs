@@ -1,10 +1,10 @@
-//! Coordinate browser authorization, token refresh, and serialized credential-vault operations.
+//! Coordinate browser authorization, token refresh, and serialized credential operations.
 
 mod device;
 mod pkce;
 
 use super::{
-    credentials::{SessionStore, Store, SystemStore},
+    credentials::{FileStore, SessionStore, Store},
     http::Http,
     pipelines,
 };
@@ -126,7 +126,7 @@ impl Service {
     pub(crate) fn new() -> Self {
         Self {
             http: Http::new(),
-            store: Arc::new(SessionStore::new(Arc::new(SystemStore))),
+            store: Arc::new(SessionStore::new(Arc::new(FileStore))),
             gate: Arc::new(Mutex::new(())),
         }
     }

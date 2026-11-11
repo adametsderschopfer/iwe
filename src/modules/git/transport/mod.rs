@@ -4,6 +4,19 @@ use crate::domain::git::{Error, Operation};
 use crate::infrastructure::process;
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "macos")]
+const GIT_ENV: &[(&str, &str)] = &[
+    ("GIT_ASKPASS", "/usr/bin/false"),
+    (
+        "GIT_SSH_COMMAND",
+        "/usr/bin/ssh -o BatchMode=yes -o UseKeychain=no",
+    ),
+    ("GIT_SSH_VARIANT", "ssh"),
+    ("SSH_ASKPASS_REQUIRE", "never"),
+];
+#[cfg(not(target_os = "macos"))]
+const GIT_ENV: &[(&str, &str)] = &[];
+
 async fn run(root: &Path, args: &[&str]) -> Result<String, Error> {
     let mut options = vec![
         "--no-pager",
@@ -16,12 +29,16 @@ async fn run(root: &Path, args: &[&str]) -> Result<String, Error> {
         "-c",
         "rebase.autoStash=false",
     ];
+    // Helpers can open Keychain dialogs even when terminal prompts are disabled.
+    #[cfg(target_os = "macos")]
+    options.extend(["-c", "credential.helper="]);
     options.extend_from_slice(args);
-    let bytes = process::run_with_timeout(
+    let bytes = process::run_with_env(
         "git",
         &options,
         Some(root),
         std::time::Duration::from_secs(180),
+        GIT_ENV,
     )
     .await
     .map_err(|_| Error::Failed)?;

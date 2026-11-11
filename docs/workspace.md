@@ -522,9 +522,9 @@ An access error offers **Sign in**. GitHub opens the browser and displays a conf
 GitLab.com opens browser authorization and returns through a local callback. The panel refreshes
 automatically after successful authentication. Self-hosted GitLab requests a personal access token
 with the api scope for job actions. The dialog always identifies the destination server. IWE Code
-validates the account before saving credentials in the system credential store. The panel header
-shows the account and offers **Sign out**. Sign-out removes local credentials for that provider and
-server. It does not revoke the provider's authorization grant.
+validates the account before saving credentials in private local files. The panel header shows the
+account and offers **Sign out**. Sign-out removes local credentials for that provider and server. It
+does not revoke the provider's authorization grant.
 
 Permission errors can persist when the account cannot access the repository. Network failures offer
 a retry. API operations time out after 25 seconds. Expired OAuth credentials refresh automatically

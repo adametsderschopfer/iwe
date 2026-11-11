@@ -44,7 +44,6 @@ IWE Code can download signed updates from GitHub Releases and install them after
 - Make for the convenience commands below.
 - Git for repository history.
 - A browser for GitHub and GitLab.com sign-in.
-- An unlocked system credential store for saved accounts.
 
 On macOS, install Xcode Command Line Tools. On Windows, install Visual Studio Build Tools with the
 C++ workload. On Linux, install `pkg-config`, `libx11-dev`, `libxkbcommon-dev`, `libwayland-dev`,
@@ -55,10 +54,9 @@ installations under Program Files and the current user's `LocalAppData/Programs`
 or portable installations require their Git directory in `PATH`. A project's `.git` directory
 contains repository data, not the Git executable.
 
-Linux accounts require a running Secret Service, such as GNOME Keyring or KWallet with Secret
-Service support. IWE Code does not require GitHub CLI or GitLab CLI. Browser sign-in requires
-registered provider applications. See [authentication setup](docs/authentication.md) for public
-Client IDs and registration instructions.
+IWE Code does not require GitHub CLI or GitLab CLI. Browser sign-in requires registered provider
+applications. See [authentication setup](docs/authentication.md) for public Client IDs and
+registration instructions.
 
 Install the dependency checker:
 

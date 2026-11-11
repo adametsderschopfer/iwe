@@ -13,6 +13,7 @@ pub(crate) mod process;
 pub(crate) mod project_clone;
 pub(crate) mod project_index;
 pub(crate) mod repository;
+pub(crate) mod secret_files;
 pub(crate) mod updates;
 pub(crate) mod window_effect;
 pub(crate) mod workspace;

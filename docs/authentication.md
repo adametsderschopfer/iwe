@@ -42,7 +42,7 @@ using port 46291 prevents sign-in until that port becomes available. Requests wi
 state, host, method, or callback path are rejected. The listener expires after five minutes.
 
 No client secret is embedded, transmitted, or required. OAuth refresh replaces rotated credentials
-in the system store before loading pipelines. The implementation follows GitLab's
+in the local file before loading pipelines. The implementation follows GitLab's
 [OAuth API documentation](https://docs.gitlab.com/api/oauth2/).
 
 Previously authorized read_api credentials remain suitable for reading pipelines. Enable api in the
@@ -84,27 +84,30 @@ path prefix are not supported.
 
 ## Credential storage
 
-| Platform | Storage            |
-| -------- | ------------------ |
-| macOS    | Keychain           |
-| Windows  | Credential Manager |
-| Linux    | Secret Service     |
+IWE Code saves provider tokens and deployment secrets in separate files under a local secrets
+directory. Debug and release builds use the same storage. Each provider and host has its own file.
+Workspace metadata and project files never contain these credentials.
 
-No plaintext fallback exists. Unlock the system credential store if access fails. Linux requires a
-running Secret Service. Workspace JSON contains project metadata, preferences, and provider choices
-only.
+| Platform | Default secrets directory                   |
+| -------- | ------------------------------------------- |
+| macOS    | `~/Library/Application Support/iwe/secrets` |
+| Windows  | `%LOCALAPPDATA%\iwe\data\secrets`           |
+| Linux    | `$XDG_DATA_HOME/iwe/secrets`                |
 
-IWE Code reads each account from the credential store once per application session. Concurrent
-pipeline and job requests share that result. Cached secrets remain in memory and clear when the
-session ends. Token updates and sign-out update the cache only after the credential store accepts
-the operation. Failed operations block further background reads. Use **Retry**, refresh the pipeline
-panel, or sign in again after restoring access. Explicit retries preserve successfully cached
-credentials.
+Linux defaults to `~/.local/share/iwe/secrets` when `XDG_DATA_HOME` is unavailable. `IWE_DATA_DIR`
+places the secrets directory under the specified root. Keep that root private. On macOS and Linux,
+the directory uses mode `0700` and credential files use mode `0600`. On Windows, files inherit
+access permissions from their directory. Files contain unencrypted credentials. Programs running as
+the same user can read them.
 
-macOS can still request authorization when the credential store is locked or the application
-identity changes. Local ad hoc signatures identify a specific build. Updates can therefore require
-authorization again. Stable signing identities preserve application identity across updates. See
-[Apple's code signing requirements](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements).
+After updating from a version that used the system credential store, sign in to each provider again.
+Re-enter and save any deployment passwords or SSH key passphrases. IWE Code does not read or remove
+the old entries. You can remove them separately through your operating system.
+
+IWE Code caches each account read within the application session. Concurrent requests share that
+result. Token updates replace the file atomically. Failed operations block further background reads.
+Use **Retry**, refresh the pipeline panel, or sign in again after restoring access. Explicit retries
+preserve successfully cached credentials.
 
 **Sign out** deletes the saved credential for the selected provider and server. Other projects using
 that account will require sign-in after their next refresh. The provider's authorization grant
@@ -116,6 +119,6 @@ failure, or cancellation.
 Local fixtures verify protocol requests without contacting providers. Tests cover callback
 validation, token refresh, invalid tokens, cancellation, response limits, and redirect rejection.
 Job fixtures also verify pagination, stage order, action endpoints, permission errors, and
-duplicate-submission guards. An in-memory credential store keeps test tokens outside the operating
-system vault. Live browser sign-in requires registered Client IDs and user authorization. No live
-provider sign-in is implied by passing fixture tests.
+duplicate-submission guards. An in-memory credential store keeps test tokens outside the local
+secrets directory. Live browser sign-in requires registered Client IDs and user authorization. No
+live provider sign-in is implied by passing fixture tests.

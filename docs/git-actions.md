@@ -69,9 +69,13 @@ Completed operations show a notification with the affected branch or project. Fa
 a localized error notification and preserve any open dialog. Obsolete or duplicate responses never
 produce new notifications.
 
-Git uses existing local configuration, SSH agents, and credential helpers. Pipeline account sign-in
-does not configure Git authentication. Interactive terminal prompts are disabled. Configure Git
-access outside IWE Code before using remotes.
+Git uses existing repository configuration and SSH agents. Pipeline account sign-in does not
+configure Git authentication. IWE Code disables interactive terminal prompts.
+
+On macOS, Git actions in IWE Code disable configured credential helpers and password prompts. They
+use system OpenSSH with Keychain access disabled. SSH keys and agents still work when they can
+authenticate without prompting. An HTTPS remote that relies on a credential helper needs another
+authentication method. These settings apply to Git actions launched by IWE Code.
 
 Automated tests use temporary repositories and local bare remotes. They cover branch operations,
 dirty files, conflicting histories, linked worktrees, dialogs, and stale results. These tests never

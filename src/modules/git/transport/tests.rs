@@ -37,6 +37,80 @@ fn remote(root: &Path) -> tempfile::TempDir {
     remote
 }
 
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn remote_actions_never_invoke_configured_credential_helpers() {
+    use std::os::unix::fs::PermissionsExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let dir = repository();
+    let root = dir.path();
+    let _remote = remote(root);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/repository.git", listener.local_addr().unwrap());
+    command(root, &["remote", "set-url", "origin", &url]);
+    command(root, &["config", "http.proxy", ""]);
+    command(
+        root,
+        &[
+            "config",
+            &format!("credential.{url}.helper"),
+            "!touch .git/helper-called",
+        ],
+    );
+    let askpass = root.join(".git/askpass");
+    std::fs::write(&askpass, "#!/bin/sh\ntouch .git/askpass-called\n").unwrap();
+    std::fs::set_permissions(&askpass, std::fs::Permissions::from_mode(0o700)).unwrap();
+    command(root, &["config", "core.askPass", askpass.to_str().unwrap()]);
+
+    let server = tokio::spawn(async move {
+        let mut requests = Vec::new();
+        for _ in 0..3 {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                request.push(socket.read_u8().await.unwrap());
+            }
+            requests.push(String::from_utf8(request).unwrap());
+            socket
+                .write_all(
+                    b"HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"test\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+        }
+        requests
+    });
+
+    for operation in [
+        Operation::Fetch,
+        Operation::Update("refs/heads/main".into()),
+        Operation::Push {
+            source: "refs/heads/main".into(),
+            remote: "origin".into(),
+            name: "main".into(),
+        },
+    ] {
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            execute(root.to_path_buf(), operation),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result, Err(Error::Failed));
+    }
+
+    let requests = tokio::time::timeout(std::time::Duration::from_secs(5), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(requests[0].contains("service=git-upload-pack"));
+    assert!(requests[1].contains("service=git-upload-pack"));
+    assert!(requests[2].contains("service=git-receive-pack"));
+    assert!(!root.join(".git/helper-called").exists());
+    assert!(!root.join(".git/askpass-called").exists());
+}
+
 #[tokio::test]
 async fn create_checkout_rename_and_delete_keep_commits() {
     let dir = repository();

@@ -81,7 +81,7 @@ invalidate their entries.
 | `modules/pipelines/transport/jobs.rs`                 | Load paginated jobs and submit explicit provider actions                                 |
 | `infrastructure/auth/`                                | Implement GitHub device authorization and GitLab PKCE callbacks                          |
 | `infrastructure/auth.rs`                              | Validate accounts, refresh tokens, and serialize credential operations                   |
-| `infrastructure/credentials.rs`                       | Store provider credentials in the operating system vault and share session reads         |
+| `infrastructure/credentials.rs`                       | Store provider credentials and share session reads                                       |
 | `infrastructure/http.rs`                              | Enforce HTTPS, response bounds, request deadlines, and redirect restrictions             |
 | `infrastructure/process.rs`                           | Bound asynchronous subprocess time and output                                            |
 | `infrastructure/graphics/`                            | Start graphics backends in platform priority order                                       |
@@ -131,8 +131,9 @@ on macOS and Ctrl+G on Windows and Linux.
 
 The shared process launcher resolves Git for repository reads and explicit Git operations. On
 Windows, it prefers `git.exe` from `PATH`, then checks standard Git for Windows installation
-directories. Custom installations still require `PATH` configuration. The launcher does not install
-Git or change the environment.
+directories. Custom installations still require `PATH` configuration. On macOS, explicit Git actions
+override credential helpers, askpass, and SSH settings for the launched process. See
+[Git actions](git-actions.md) for authentication behavior.
 
 Notifications keep typed message keys and optional user context in application memory. They never
 persist with workspace settings. Successful action responses enqueue notifications after request and
@@ -353,19 +354,18 @@ endpoints derived from the repository remote. Returned browser URLs never determ
 destinations. Actions share credential serialization and are never retried automatically after a
 response failure.
 
-Authentication uses direct HTTPS requests through Reqwest and Rustls. The keyring crate selects
-Keychain, Windows Credential Manager, or Linux Secret Service. Linux builds vendor the D-Bus
-library, but still require a running Secret Service. Credential operations run on blocking workers.
-The session store shares successful reads, missing accounts, and access failures across service
-clones. Explicit retries clear only cached failures for the selected account. Successful writes and
-deletions update the session cache. Failed mutations block cached credential use until an explicit
-retry. Session credentials use the existing zeroizing secret type and never enter workspace files.
-Token refresh, storage, and sign-out share a mutex. Cancellation waits for active vault writes
-before releasing that mutex. Authorization results carry request identifiers and cannot replace
-newer dialog state. Secrets have redacted debug output and zeroize their owned buffers when dropped.
-Dependencies may retain internal copies during requests or rendering. Workspace metadata never
-contains credentials. See [authentication setup](authentication.md) for provider registration and
-protocol details.
+Authentication uses direct HTTPS requests through Reqwest and Rustls. Provider authentication and
+deployment share private file storage in `infrastructure/secret_files.rs`. Credential operations run
+on blocking workers. The session store shares successful reads, missing accounts, and access
+failures across service clones. Explicit retries clear only cached failures for the selected
+account. Successful writes and deletions update the session cache. Failed mutations block cached
+credential use until an explicit retry. Session credentials use the existing zeroizing secret type
+and never enter workspace files. Token refresh, storage, and sign-out share a mutex. Cancellation
+waits for active credential writes before releasing that mutex. Authorization results carry request
+identifiers and cannot replace newer dialog state. Secrets have redacted debug output and zeroize
+their owned buffers when dropped. Dependencies may retain internal copies during requests or
+rendering. Workspace metadata never contains credentials. See
+[authentication setup](authentication.md) for provider registration and protocol details.
 
 ## Bundled modules
 

@@ -129,6 +129,16 @@ pub(crate) async fn run_with_timeout(
     cwd: Option<&Path>,
     timeout: Duration,
 ) -> Result<Vec<u8>, Failure> {
+    run_with_env(name, args, cwd, timeout, &[]).await
+}
+
+pub(crate) async fn run_with_env(
+    name: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout: Duration,
+    env: &[(&str, &str)],
+) -> Result<Vec<u8>, Failure> {
     let mut command = Command::new(executable(name));
     command
         .args(args)
@@ -140,6 +150,7 @@ pub(crate) async fn run_with_timeout(
         .env("GH_PROMPT_DISABLED", "1")
         .env("NO_COLOR", "1")
         .env("GLAB_SEND_TELEMETRY", "false")
+        .envs(env.iter().copied())
         .kill_on_drop(true);
     if let Some(cwd) = cwd {
         command.current_dir(cwd);

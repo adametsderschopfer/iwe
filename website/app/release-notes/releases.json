@@ -1427,6 +1427,27 @@
     "publishedAt": null,
     "tags": [],
     "source": null,
-    "items": []
+    "items": [
+      {
+        "id": "local-credential-files",
+        "category": "changed",
+        "text": {
+          "en": "IWE Code saves account tokens and server passwords in private local files. Sign in again after updating.",
+          "ru": "IWE Code сохраняет токены входа и пароли серверов в локальных файлах с ограниченным доступом. После обновления войдите снова.",
+          "es": "IWE Code guarda los tokens de acceso y las contraseñas de servidores en archivos locales privados. Vuelve a iniciar sesión tras actualizar."
+        },
+        "sources": ["docs/authentication.md", "src/infrastructure/secret_files.rs"]
+      },
+      {
+        "id": "git-actions-without-keychain",
+        "category": "fixed",
+        "text": {
+          "en": "Git fetch, pull, and push skip Keychain authentication on macOS.",
+          "ru": "Команды Git fetch, pull и push обходятся без Связки ключей на macOS.",
+          "es": "Git fetch, pull y push prescinden del llavero de macOS para autenticarse."
+        },
+        "sources": ["docs/git-actions.md", "src/modules/git/transport/mod.rs"]
+      }
+    ]
   }
 ]

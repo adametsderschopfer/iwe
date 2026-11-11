@@ -1,11 +1,13 @@
-//! Store credentials in the operating system's credential vault, never in workspace files.
+//! Store provider credentials in private files and share reads within a session.
 
+use super::secret_files;
 use crate::domain::{
     Failure,
     auth::{Account, Credential},
 };
 use std::{
     collections::BTreeMap,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 use zeroize::Zeroizing;
@@ -16,7 +18,7 @@ pub(super) trait Store: Send + Sync {
     fn delete(&self, account: &Account) -> Result<(), Failure>;
 }
 
-/// Share vault reads across requests without persisting credentials outside the vault.
+/// Share credential reads across requests.
 pub(super) struct SessionStore {
     backend: Arc<dyn Store>,
     cache: Mutex<BTreeMap<String, Result<Option<Credential>, Failure>>>,
@@ -30,7 +32,7 @@ impl SessionStore {
         }
     }
 
-    /// Only an explicit retry may repeat a denied vault read.
+    /// Only an explicit retry may repeat a failed credential read.
     pub(super) fn allow_retry(&self, account: &Account) -> Result<(), Failure> {
         let mut cache = self.cache.lock().map_err(|_| Failure::Credentials)?;
         let key = account.storage_key();
@@ -68,37 +70,28 @@ impl Store for SessionStore {
     }
 }
 
-pub(super) struct SystemStore;
+pub(super) struct FileStore;
 
-fn entry(account: &Account) -> Result<keyring::Entry, Failure> {
-    keyring::Entry::new("app.iwe.credentials", &account.storage_key())
-        .map_err(|_| Failure::Credentials)
+fn path(account: &Account) -> Result<PathBuf, Failure> {
+    secret_files::path("provider", &account.storage_key()).map_err(|_| Failure::Credentials)
 }
 
-impl Store for SystemStore {
+impl Store for FileStore {
     fn read(&self, account: &Account) -> Result<Option<Credential>, Failure> {
-        match entry(account)?.get_password() {
-            Ok(value) => serde_json::from_str(&Zeroizing::new(value))
-                .map(Some)
-                .map_err(|_| Failure::Credentials),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(_) => Err(Failure::Credentials),
-        }
+        secret_files::read(&path(account)?)
+            .map_err(|_| Failure::Credentials)?
+            .map(|value| serde_json::from_slice(&value).map_err(|_| Failure::Credentials))
+            .transpose()
     }
 
     fn write(&self, account: &Account, credential: &Credential) -> Result<(), Failure> {
         let value =
-            Zeroizing::new(serde_json::to_string(credential).map_err(|_| Failure::Credentials)?);
-        entry(account)?
-            .set_password(&value)
-            .map_err(|_| Failure::Credentials)
+            Zeroizing::new(serde_json::to_vec(credential).map_err(|_| Failure::Credentials)?);
+        secret_files::write(&path(account)?, &value).map_err(|_| Failure::Credentials)
     }
 
     fn delete(&self, account: &Account) -> Result<(), Failure> {
-        match entry(account)?.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(_) => Err(Failure::Credentials),
-        }
+        secret_files::delete(&path(account)?).map_err(|_| Failure::Credentials)
     }
 }
 

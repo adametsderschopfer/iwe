@@ -6,6 +6,7 @@ mod sftp;
 use crate::domain::deployment::{
     Authentication, Connection, Connections, Error, Protocol, safe_text,
 };
+use crate::infrastructure::secret_files;
 use std::{
     io::{Read, Write},
     net::{TcpStream, ToSocketAddrs},
@@ -114,19 +115,17 @@ pub(crate) fn secret_id(connection: &Connection) -> &str {
 }
 
 pub(crate) fn store_secret(id: &str, secret: &Secret) -> Result<(), Error> {
-    keyring::Entry::new("app.iwe.deployment", id)
-        .map_err(|_| Error::Credentials)?
-        .set_password(secret.0.as_str())
-        .map_err(|_| Error::Credentials)
+    let path = secret_files::path("deployment", id).map_err(|_| Error::Credentials)?;
+    secret_files::write(&path, secret.0.as_bytes()).map_err(|_| Error::Credentials)
 }
 
 pub(crate) fn read_secret(id: &str) -> Result<Secret, Error> {
-    let entry = keyring::Entry::new("app.iwe.deployment", id).map_err(|_| Error::Credentials)?;
-    match entry.get_password() {
-        Ok(secret) => Ok(Secret(Zeroizing::new(secret))),
-        Err(keyring::Error::NoEntry) => Ok(Secret::default()),
-        Err(_) => Err(Error::Credentials),
-    }
+    let path = secret_files::path("deployment", id).map_err(|_| Error::Credentials)?;
+    let Some(bytes) = secret_files::read(&path).map_err(|_| Error::Credentials)? else {
+        return Ok(Secret::default());
+    };
+    let text = std::str::from_utf8(&bytes).map_err(|_| Error::Credentials)?;
+    Ok(Secret(Zeroizing::new(text.to_owned())))
 }
 
 pub(crate) fn connect(

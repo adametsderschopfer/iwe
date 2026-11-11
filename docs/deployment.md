@@ -25,12 +25,12 @@ key manager preserves the connection's authentication choice. Cancel returns wit
 SFTP supports passwords, private key files, and the system SSH agent. Windows builds use bundled
 OpenSSL for Ed25519 host and user keys. The shared key list stores names and file paths. IWE Code
 does not copy private key files. Entering a password replaces the saved password or key passphrase.
-Leaving the field untouched preserves the existing secret. Passwords use Keychain, Windows
-Credential Manager, or Linux Secret Service. Workspace metadata never stores passwords or private
-key contents. Use **Test connection** before saving. The test status appears directly above its
-button. Progress uses neutral text; success uses green, and failure uses red. The button stays
-unavailable while the test runs. Cancellation and SSH fingerprint confirmation remain available
-beside the test controls.
+Leaving the field untouched preserves the existing secret. Passwords and passphrases use
+[private local files](authentication.md#credential-storage). Workspace metadata never stores
+passwords or private key contents. Use **Test connection** before saving. The test status appears
+directly above its button. Progress uses neutral text; success uses green, and failure uses red. The
+button stays unavailable while the test runs. Cancellation and SSH fingerprint confirmation remain
+available beside the test controls.
 
 The workspace shows file operation progress and results outside deployment settings.
 
@@ -73,8 +73,7 @@ module always excludes `.git` directories. It does not follow symbolic links ins
 
 Deleting a connection requires removing its servers first. Deleting a referenced key requires
 changing its connections first. Removing a connection or key entry does not erase its saved secret
-from the system credential store. Users can remove orphaned secrets through the operating system's
-credential manager.
+from the local secrets directory.
 
 ## Panel and file operations
 

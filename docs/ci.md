@@ -41,10 +41,9 @@ creation.
 
 macOS packages target macOS 11 or newer. Each DMG includes an Applications shortcut. Linux packages
 target Ubuntu 22.04 or compatible systems with glibc 2.35 or newer. Linux users need a graphical
-session, a supported graphics driver, and Secret Service for saved credentials. 32-bit Linux
-binaries require matching 32-bit runtime libraries and graphics drivers. Windows packages require
-Windows 10 or newer and a supported graphics driver. Git remains an external dependency on every
-platform.
+session and a supported graphics driver. 32-bit Linux binaries require matching 32-bit runtime
+libraries and graphics drivers. Windows packages require Windows 10 or newer and a supported
+graphics driver. Git remains an external dependency on every platform.
 
 Every package uses the IWE Code display name and generated application icon. macOS bundles include
 an ICNS resource. Windows executables embed an ICO resource during compilation. Linux archives
