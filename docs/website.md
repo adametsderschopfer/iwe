@@ -129,8 +129,8 @@ same authored notes instead of generated commit titles.
 The footer links to `/license/`, `/ru/license/`, or `/es/license/`. Each page localizes its
 introduction and navigation while displaying the original English license. `LicensePage.vue` imports
 the root `LICENSE` as raw text. Do not maintain a separate copy or rewrite its legal text. Language
-links preserve the license page. Nuxt explicitly prerenders all three routes for GitHub Pages. The
-website workflow also runs when the root `LICENSE` changes.
+links preserve the license page. Nuxt explicitly prerenders all three routes for GitHub Pages. Pull
+requests also check changes to the root `LICENSE`.
 
 ## Dependency security
 
@@ -195,3 +195,11 @@ See
 [GitHub's workflow guide](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
 and [Nuxt's GitHub Pages guide](https://nuxt.com/deploy/github-pages) for the upstream deployment
 contracts.
+
+## Release deployment
+
+The release workflow calls the website workflow after successful application release publication.
+Both workflows use the same tag. Main pushes do not deploy the website. Pull requests run website
+checks. Manual workflow runs support deployment recovery. Website failures leave the published
+application release available. Retry the failed website jobs after correcting the deployment
+failure.

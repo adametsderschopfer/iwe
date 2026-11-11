@@ -1,37 +1,47 @@
-name: CI
+name: Проверка кода
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: checks-${{ inputs.ref || github.ref }}
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   plan:
-    name: Plan / Platform scope
+    name: Выбор платформ
     runs-on: ubuntu-24.04
     outputs:
       checks: ${{ steps.plan.outputs.checks }}
       targets: ${{ steps.plan.outputs.targets }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - id: plan
         env:
-          REF_TYPE: ${{ github.ref_type }}
+          REF_TYPE: branch
           REF_NAME: ${{ github.ref_name }}
         run: python3 .github/scripts/release-plan.py
 
   format:
-    name: Checks / Formatter
+    name: Форматирование
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: 1.90.0
@@ -42,10 +52,12 @@ jobs:
           dprint-version: 0.64.3
 
   security:
-    name: Checks / Dependency security
+    name: Безопасность зависимостей
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: 1.90.0
@@ -55,14 +67,16 @@ jobs:
         run: cargo audit --file Cargo.lock
 
   release_scripts:
-    name: Checks / Release scripts
+    name: Проверка скриптов выпуска
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - run: python3 -m unittest discover -s .github/scripts/tests -v
 
   lint:
-    name: Checks / Linter (${{ matrix.os }})
+    name: Линтер (${{ matrix.os }})
     needs: plan
     strategy:
       fail-fast: false
@@ -70,13 +84,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: ./.github/actions/setup-rust
         with:
           components: clippy
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
   typecheck:
-    name: Checks / Type checker (${{ matrix.os }})
+    name: Проверка типов (${{ matrix.os }})
     needs: plan
     strategy:
       fail-fast: false
@@ -84,11 +100,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: ./.github/actions/setup-rust
       - run: cargo check --locked --all-targets --all-features
 
   unit_tests:
-    name: Tests / Unit (${{ matrix.target }})
+    name: Модульные тесты (${{ matrix.target }})
     needs: [plan, format, lint, security, typecheck, release_scripts]
     strategy:
       fail-fast: false
@@ -96,13 +114,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: ./.github/actions/setup-rust
         with:
           target: ${{ matrix.target }}
       - run: cargo test --locked --all-features --target ${{ matrix.target }} --bin iwe
 
   integration_tests:
-    name: Tests / Integration (${{ matrix.os }})
+    name: Интеграционные тесты (${{ matrix.os }})
     needs: [plan, format, lint, security, typecheck, release_scripts]
     strategy:
       fail-fast: false
@@ -110,6 +130,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: ./.github/actions/setup-rust
       - name: Discover integration tests
         id: integration
@@ -131,146 +153,3 @@ jobs:
       - name: Run integration tests
         if: steps.integration.outputs.available == 'true'
         run: cargo test --locked --workspace --all-features --test '*'
-
-  build:
-    name: Build / Release (${{ matrix.platform }})
-    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
-    needs: [plan, unit_tests, integration_tests]
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.targets) }}
-    runs-on: ${{ matrix.os }}
-    env:
-      BUILD_TARGET: ${{ matrix.target }}
-      ASSET_PLATFORM: ${{ matrix.platform }}
-      RELEASE_TAG: ${{ github.ref_name }}
-      IWE_GITHUB_CLIENT_ID: ${{ vars.IWE_GITHUB_CLIENT_ID }}
-      IWE_GITLAB_CLIENT_ID: ${{ vars.IWE_GITLAB_CLIENT_ID }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup-rust
-        with:
-          target: ${{ matrix.target }}
-      - name: Set macOS deployment target
-        if: runner.os == 'macOS'
-        shell: bash
-        run: echo 'MACOSX_DEPLOYMENT_TARGET=11.0' >> "$GITHUB_ENV"
-      - name: Link the Windows C runtime statically
-        if: runner.os == 'Windows'
-        shell: bash
-        run: echo 'RUSTFLAGS=-C target-feature=+crt-static' >> "$GITHUB_ENV"
-      - name: Verify release version
-        if: github.ref_type == 'tag'
-        shell: bash
-        run: bash .github/scripts/release-version.sh
-      - run: cargo build --locked --release --target ${{ matrix.target }}
-      - name: Package application
-        if: github.ref_type == 'tag' && runner.os != 'Windows'
-        shell: bash
-        run: bash .github/scripts/package-release.sh
-      - name: Upload release package
-        if: github.ref_type == 'tag' && runner.os != 'Windows'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: release-${{ matrix.platform }}
-          path: dist/*
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-
-      - name: Upload Windows executable for packaging
-        if: github.ref_type == 'tag' && runner.os == 'Windows'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: windows-binary-${{ matrix.platform }}
-          path: target/${{ matrix.target }}/release/iwe.exe
-          if-no-files-found: error
-          retention-days: 7
-
-  windows_package:
-    name: Build / Windows installer (${{ matrix.platform }})
-    if: github.ref_type == 'tag'
-    needs: build
-    runs-on: windows-2022
-    environment: windows-signing
-    permissions:
-      contents: read
-      id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-x64
-            target: x86_64-pc-windows-msvc
-          - platform: windows-x86
-            target: i686-pc-windows-msvc
-    env:
-      BUILD_TARGET: ${{ matrix.target }}
-      ASSET_PLATFORM: ${{ matrix.platform }}
-      IWE_WINDOWS_SIGNING_ENABLED: ${{ vars.IWE_WINDOWS_SIGNING_ENABLED }}
-      IWE_SIGNING_ENDPOINT: ${{ vars.IWE_SIGNING_ENDPOINT }}
-      IWE_SIGNING_ACCOUNT: ${{ vars.IWE_SIGNING_ACCOUNT }}
-      IWE_SIGNING_PROFILE: ${{ vars.IWE_SIGNING_PROFILE }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: windows-binary-${{ matrix.platform }}
-          path: target/${{ matrix.target }}/release
-      - name: Verify release version
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: bash .github/scripts/release-version.sh
-      - name: Prepare installer compiler
-        shell: pwsh
-        run: ./.github/scripts/setup-windows-installer.ps1
-      - name: Log in for Microsoft Artifact Signing
-        if: env.IWE_WINDOWS_SIGNING_ENABLED == 'true'
-        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
-        with:
-          client-id: ${{ vars.IWE_AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.IWE_AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.IWE_AZURE_SUBSCRIPTION_ID }}
-      - name: Prepare Microsoft Artifact Signing
-        if: env.IWE_WINDOWS_SIGNING_ENABLED == 'true'
-        shell: pwsh
-        run: ./.github/scripts/setup-windows-signing.ps1
-      - name: Package and verify Windows installer
-        shell: pwsh
-        run: ./.github/scripts/package-windows.ps1
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: release-${{ matrix.platform }}
-          path: dist/*
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-
-  publish:
-    name: Publish / GitHub Release
-    if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, windows_package]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      RELEASE_TAG: ${{ github.ref_name }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: release-*
-          path: dist
-          merge-multiple: true
-      - name: Sign update manifest
-        env:
-          IWE_UPDATE_SIGNING_KEY: ${{ secrets.IWE_UPDATE_SIGNING_KEY }}
-        run: python3 .github/scripts/sign-updates.py
-      - name: Publish all release and update packages
-        shell: bash
-        run: bash .github/scripts/publish-release.sh

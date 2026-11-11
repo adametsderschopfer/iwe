@@ -1,0 +1,120 @@
+name: Выпуск новой версии
+run-name: Выпуск новой версии · ${{ inputs.bump }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Как повысить версию
+        type: choice
+        required: true
+        default: Исправления — patch
+        options:
+          - Исправления — patch
+          - Новые возможности — minor
+          - Крупное обновление — major
+
+permissions:
+  contents: read
+
+concurrency:
+  group: version-bump
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Подготовка версии
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.version_commit.outputs.sha }}
+      tag: ${{ steps.version_commit.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Подготовить форматирование заметок
+        working-directory: website
+        run: npm ci
+      - name: Подготовить коммит версии
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker="^Release-Run: $GITHUB_RUN_ID$"
+          existing=$(git log origin/main --grep="$marker" --format=%H -1)
+          if [ -n "$existing" ]; then
+            git checkout "$existing"
+            version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+          else
+            python3 .github/scripts/release-notes.py --check
+            version=$(python3 .github/scripts/bump-version.py "${BUMP##* }")
+          fi
+          echo "version=$version" >> "$GITHUB_ENV"
+          echo "existing=$existing" >> "$GITHUB_ENV"
+      - name: Форматировать заметки
+        if: env.existing == ''
+        working-directory: website
+        run: npm exec prettier -- --write app/release-notes/releases.json
+      - name: Сохранить версию
+        id: version_commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/release-notes.py --check --version "$version"
+          if [ -z "$existing" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Cargo.toml Cargo.lock website/app/release-notes/releases.json
+            git commit -m "Prepare version $version" -m "Release-Run: $GITHUB_RUN_ID"
+            git push origin HEAD:main
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+  checks:
+    name: Проверка коммита версии
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+
+  release:
+    name: Создание тега и запуск сборки
+    needs: [prepare, checks]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+      - name: Создать тег проверенного коммита
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git rev-parse --verify "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "$RELEASE_TAG")" = "$RELEASE_SHA"
+          else
+            git tag "$RELEASE_TAG" "$RELEASE_SHA"
+            git push origin "$RELEASE_TAG"
+          fi
+      - name: Запустить сборку релиза
+        run: gh workflow run release.yml --ref "$RELEASE_TAG"

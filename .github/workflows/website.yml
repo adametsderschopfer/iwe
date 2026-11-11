@@ -1,13 +1,6 @@
-name: Website
+name: Публикация сайта
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - website/**
-      - LICENSE
-      - .github/workflows/website.yml
-      - .github/scripts/with-ubuntu-apt.sh
   pull_request:
     paths:
       - website/**
@@ -15,12 +8,13 @@ on:
       - .github/workflows/website.yml
       - .github/scripts/with-ubuntu-apt.sh
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: website-${{ github.ref }}
+  group: website-publication
   cancel-in-progress: true
 
 defaults:
@@ -29,7 +23,7 @@ defaults:
 
 jobs:
   format:
-    name: Website / Formatter
+    name: Форматирование сайта
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,7 +36,7 @@ jobs:
       - run: npm run format:check
 
   lint:
-    name: Website / Linter
+    name: Линтер сайта
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,7 +49,7 @@ jobs:
       - run: npm run lint
 
   typecheck:
-    name: Website / Type checker
+    name: Проверка типов сайта
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -68,7 +62,7 @@ jobs:
       - run: npm run typecheck
 
   security:
-    name: Website / Dependency security
+    name: Безопасность зависимостей сайта
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,7 +75,7 @@ jobs:
       - run: npm audit --audit-level=moderate
 
   build:
-    name: Website / Static build
+    name: Сборка сайта
     needs: [format, lint, typecheck, security]
     runs-on: ubuntu-24.04
     steps:
@@ -92,7 +86,7 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
       - name: Read GitHub Pages configuration
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request'
         id: pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - run: npm ci
@@ -111,14 +105,14 @@ jobs:
         env:
           NUXT_APP_BASE_URL: ${{ steps.pages.outputs.base_path || format('/{0}', github.event.repository.name) }}/
       - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: website/.output/public
 
   deploy:
-    name: Website / GitHub Pages
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    name: Публикация GitHub Pages
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
     permissions:

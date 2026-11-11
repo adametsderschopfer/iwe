@@ -1515,6 +1515,22 @@
     "publishedAt": null,
     "tags": [],
     "source": null,
-    "items": []
+    "items": [
+      {
+        "id": "separate-checks-and-manual-version-releases",
+        "category": "maintenance",
+        "text": {
+          "en": "Prepare versions manually and publish the website after the application release.",
+          "ru": "Версии готовятся вручную, а сайт публикуется после выпуска приложения.",
+          "es": "Las versiones se preparan manualmente y el sitio se publica después del lanzamiento de la aplicación."
+        },
+        "sources": [
+          ".github/workflows/ci.yml",
+          ".github/workflows/bump-version.yml",
+          ".github/workflows/release.yml",
+          ".github/workflows/website.yml"
+        ]
+      }
+    ]
   }
 ]

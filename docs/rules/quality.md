@@ -38,17 +38,14 @@ Install cargo-audit 0.22.2 with `cargo install cargo-audit --version 0.22.2 --lo
 security` to check dependencies separately. This check requires network access to refresh RustSec
 advisory data. Investigate vulnerability failures. Do not ignore advisories merely to pass CI.
 
-CI runs checks, tests, and release builds in sequential stages. Keep formatter, linter, type
-checker, and dependency security in separate jobs within the checks stage. Require all checks to
-succeed before starting test jobs. Keep unit and integration tests in separate jobs within the tests
-stage. Require test jobs to succeed before starting release builds. Keep the macOS, Windows, and
-Linux matrix for lint, type checks, tests, and builds on branches and release tags. Run formatting
-and dependency security checks in dedicated Linux jobs. Dependency security checks inspect the
-complete lockfile without platform filters. Report missing integration test targets explicitly. Do
-not present missing tests as passed tests. Use `needs` for stage dependencies. Do not use `always()`
-or `continue-on-error` to bypass failed prerequisites. Add future jobs to the appropriate stage and
-update downstream dependencies when required. See [the CI guide](../ci.md) for the implemented job
-graph and commands.
+CI runs formatting, lint, type checks, dependency security, and release-script checks before tests.
+Run checks on main pushes and pull requests. Keep the macOS, Windows, and Linux matrix. Keep unit
+and integration jobs separate. Report absent integration targets explicitly. Manual version
+preparation calls the same checks for its exact version commit. Create its release tag only after
+those checks succeed. Tag workflows run release builds, packaging, and publication without repeating
+code checks. Keep all six release targets. Require every package before publication. Use needs
+dependencies. Do not bypass failures with always() or continue-on-error. See
+[the CI guide](../ci.md) for workflow triggers and recovery.
 
 Run static checks after all edits. Fix failures before committing or pushing. Use `make fmt` to
 apply formatting. Run formatting checks afterward. Use `make run` or `cargo run --locked` to start
