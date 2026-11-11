@@ -25,8 +25,18 @@ class WorkflowStructureTests(unittest.TestCase):
         for name in ("release", "plan", "build", "windows_package", "publish", "website_build"):
             with self.subTest(job=name):
                 self.assertIn("ref: ${{ needs.prepare.outputs.sha }}", jobs[name])
-        self.assertIn("needs: [prepare, checks]", jobs["release"])
+        self.assertIn("needs: prepare", jobs["release"])
         self.assertIn("needs: [prepare, publish]", jobs["website_build"])
         self.assertIn("needs: website_build", jobs["website_deploy"])
         self.assertNotIn("gh workflow run", source)
         self.assertNotIn("github.ref_type == 'tag'", source)
+
+    def test_checks_only_run_on_main_pushes(self):
+        source = (WORKFLOWS / "ci.yml").read_text()
+        triggers = source.split("on:\n", 1)[1].split("permissions:", 1)[0]
+        self.assertIn("branches: [main]", triggers)
+        for trigger in ("pull_request:", "workflow_call:", "workflow_dispatch:"):
+            self.assertNotIn(trigger, triggers)
+        release = (WORKFLOWS / "bump-version.yml").read_text()
+        self.assertNotIn("./.github/workflows/ci.yml", release)
+        self.assertNotIn("\n  checks:\n", release)

@@ -1540,6 +1540,16 @@
           "es": "Dos flujos con nombres en inglés comprueban el código y publican la aplicación junto con el sitio."
         },
         "sources": [".github/workflows/ci.yml", ".github/workflows/bump-version.yml"]
+      },
+      {
+        "id": "run-code-checks-only-on-main",
+        "category": "maintenance",
+        "text": {
+          "en": "Run code checks on main pushes and start release builds immediately after preparing the version tag.",
+          "ru": "Проверки кода запускаются при отправке в main, а сборка релиза начинается сразу после создания тега версии.",
+          "es": "Las comprobaciones se ejecutan al enviar a main y la compilación comienza al crear la etiqueta de versión."
+        },
+        "sources": [".github/workflows/ci.yml", ".github/workflows/bump-version.yml"]
       }
     ]
   }

@@ -129,8 +129,8 @@ same authored notes instead of generated commit titles.
 The footer links to `/license/`, `/ru/license/`, or `/es/license/`. Each page localizes its
 introduction and navigation while displaying the original English license. `LicensePage.vue` imports
 the root `LICENSE` as raw text. Do not maintain a separate copy or rewrite its legal text. Language
-links preserve the license page. Nuxt explicitly prerenders all three routes for GitHub Pages. Pull
-requests also check changes to the root `LICENSE`.
+links preserve the license page. Nuxt explicitly prerenders all three routes for GitHub Pages. Main
+pushes also check changes to the root `LICENSE`.
 
 ## Dependency security
 
@@ -148,7 +148,7 @@ behavior change.
 
 ## Automatic deployment
 
-[Code Checks](../.github/workflows/ci.yml) validates the website on main pushes and pull requests.
+[Code Checks](../.github/workflows/ci.yml) validates the website on main pushes.
 [Release New Version](../.github/workflows/bump-version.yml) builds and publishes GitHub Pages after
 application publication. Configure GitHub Pages to use GitHub Actions as its deployment source.
 
@@ -183,5 +183,5 @@ contracts.
 
 Release New Version builds and publishes the website after successful application release
 publication. Every job checks out the same prepared version commit. Code Checks validates website
-changes on main pushes and pull requests. Retry failed website jobs within the original version run
-after a deployment failure. Website failures leave the published application release available.
+changes on main pushes. Retry failed website jobs within the original version run after a deployment
+failure. Website failures leave the published application release available.

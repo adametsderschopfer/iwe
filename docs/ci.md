@@ -2,13 +2,11 @@
 
 GitHub Actions uses two workflows with English names.
 
-- **Code Checks** runs application and website checks on main pushes and pull requests. Application
-  checks include formatting, lint, type checks, dependency security, script checks, and tests.
-  Website checks include formatting, lint, type checks, dependency security, generation, and browser
-  tests.
-- **Release New Version** manually prepares a version and calls Code Checks for that exact commit.
-  After successful checks, its jobs create the tag, build all application packages, and publish the
-  release. Its final jobs build and publish the website from the same prepared commit.
+- **Code Checks** runs application and website checks on main pushes. Application checks include
+  formatting, lint, type checks, dependency security, script checks, and tests. Website checks
+  include formatting, lint, type checks, dependency security, generation, and browser tests.
+- **Release New Version** manually prepares a version, creates its tag, builds packages, and
+  publishes the release. Its final jobs build and publish the website from the same prepared commit.
 
 Checks cover macOS, Windows, and Linux. Unit tests and release builds cover six architecture
 targets. Integration discovery runs once per operating system. Formatting and dependency security
@@ -66,9 +64,8 @@ systems can require confirmation when opening downloaded packages.
 2. Open **Release New Version** in GitHub Actions and select main.
 3. Choose **Fixes — patch**, **New features — minor**, or **Major update — major**.
 4. Run the workflow. It updates Cargo.toml, Cargo.lock, and the release-note ledger.
-5. The workflow pushes a version commit and checks that exact commit through the reusable CI
-   workflow.
-6. Successful checks permit tag creation and start the release build jobs in the same workflow.
+5. The workflow pushes the version commit and creates its tag.
+6. Build jobs start immediately after tag creation in the same workflow.
 7. Verify publication before recording published website metadata.
 
 For version 1.0.7, patch produces 1.0.8, minor produces 1.1.0, and major produces 2.0.0. Empty
@@ -77,25 +74,25 @@ serialize their work. A concurrent main push causes a normal push conflict. Bran
 permit the workflow bot to push version commits. The workflow never force-pushes. Configure
 repository permissions before using this workflow.
 
-The version workflow calls Code Checks directly for its prepared commit. Its remaining jobs use
-needs dependencies for tagging, builds, publication, and website deployment. No dispatch requests or
-additional personal access tokens are required. Only version preparation, tagging, and release
-publication receive contents write permission. Website deployment receives pages and id-token write
-permissions. The workflow checks out the prepared commit explicitly because the initiating event
-references main.
+Code Checks runs only for main pushes. The version workflow uses needs dependencies for tagging,
+builds, publication, and website deployment. No dispatch requests or additional personal access
+tokens are required. Only version preparation, tagging, and release publication receive contents
+write permission. Website deployment receives pages and id-token write permissions. The workflow
+checks out the prepared commit explicitly because the initiating event references main. The built-in
+token pushes the version commit without triggering another Code Checks run. Release does not wait
+for or inspect earlier Code Checks results.
 
-Failed checks leave the version commit on main without creating its tag. Retry failed jobs after
-transient errors. A full rerun reuses its original version commit. The run identifier in the commit
-message links reruns to that commit. If code needs correction, push the correction and run a new
-version request with reviewed notes. Existing tags must point to the checked commit. The workflow
-never moves an existing tag.
+Retry failed release jobs after transient errors. A full rerun reuses its original version commit.
+The run identifier in the commit message links reruns to that commit. If code needs correction, push
+the correction and run a new version request with reviewed notes. Existing tags must point to the
+prepared commit. The workflow never moves an existing tag.
 
 Start releases through Release New Version on main. Choose patch, minor, or major. Tag pushes do not
 start separate workflows. Retry failed jobs within the original run after transient build or
 deployment errors. Website failures leave the published application release available. Release build
-jobs validate tag syntax, release notes, and package version. They use the checked commit without
-repeating application checks. Installer installation checks remain part of Windows packaging. All
-six builds and both Windows installer jobs must succeed before publication.
+jobs validate tag syntax, release notes, and package version. They build the prepared commit.
+Installer installation checks remain part of Windows packaging. All six builds and both Windows
+installer jobs must succeed before publication.
 
 The publication job signs one update manifest and publishes one GitHub Release with all eight
 installation packages and six update archives. It verifies the required files and adds SHA256SUMS.

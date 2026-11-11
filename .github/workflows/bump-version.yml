@@ -82,16 +82,9 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
-  checks:
-    name: Check version commit
-    needs: prepare
-    uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ needs.prepare.outputs.sha }}
-
   release:
     name: Create release tag
-    needs: [prepare, checks]
+    needs: prepare
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -105,7 +98,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.sha }}
           fetch-depth: 0
-      - name: Tag checked commit
+      - name: Tag version commit
         shell: bash
         run: |
           set -euo pipefail
@@ -121,7 +114,6 @@ jobs:
     needs: [prepare, release]
     runs-on: ubuntu-24.04
     outputs:
-      checks: ${{ steps.plan.outputs.checks }}
       targets: ${{ steps.plan.outputs.targets }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
