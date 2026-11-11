@@ -241,3 +241,11 @@ fn edited_remote_snapshot_checks_baseline_mapping_and_exclusions() {
         Err(Error::Mapping)
     ));
 }
+
+#[test]
+fn comparison_line_limits_bound_small_dense_server_files() {
+    let allowed = "x\n".repeat(crate::domain::changes::PREVIEW_LINES);
+    assert!(decode(allowed.as_bytes().to_vec()).is_ok());
+    let oversized = format!("{allowed}x\n");
+    assert_eq!(decode(oversized.into_bytes()), Err(Error::TooLarge));
+}

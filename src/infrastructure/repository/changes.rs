@@ -91,6 +91,8 @@ pub(crate) async fn working_status(directory: PathBuf) -> Result<Worktree, Failu
     let mut status = Worktree::new(&directory, files);
     status.roots = roots;
     status.failures = failures;
+    status.comparison_scope = Some(discovery.scope);
+    status.comparison_roots = discovery.roots;
     Ok(status)
 }
 
@@ -117,6 +119,117 @@ async fn baseline(root: &Path, revision: &str, path: &str) -> Result<Option<Stri
     blob(root.to_owned(), revision.to_owned(), path.to_owned())
         .await
         .map(Some)
+}
+
+/// Retain one bounded baseline, keyed by repository, immutable revision, and original path.
+#[derive(Default)]
+pub(crate) struct BaselineCache {
+    key: Option<(PathBuf, String, String)>,
+    text: Option<String>,
+}
+
+pub(crate) struct WorkingSnapshot {
+    scope: PathBuf,
+    roots: Vec<PathBuf>,
+    change: Option<FileChange>,
+    failures: Vec<(PathBuf, Failure)>,
+}
+
+pub(crate) fn working_snapshot(status: &Worktree, path: &Path) -> Option<WorkingSnapshot> {
+    Some(WorkingSnapshot {
+        scope: status.comparison_scope.clone()?,
+        roots: status.comparison_roots.clone(),
+        change: status.files.get(path).cloned(),
+        failures: status.failures.clone(),
+    })
+}
+
+pub(crate) async fn working_file_cached(
+    directory: PathBuf,
+    path: PathBuf,
+    snapshot: WorkingSnapshot,
+    cache: std::sync::Arc<tokio::sync::Mutex<BaselineCache>>,
+) -> Result<Source, Failure> {
+    let text = workspace::read(directory.clone(), path.clone()).await;
+    let deleted = text.is_err()
+        && matches!(tokio::fs::try_exists(&path).await, Ok(false))
+        && snapshot
+            .change
+            .as_ref()
+            .is_some_and(|change| change.status == FileStatus::Deleted);
+    if !deleted && let Err(error) = text {
+        return Err(error);
+    }
+    let previous = cached_baseline(&directory, &path, &snapshot, cache).await;
+    if deleted {
+        let previous = previous?.ok_or(Failure::Read)?;
+        return Ok(Source {
+            text: previous.clone(),
+            previous: Some(previous),
+            deleted: true,
+            ..Source::default()
+        });
+    }
+    Ok(Source {
+        text: text?,
+        comparison_failed: previous.is_err(),
+        previous: previous.ok().flatten(),
+        ..Source::default()
+    })
+}
+
+async fn cached_baseline(
+    directory: &Path,
+    path: &Path,
+    snapshot: &WorkingSnapshot,
+    cache: std::sync::Arc<tokio::sync::Mutex<BaselineCache>>,
+) -> Result<Option<String>, Failure> {
+    let absolute = snapshot
+        .scope
+        .join(path.strip_prefix(directory).map_err(|_| Failure::Read)?);
+    if snapshot
+        .failures
+        .iter()
+        .any(|(failed, _)| absolute.starts_with(failed))
+    {
+        return Err(Failure::Read);
+    }
+    let Some(root) = discovery::owner(&snapshot.roots, &absolute) else {
+        return Ok(None);
+    };
+    let head = git(root, &["rev-parse", "--revs-only", "HEAD"]).await?;
+    let head = String::from_utf8(head).map_err(|_| Failure::Read)?;
+    let Some(head) = head.lines().find(|line| valid_id(line)) else {
+        return Ok(snapshot.change.as_ref().map(|_| String::new()));
+    };
+    let original = snapshot
+        .change
+        .as_ref()
+        .and_then(|change| change.original.as_deref())
+        .unwrap_or(path);
+    let absolute = snapshot.scope.join(
+        original
+            .strip_prefix(directory)
+            .map_err(|_| Failure::Read)?,
+    );
+    let relative = absolute
+        .strip_prefix(root)
+        .map_err(|_| Failure::Read)?
+        .components()
+        .map(|part| part.as_os_str().to_str().ok_or(Failure::Read))
+        .collect::<Result<Vec<_>, _>>()?
+        .join("/");
+    let key = (root.clone(), head.to_owned(), relative);
+    let mut cache = cache.lock().await;
+    if cache.key.as_ref() != Some(&key) {
+        let text = baseline(root, head, &key.2).await?;
+        cache.key = Some(key);
+        cache.text = text;
+    }
+    Ok(cache
+        .text
+        .clone()
+        .or_else(|| snapshot.change.as_ref().map(|_| String::new())))
 }
 
 async fn working_baseline(directory: &Path, path: &Path) -> Result<Option<String>, Failure> {

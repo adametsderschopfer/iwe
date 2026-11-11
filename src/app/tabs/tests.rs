@@ -1066,7 +1066,10 @@ fn closed_tabs_reopen_in_reverse_order_with_cached_documents_and_scroll_position
 #[test]
 fn closed_documents_have_a_byte_budget_without_losing_tab_history() {
     let mut app = app();
-    let text = "let value = 123; // Source retained for a closed preview.\n".repeat(8000);
+    // Distinct lines exercise eviction even when repeated lines share their allocations.
+    let text: String = (0..8000)
+        .map(|index| format!("let value_{index} = {index}; // Closed preview.\n"))
+        .collect();
     let mut documents = Vec::new();
     let mut original_bytes = 0;
     for index in 0..20 {
@@ -1768,23 +1771,22 @@ async fn remote_comparison_prepares_full_result_in_background() {
     let id = app.preview().id;
     let _ = app.finish_preview(id, Ok(Document::new("local\n".into(), "txt")));
     let selected = open(&mut app, "other.txt");
-    let mut next = app.open_remote_preview(
+    let next = app.open_remote_preview(
         path,
         "/srv/compare.txt".into(),
         ("server".into(), "Test server".into()),
         Arc::new("local\n".into()),
         Some(Arc::new("server\n".into())),
     );
-    for _ in 0..3 {
-        let mut stream = task::into_stream(next).unwrap();
-        let message = loop {
-            if let Action::Output(message) = stream.next().await.unwrap() {
-                break message;
-            }
-        };
-        next = app.update(message);
-        assert_eq!(app.preview().id, selected);
-    }
+    let mut stream = task::into_stream(next).unwrap();
+    let message = loop {
+        if let Action::Output(message) = stream.next().await.unwrap() {
+            break message;
+        }
+    };
+    assert!(matches!(message, Message::FileLoaded(_, _, Ok(_))));
+    let _ = app.update(message);
+    assert_eq!(app.preview().id, selected);
     let comparison = app.tabs.files.iter().find(|p| p.remote).unwrap();
     assert!(comparison.pending_comparison.is_none());
     assert_eq!(comparison.document.as_ref().unwrap().text, "local\n");
@@ -2043,5 +2045,68 @@ fn server_target_popup_stays_inside_the_active_file() {
         ));
         let _ = app.select_tab(id);
         assert!(app.modules.deployment.target.is_none());
+    }
+}
+
+#[tokio::test]
+async fn server_comparison_reuses_only_the_matching_highlighted_local_snapshot() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::{Action, task};
+    for unchanged in [true, false] {
+        let mut app = app();
+        let path = PathBuf::from("project/compare.rs");
+        let _ = app.begin_remote_comparison(
+            "server".into(),
+            "Server".into(),
+            path.clone(),
+            "/compare.rs".into(),
+        );
+        let id = app.preview().id;
+        let original = "let value = 1;\n";
+        let _ = app.finish_preview(id, Ok(Document::new(original.into(), "rs")));
+        let prepared = app.preview().document.clone().unwrap();
+        let text = if unchanged {
+            original
+        } else {
+            "let value = 2;\n"
+        };
+        let task = app.open_remote_preview(
+            path,
+            "/compare.rs".into(),
+            ("server".into(), "Server".into()),
+            Arc::new(text.into()),
+            Some(Arc::new("let value = 0;\n".into())),
+        );
+        assert_eq!(
+            app.preview().preparation,
+            if unchanged {
+                Preparation::Changes
+            } else {
+                Preparation::Text
+            }
+        );
+        let mut stream = task::into_stream(task).unwrap();
+        while let Some(action) = stream.next().await {
+            if let Action::Output(message) = action {
+                if unchanged {
+                    let Message::FileLoaded(_, _, Ok(document)) = &message else {
+                        panic!("Matching syntax must skip text and syntax stages");
+                    };
+                    let after = document.comparison.as_ref().unwrap().rows[0].cells[1]
+                        .as_ref()
+                        .unwrap();
+                    assert!(Arc::ptr_eq(
+                        &document.lines[after.index],
+                        &prepared.lines[0]
+                    ));
+                } else {
+                    assert!(matches!(
+                        message,
+                        Message::FilePrepared(_, _, Preparation::Text, Ok(_))
+                    ));
+                }
+                let _ = app.update(message);
+            }
+        }
     }
 }

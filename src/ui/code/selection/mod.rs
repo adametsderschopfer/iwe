@@ -15,7 +15,7 @@ use iced::{
     keyboard,
     widget::{rich_text, text as widget_text},
 };
-use std::ops::Range;
+use std::{borrow::Cow, ops::Range};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Lane {
@@ -207,11 +207,8 @@ fn indices(document: &Document, lane: Lane) -> Vec<usize> {
     }
 }
 
-fn line_text(document: &Document, index: usize) -> String {
-    document.lines[index]
-        .iter()
-        .map(|(text, _)| text.as_str())
-        .collect()
+fn line_text(document: &Document, index: usize) -> Cow<'_, str> {
+    Cow::Borrowed(document.display_line(index))
 }
 
 pub(crate) fn line<'a>(
@@ -296,7 +293,7 @@ type TextParagraph = <Renderer as text::Renderer>::Paragraph;
 
 struct Selectable<'a> {
     content: Element<'a, Message>,
-    value: String,
+    value: Cow<'a, str>,
     document: &'a Document,
     selection: Selection,
     lane: Lane,

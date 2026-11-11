@@ -64,7 +64,7 @@ async fn pointer_layout_waits_for_selection_and_tracks_unicode_boundaries() {
             .size(16)
             .line_height(1.65)
             .into(),
-        value: document.text.clone(),
+        value: document.text.clone().into(),
         document: &document,
         selection: Selection::default(),
         lane: Lane::Unified,
@@ -155,4 +155,27 @@ async fn pointer_layout_waits_for_selection_and_tracks_unicode_boundaries() {
         widget.selection.copy(&document).as_deref(),
         Some(document.text.as_str())
     );
+}
+
+#[test]
+fn displayed_text_borrows_prepared_tabs_in_both_comparison_versions() {
+    let document = Document::from_source(
+        crate::domain::changes::Source {
+            text: "\tновое\n\n".into(),
+            previous: Some("\tстарое\n\n".into()),
+            ..Default::default()
+        },
+        "txt",
+    );
+    for index in 0..document.lines.len() {
+        let text = line_text(&document, index);
+        assert!(matches!(text, Cow::Borrowed(_)));
+        assert_eq!(
+            text,
+            document.lines[index]
+                .iter()
+                .map(|(text, _)| text.as_str())
+                .collect::<String>()
+        );
+    }
 }

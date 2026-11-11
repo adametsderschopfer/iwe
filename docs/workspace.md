@@ -192,11 +192,11 @@ The code area uses a separate neutral background from surrounding panels. Dark a
 darker code background. Light appearance uses a white code background. Plain previews and both
 comparison views share this background, including their line-number gutters.
 
-The viewer displays UTF-8 text. Files larger than 512 KiB open in parts instead of being rejected.
-Use **Previous part**, **Next part**, and **Refresh** above the text to navigate or reload a part.
-Each part contains at most 512 KiB and 4,096 newline characters. Long lines can continue into the
-next part with the same line number. UTF-8 characters and CRLF pairs remain intact at boundaries.
-Binary content displays an explanation when encountered.
+The viewer displays UTF-8 text. Files larger than 512 KiB or 100,000 lines open in parts. Use
+**Previous part**, **Next part**, and **Refresh** above the text to navigate or reload a part. Each
+part contains at most 512 KiB and 4,096 newline characters. Long lines can continue into the next
+part with the same line number. UTF-8 characters and CRLF pairs remain intact at boundaries. Binary
+content displays an explanation when encountered.
 
 Large working files and historical Git versions use the same part controls. Deleted working files
 can show their last committed contents in parts. Part navigation retains offsets rather than source
@@ -240,6 +240,15 @@ Files first display plain text. Syntax colors and Git changes follow on backgrou
 progress bar remains above the code until preparation finishes. Scrolling remains available during
 preparation. Unchanged row blocks reuse their layout during scrolling. Closing a loading tab rejects
 its pending results. Restoring that tab resumes preparation.
+
+Comparisons reuse unchanged syntax blocks when the text and complete parser states match. Sparse
+checkpoints preserve multiline comments and strings across changed blocks. Identical server copies
+reuse all prepared syntax. Server responses reuse the highlighted local snapshot only when its
+contents still match. Shared immutable lines avoid deep copies between preparation stages.
+
+Git refreshes reuse the latest repository status and discovery results. One bounded baseline cache
+retains the selected file's previous version. Repository path, HEAD revision, and original filename
+identify that baseline. HEAD changes and renamed paths invalidate the relevant entry.
 
 Scrollbar handles stay at least 28 pixels long in normal panels, even with very large content. Very
 small panels use a shorter handle that fits their rail. Dragging reaches both ends without changing

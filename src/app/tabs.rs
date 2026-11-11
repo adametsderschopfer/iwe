@@ -321,6 +321,13 @@ impl App {
             }) else {
                 return Task::none();
             };
+            let prepared = self.tabs.files[index]
+                .document
+                .as_ref()
+                .filter(|document| {
+                    document.has_syntax() && document.page.is_none() && document.text == *text
+                })
+                .cloned();
             self.file_request += 1;
             let id = self.file_request;
             let source = Source::Remote {
@@ -338,6 +345,14 @@ impl App {
             preview.loading = true;
             preview.preparation = Preparation::Text;
             preview.error = None;
+            // Reuse the exact local snapshot; a changed file follows normal preparation.
+            if let Some(document) = prepared {
+                preview.preparation = Preparation::Changes;
+                let generation = self.generation;
+                return Task::perform(source.compare(document), move |result| {
+                    Message::FileLoaded(generation, id, result)
+                });
+            }
             // Keep the local snapshot visible until comparison preparation finishes.
             return self.read_preview(id, source);
         }

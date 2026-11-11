@@ -7,7 +7,7 @@ use crate::{
     ui::code::{Document, syntax_for},
 };
 use iced::{Subscription, Task};
-use std::{collections::BTreeSet, path::PathBuf, time::Duration};
+use std::{collections::BTreeSet, path::PathBuf, sync::Arc, time::Duration};
 
 #[derive(Default)]
 pub(crate) struct State {
@@ -18,6 +18,7 @@ pub(crate) struct State {
     disabled: bool,
     request: u64,
     pub(super) preview_pending: Option<u64>,
+    baseline: Arc<tokio::sync::Mutex<repository::BaselineCache>>,
 }
 
 #[derive(Debug, Clone)]
@@ -215,10 +216,16 @@ impl App {
         let (generation, request) = (self.generation, self.preview().id);
         let fingerprint = document.fingerprint;
         self.changes.preview_pending = Some(request);
+        let snapshot = repository::working_snapshot(&self.changes.status, &path);
+        let baseline = Arc::clone(&self.changes.baseline);
         Task::perform(
             async move {
                 let extension = syntax_for(&path);
-                let source = repository::working_file(root, path).await?;
+                let source = if let Some(snapshot) = snapshot {
+                    repository::working_file_cached(root, path, snapshot, baseline).await?
+                } else {
+                    repository::working_file(root, path).await?
+                };
                 if Document::fingerprint(&source) == fingerprint {
                     return Ok(None);
                 }

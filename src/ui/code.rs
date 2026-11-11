@@ -4,6 +4,7 @@ pub(crate) mod comparison;
 pub(crate) mod folding;
 pub(crate) mod frozen_gutter;
 pub(crate) mod overview;
+mod preparation;
 mod rows;
 pub(crate) mod selection;
 
@@ -13,10 +14,11 @@ use super::theme::{Tone, syntax};
 use crate::domain::changes::Source;
 use iced::Color;
 use sha2::{Digest, Sha256};
-use std::sync::LazyLock;
-use two_face::re_exports::syntect::{
-    easy::HighlightLines, highlighting::Theme, parsing::SyntaxSet,
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, LazyLock},
 };
+use two_face::re_exports::syntect::{highlighting::Theme, parsing::SyntaxSet};
 
 pub(crate) static SYNTAXES: LazyLock<SyntaxSet> =
     LazyLock::new(two_face::syntax::extra_no_newlines);
@@ -25,8 +27,8 @@ pub(crate) static PALETTE: LazyLock<Theme> = LazyLock::new(syntax::palette);
 #[derive(Debug, Clone)]
 pub(crate) struct Document {
     pub text: String,
-    pub source_lines: Vec<String>,
-    pub lines: Vec<Vec<(String, Tone)>>,
+    pub source_lines: Vec<Arc<str>>,
+    pub lines: Vec<Arc<Vec<(String, Tone)>>>,
     pub columns: usize,
     pub line_info: Vec<LineInfo>,
     pub comparison_failed: bool,
@@ -35,6 +37,8 @@ pub(crate) struct Document {
     pub comparison: Option<comparison::Comparison>,
     pub page: Option<crate::domain::changes::TextPage>,
     memory_bytes: usize,
+    syntax: Option<Arc<preparation::Syntax>>,
+    expanded_tabs: HashMap<usize, Arc<str>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,41 +56,7 @@ pub(crate) struct LineInfo {
 
 impl Document {
     pub(crate) fn plain(text: String) -> Self {
-        let mut columns = 0;
-        let lines: Vec<_> = text
-            .lines()
-            .map(|line| {
-                let line = line.replace('\t', "    ");
-                columns = columns.max(line.chars().count());
-                vec![(
-                    if line.is_empty() {
-                        " ".to_owned()
-                    } else {
-                        line
-                    },
-                    syntax::TEXT,
-                )]
-            })
-            .collect();
-        Self {
-            fingerprint: Self::fingerprint_parts(&text, false, false, None),
-            line_info: (1..=lines.len())
-                .map(|number| LineInfo {
-                    number,
-                    change: None,
-                })
-                .collect(),
-            source_lines: text.lines().map(str::to_owned).collect(),
-            text,
-            lines,
-            columns,
-            comparison_failed: false,
-            change_counts: [0; 3],
-            comparison: None,
-            page: None,
-            memory_bytes: 0,
-        }
-        .measure_memory()
+        preparation::prepare(text, None, None, None)
     }
 
     pub(crate) fn can_fold(&self) -> bool {
@@ -95,56 +65,30 @@ impl Document {
     }
 
     pub(crate) fn new(text: String, extension: &str) -> Self {
-        let syntax = SYNTAXES
-            .find_syntax_by_token(extension)
-            .unwrap_or_else(|| SYNTAXES.find_syntax_plain_text());
-        let mut highlighter = HighlightLines::new(syntax, &PALETTE);
-        let mut columns = 0;
-        let lines: Vec<_> = text
-            .lines()
-            .map(|line| {
-                let line = line.replace('\t', "    ");
-                columns = columns.max(line.chars().count());
-                if line.len() > 16 * 1024 {
-                    return vec![(line, syntax::TEXT)];
-                }
-                let highlights = highlighter
-                    .highlight_line(&line, &SYNTAXES)
-                    .map(|spans| {
-                        spans
-                            .into_iter()
-                            .map(|(style, content)| {
-                                (content.to_owned(), syntax::tone(style.foreground))
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_else(|_| vec![(line.clone(), syntax::TEXT)]);
-                if line.is_empty() {
-                    vec![(" ".to_owned(), syntax::TEXT)]
-                } else {
-                    highlights
-                }
-            })
-            .collect();
-        Self {
-            fingerprint: Self::fingerprint_parts(&text, false, false, None),
-            line_info: (1..=lines.len())
-                .map(|number| LineInfo {
-                    number,
-                    change: None,
-                })
-                .collect(),
-            source_lines: text.lines().map(str::to_owned).collect(),
-            text,
-            lines,
-            columns,
-            comparison_failed: false,
-            change_counts: [0; 3],
-            comparison: None,
-            page: None,
-            memory_bytes: 0,
-        }
-        .measure_memory()
+        preparation::prepare(text, Some(extension), None, None)
+    }
+
+    fn new_reusing(
+        text: String,
+        extension: &str,
+        previous: &Self,
+        equal: Option<Vec<(std::ops::Range<usize>, std::ops::Range<usize>)>>,
+    ) -> Self {
+        preparation::prepare(text, Some(extension), Some(previous), equal)
+    }
+
+    pub(crate) fn has_syntax(&self) -> bool {
+        self.syntax.is_some() && self.comparison.is_none()
+    }
+
+    pub(crate) fn display_line(&self, index: usize) -> &str {
+        self.expanded_tabs.get(&index).map_or_else(
+            || {
+                let source = self.source_lines[index].as_ref();
+                if source.is_empty() { " " } else { source }
+            },
+            AsRef::as_ref,
+        )
     }
 
     pub(crate) fn with_page(mut self, page: Option<crate::domain::changes::TextPage>) -> Self {
@@ -176,29 +120,45 @@ impl Document {
     }
 
     fn measure_memory(mut self) -> Self {
-        // Include owned buffer capacities without scanning source text on the UI thread.
+        // Shared allocations count once within a document and conservatively across tabs.
+        let mut seen = HashSet::new();
         self.memory_bytes = std::mem::size_of::<Self>()
             + self.text.capacity()
-            + self.source_lines.capacity() * std::mem::size_of::<String>()
+            + self.source_lines.capacity() * std::mem::size_of::<Arc<str>>()
             + self
                 .source_lines
                 .iter()
-                .map(String::capacity)
+                .filter(|line| seen.insert(line.as_ptr() as usize))
+                .map(|line| line.len() + 2 * std::mem::size_of::<usize>())
                 .sum::<usize>()
-            + self.lines.capacity() * std::mem::size_of::<Vec<(String, Tone)>>()
+            + self.lines.capacity() * std::mem::size_of::<Arc<Vec<(String, Tone)>>>()
             + self
                 .lines
                 .iter()
+                .filter(|line| seen.insert(Arc::as_ptr(line) as usize))
                 .map(|line| {
-                    line.capacity() * std::mem::size_of::<(String, Tone)>()
+                    std::mem::size_of::<Vec<(String, Tone)>>()
+                        + 2 * std::mem::size_of::<usize>()
+                        + line.capacity() * std::mem::size_of::<(String, Tone)>()
                         + line.iter().map(|(text, _)| text.capacity()).sum::<usize>()
                 })
+                .sum::<usize>()
+            + self.expanded_tabs.capacity() * std::mem::size_of::<(usize, Arc<str>)>()
+            + self
+                .expanded_tabs
+                .values()
+                .filter(|text| seen.insert(text.as_ptr() as usize))
+                .map(|text| text.len() + 2 * std::mem::size_of::<usize>())
                 .sum::<usize>()
             + self.line_info.capacity() * std::mem::size_of::<LineInfo>()
             + self
                 .comparison
                 .as_ref()
-                .map_or(0, comparison::Comparison::memory_bytes);
+                .map_or(0, comparison::Comparison::memory_bytes)
+            + self
+                .syntax
+                .as_ref()
+                .map_or(0, |syntax| syntax.reserved_bytes());
         self
     }
 
@@ -257,12 +217,16 @@ pub(crate) fn emphasized_spans<'a>(
 ) -> Vec<iced::widget::text::Span<'a>> {
     let mut spans = Vec::new();
     let mut offset = 0;
+    let mut emphasis_index = 0;
     for (content, color) in line {
         let end = offset + content.len();
         let mut cursor = offset;
-        for range in emphasis
+        while emphasis_index < emphasis.len() && emphasis[emphasis_index].end <= offset {
+            emphasis_index += 1;
+        }
+        for range in emphasis[emphasis_index..]
             .iter()
-            .filter(|range| range.start < end && range.end > offset)
+            .take_while(|range| range.start < end)
         {
             let start = range.start.max(offset);
             let stop = range.end.min(end);

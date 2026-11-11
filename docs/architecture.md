@@ -150,17 +150,25 @@ Modal dialogs keep their existing error messages.
 Git status uses NUL-delimited records and preserves renamed paths. Application state aggregates file
 status into folder decorations. Background polling refreshes status, affected directories, and the
 open working file every three seconds. Separate request identifiers reject stale project and preview
-results. Matching content fingerprints avoid repeated highlighting and preserve scroll position. Git
-commands disable optional index writes. Source comparison reads bounded blobs and keeps all source
-contents in memory. The `similar` crate compares source lines with a 300-millisecond algorithm
-budget on blocking workers. The viewer retains unchanged lines and marks inserted, replaced, and
-removed lines without losing syntax colors.
+results. Matching content fingerprints avoid repeated highlighting and preserve scroll position.
+Preview refreshes reuse the status snapshot's canonical scope and repository roots. A single bounded
+cache retains the previous source by repository, HEAD revision, and original path. Polling still
+resolves HEAD, so branch switches invalidate cached baselines. Git commands disable optional index
+writes. Source comparison reads bounded blobs and keeps all source contents in memory. The `similar`
+crate compares source lines with a 300-millisecond algorithm budget on blocking workers. The viewer
+retains unchanged lines and marks inserted, replaced, and removed lines without losing syntax
+colors.
 
 Comparisons retain aligned pairs that reference the unified document's highlighted lines. Each pair
 keeps both original line numbers. Change blocks provide connector geometry without copying source
 text. Word comparison uses a shared 150-millisecond deadline and skips lines over 8 KiB. Blocking
-workers prepare these structures. The original single-column view remains available through a saved
-preference. The default view places the previous and current versions in separate columns.
+workers prepare these structures. Shared immutable lines avoid deep copies during preparation.
+Sparse syntax checkpoints permit unchanged-block reuse only when complete parser states match.
+Comparison assembly computes line changes once and shares the equal ranges with syntax preparation.
+Identical snapshots reuse existing syntax directly. Prepared tab expansion removes per-frame text
+copies during selection. The word-span builder advances through ordered change ranges once. The
+original single-column view remains available through a saved preference. The default view places
+the previous and current versions in separate columns.
 
 A direct index maps unified rows to their comparison pairs. Unified rendering reads both original
 line numbers and word highlights through this index. Both comparison views share the highlighted

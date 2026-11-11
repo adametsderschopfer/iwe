@@ -221,3 +221,136 @@ async fn oversized_baselines_keep_the_current_source_without_false_highlights() 
     assert!(source.previous.is_none());
     assert!(source.comparison_failed);
 }
+
+#[tokio::test]
+async fn cached_baselines_follow_head_renames_deletions_and_nested_scopes() {
+    let directory = project();
+    let root = directory.path();
+    fs::create_dir(root.join("src")).unwrap();
+    let original = root.join("src/file.txt");
+    fs::write(&original, "original\n").unwrap();
+    git_test(root, &["add", "."]);
+    git_test(root, &["commit", "-m", "Initial"]);
+    fs::write(&original, "working\n").unwrap();
+    let cache = std::sync::Arc::new(tokio::sync::Mutex::new(BaselineCache::default()));
+    for scope in [root.to_owned(), root.join("src")] {
+        let status = working_status(scope.clone()).await.unwrap();
+        for _ in 0..2 {
+            let cached = working_file_cached(
+                scope.clone(),
+                original.clone(),
+                working_snapshot(&status, &original).unwrap(),
+                cache.clone(),
+            )
+            .await
+            .unwrap();
+            let direct = working_file(scope.clone(), original.clone()).await.unwrap();
+            assert_eq!(cached.text, direct.text);
+            assert_eq!(cached.previous, direct.previous);
+            assert_eq!(cached.comparison_failed, direct.comparison_failed);
+        }
+    }
+    let first_key = cache.lock().await.key.clone();
+    git_test(root, &["mv", "src/file.txt", "src/moved.txt"]);
+    let moved = root.join("src/moved.txt");
+    let status = working_status(root.to_owned()).await.unwrap();
+    let cached = working_file_cached(
+        root.to_owned(),
+        moved.clone(),
+        working_snapshot(&status, &moved).unwrap(),
+        cache.clone(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(cached.previous.as_deref(), Some("original\n"));
+    assert_eq!(cache.lock().await.key, first_key);
+    git_test(root, &["add", "."]);
+    git_test(root, &["commit", "-m", "Rename and update"]);
+    let status = working_status(root.to_owned()).await.unwrap();
+    let cached = working_file_cached(
+        root.to_owned(),
+        moved.clone(),
+        working_snapshot(&status, &moved).unwrap(),
+        cache.clone(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(cached.previous.as_deref(), Some("working\n"));
+    assert_ne!(cache.lock().await.key, first_key);
+    fs::remove_file(&moved).unwrap();
+    let status = working_status(root.to_owned()).await.unwrap();
+    let cached = working_file_cached(
+        root.to_owned(),
+        moved.clone(),
+        working_snapshot(&status, &moved).unwrap(),
+        cache.clone(),
+    )
+    .await
+    .unwrap();
+    assert!(cached.deleted);
+    assert_eq!(cached.text, "working\n");
+    assert_eq!(cached.previous.as_deref(), Some("working\n"));
+    let new = root.join("new.txt");
+    fs::write(&new, "new\n").unwrap();
+    let status = working_status(root.to_owned()).await.unwrap();
+    let cached = working_file_cached(
+        root.to_owned(),
+        new.clone(),
+        working_snapshot(&status, &new).unwrap(),
+        cache,
+    )
+    .await
+    .unwrap();
+    assert_eq!(cached.previous.as_deref(), Some(""));
+}
+
+#[tokio::test]
+async fn cached_baselines_keep_nested_repository_ownership_and_report_refresh_costs() {
+    let parent = project();
+    let child = parent.path().join("child");
+    fs::create_dir(&child).unwrap();
+    git_test(&child, &["init", "-b", "main"]);
+    git_test(&child, &["config", "user.name", "Test"]);
+    git_test(&child, &["config", "user.email", "test@example.invalid"]);
+    let path = child.join("file.txt");
+    fs::write(&path, "nested baseline\n").unwrap();
+    git_test(&child, &["add", "."]);
+    git_test(&child, &["commit", "-m", "Initial"]);
+    fs::write(&path, "nested working\n").unwrap();
+    let root = parent.path().to_owned();
+    let status = working_status(root.clone()).await.unwrap();
+    let cache = std::sync::Arc::new(tokio::sync::Mutex::new(BaselineCache::default()));
+    let cached = working_file_cached(
+        root.clone(),
+        path.clone(),
+        working_snapshot(&status, &path).unwrap(),
+        cache.clone(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(cached.previous.as_deref(), Some("nested baseline\n"));
+    if std::env::var_os("IWE_PROFILE_COMPARISON").is_some() {
+        let mut times = [Vec::new(), Vec::new()];
+        for _ in 0..5 {
+            let start = std::time::Instant::now();
+            let direct = working_file(root.clone(), path.clone()).await.unwrap();
+            times[0].push(start.elapsed().as_secs_f64() * 1000.);
+            let start = std::time::Instant::now();
+            let cached = working_file_cached(
+                root.clone(),
+                path.clone(),
+                working_snapshot(&status, &path).unwrap(),
+                cache.clone(),
+            )
+            .await
+            .unwrap();
+            times[1].push(start.elapsed().as_secs_f64() * 1000.);
+            assert_eq!(direct.previous, cached.previous);
+            assert_eq!(direct.text, cached.text);
+        }
+        for (name, mut values) in ["uncached", "cached"].into_iter().zip(times) {
+            values.sort_by(f64::total_cmp);
+            eprintln!("AUDIT git-refresh {name} median_ms={:.3}", values[2]);
+        }
+    }
+}

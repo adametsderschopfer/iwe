@@ -39,6 +39,8 @@ pub(crate) struct Worktree {
     pub folders: BTreeMap<PathBuf, FileStatus>,
     pub roots: Vec<PathBuf>,
     pub failures: Vec<(PathBuf, crate::domain::Failure)>,
+    pub comparison_scope: Option<PathBuf>,
+    pub comparison_roots: Vec<PathBuf>,
 }
 
 impl Worktree {
@@ -70,6 +72,9 @@ impl Worktree {
             .or_else(|| directory.then(|| self.folders.get(path).copied()).flatten())
     }
 }
+
+/// Bound per-line comparison metadata independently of source byte limits.
+pub(crate) const PREVIEW_LINES: usize = 100_000;
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Source {

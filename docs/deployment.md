@@ -91,12 +91,13 @@ menu actions use the browsed server, independently of the default server. Right-
 remote file to compare both copies. Comparison immediately opens a separate tab. The loading view
 uses the saved comparison mode. In side-by-side mode, the right pane loads the local file while the
 left pane waits for the server. The completed comparison displays the server snapshot on the left
-and the local snapshot on the right. Identical files retain both comparison panes. Unified mode
-keeps one column throughout loading and completion. Comparison tabs offer the layout switch and
-unchanged-line folding, independently of the selected file section. Ordinary file tabs keep these
-controls hidden. Comparison tabs use a server icon. Comparison never changes the local file. A
-server response updates its existing tab without changing the selected tab. Closing the comparison
-prevents its response from reopening the tab.
+and the local snapshot on the right. Matching local snapshots retain their prepared syntax when the
+server response arrives. Changed snapshots receive fresh preparation. Identical files retain both
+comparison panes. Unified mode keeps one column throughout loading and completion. Comparison tabs
+offer the layout switch and unchanged-line folding, independently of the selected file section.
+Ordinary file tabs keep these controls hidden. Comparison tabs use a server icon. Comparison never
+changes the local file. A server response updates its existing tab without changing the selected
+tab. Closing the comparison prevents its response from reopening the tab.
 
 | Action                          | macOS default       | Windows and Linux default |
 | ------------------------------- | ------------------- | ------------------------- |
@@ -131,10 +132,10 @@ Results from obsolete requests cannot replace the current project state.
 
 ## Limits and verification
 
-Text previews and comparisons accept UTF-8 files up to 2 MiB per side. Binary files remain
-transferable. Transfers use 64 KiB buffers. Recursive transfers allow 10,000 entries and 64
-directory levels. The pending operation queue holds at most 32 requests. Transfer sessions are not
-persisted across application restarts. The module does not delete remote files, synchronize
+Text previews and comparisons accept UTF-8 files up to 2 MiB and 100,000 lines per side. Binary
+files remain transferable. Transfers use 64 KiB buffers. Recursive transfers allow 10,000 entries
+and 64 directory levels. The pending operation queue holds at most 32 requests. Transfer sessions
+are not persisted across application restarts. The module does not delete remote files, synchronize
 directories, or interpret SSH config and ProxyJump. FTP directory browsing requires a supported LIST
 response. Server permissions and filesystem features can restrict available operations. Local-change
 checks cannot eliminate every race with unrelated external writers. SSH-agent availability depends

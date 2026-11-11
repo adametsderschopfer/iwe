@@ -4,8 +4,8 @@ mod changes;
 mod discovery;
 mod project;
 pub(crate) use changes::{
-    commit_comparison, commit_text, working_comparison, working_file, working_page, working_status,
-    working_text,
+    BaselineCache, commit_comparison, commit_text, working_comparison, working_file,
+    working_file_cached, working_page, working_snapshot, working_status, working_text,
 };
 pub(crate) use project::{load_project, load_project_history, load_project_remotes};
 

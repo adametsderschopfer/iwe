@@ -41,7 +41,7 @@ impl Side {
 pub(crate) struct Cell {
     pub index: usize,
     pub number: usize,
-    pub emphasis: Vec<Range<usize>>,
+    pub emphasis: Box<[Range<usize>]>,
 }
 
 #[derive(Debug, Clone)]
@@ -105,7 +105,7 @@ impl Comparison {
                 .rows
                 .iter()
                 .flat_map(|pair| pair.cells.iter().flatten())
-                .map(|cell| cell.emphasis.capacity() * std::mem::size_of::<Range<usize>>())
+                .map(|cell| cell.emphasis.len() * std::mem::size_of::<Range<usize>>())
                 .sum::<usize>()
             + self.hunks.capacity() * std::mem::size_of::<Hunk>()
             + self.unified_marks.capacity() * std::mem::size_of::<Mark>()
@@ -194,27 +194,54 @@ pub(super) fn apply(
     else {
         return document;
     };
-    let mut before = Document::new(previous, extension);
-    let diff = TextDiff::configure()
+    let ops = TextDiff::configure()
         .timeout(Duration::from_millis(300))
-        .diff_lines(before.text.as_str(), document.text.as_str());
+        .diff_lines(previous.as_str(), document.text.as_str())
+        .ops()
+        .to_vec();
+    let equal = ops
+        .iter()
+        .filter(|op| op.tag() == DiffTag::Equal)
+        .map(|op| (op.new_range(), op.old_range()))
+        .collect();
+    let before = Document::new_reusing(previous, extension, &document, Some(equal));
     let mut comparison = Comparison {
         columns: [before.columns, document.columns],
         ..Default::default()
     };
-    let mut lines = Vec::new();
-    let mut source_lines = Vec::new();
-    let mut line_info = Vec::new();
+    let unified_len = ops
+        .iter()
+        .map(|op| {
+            op.new_range().len()
+                + if matches!(op.tag(), DiffTag::Delete | DiffTag::Replace) {
+                    op.old_range().len()
+                } else {
+                    0
+                }
+        })
+        .sum();
+    comparison.rows.reserve_exact(
+        ops.iter()
+            .map(|op| op.old_range().len().max(op.new_range().len()))
+            .sum(),
+    );
+    let mut lines = Vec::with_capacity(unified_len);
+    let mut source_lines = Vec::with_capacity(unified_len);
+    let mut line_info = Vec::with_capacity(unified_len);
+    let mut expanded_tabs = std::collections::HashMap::new();
     // One shared deadline bounds word highlighting across the whole document.
     let word_deadline = Instant::now() + Duration::from_millis(150);
-    for op in diff.ops() {
+    for op in &ops {
         let old = op.old_range();
         let new = op.new_range();
         let old_start = lines.len();
         if matches!(op.tag(), DiffTag::Delete | DiffTag::Replace) {
             for index in old.clone() {
-                lines.push(std::mem::take(&mut before.lines[index]));
-                source_lines.push(std::mem::take(&mut before.source_lines[index]));
+                if let Some(text) = before.expanded_tabs.get(&index) {
+                    expanded_tabs.insert(lines.len(), text.clone());
+                }
+                lines.push(before.lines[index].clone());
+                source_lines.push(before.source_lines[index].clone());
                 line_info.push(LineInfo {
                     number: index + 1,
                     change: Some(LineChange::Removed),
@@ -229,8 +256,11 @@ pub(super) fn apply(
                 DiffTag::Replace => Some(LineChange::Added),
                 _ => None,
             };
-            lines.push(std::mem::take(&mut document.lines[index]));
-            source_lines.push(std::mem::take(&mut document.source_lines[index]));
+            if let Some(text) = document.expanded_tabs.get(&index) {
+                expanded_tabs.insert(lines.len(), text.clone());
+            }
+            lines.push(document.lines[index].clone());
+            source_lines.push(document.source_lines[index].clone());
             line_info.push(LineInfo {
                 number: index + 1,
                 change,
@@ -275,8 +305,8 @@ pub(super) fn apply(
                     .map(|(text, _)| text.as_str())
                     .collect();
                 let [removed, added] = emphasis(&old, &new, word_deadline);
-                left.emphasis = removed;
-                right.emphasis = added;
+                left.emphasis = removed.into_boxed_slice();
+                right.emphasis = added.into_boxed_slice();
             }
             comparison.rows.push(Pair {
                 cells: [left, right],
@@ -285,6 +315,8 @@ pub(super) fn apply(
         }
     }
     document.columns = document.columns.max(before.columns);
+    document.expanded_tabs = expanded_tabs;
+    document.syntax = None;
     document.lines = lines;
     document.source_lines = source_lines;
     document.line_info = line_info;
@@ -305,7 +337,7 @@ fn cell(index: usize, number: usize) -> Cell {
     Cell {
         index,
         number,
-        emphasis: Vec::new(),
+        emphasis: Box::default(),
     }
 }
 

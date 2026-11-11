@@ -140,3 +140,21 @@ async fn symlinks_cannot_read_outside_the_linked_directory() {
         Failure::Read
     );
 }
+
+#[tokio::test]
+async fn dense_sources_use_pages_without_discarding_content() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("dense.txt");
+    let text = "x\n".repeat(crate::domain::changes::PREVIEW_LINES + 1);
+    std::fs::write(&path, &text).unwrap();
+    assert_eq!(
+        read(directory.path().to_owned(), path.clone()).await,
+        Err(Failure::TooLarge)
+    );
+    let (page, cursor) = pages::read(directory.path().to_owned(), path, Default::default(), None)
+        .await
+        .unwrap();
+    assert!(text.starts_with(&page));
+    assert!(cursor.next.is_some());
+    assert_eq!(page.lines().count(), 4096);
+}

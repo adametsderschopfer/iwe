@@ -1466,6 +1466,46 @@
     "publishedAt": null,
     "tags": [],
     "source": null,
-    "items": []
+    "items": [
+      {
+        "id": "reuse-comparison-syntax",
+        "category": "changed",
+        "text": {
+          "en": "File comparisons reuse syntax colors, reduce memory use, and process dense word changes faster.",
+          "ru": "Сравнение файлов повторно использует подсветку синтаксиса, расходует меньше памяти и быстрее обрабатывает многочисленные изменения слов.",
+          "es": "Las comparaciones reutilizan los colores de sintaxis, reducen el uso de memoria y procesan cambios de palabras más rápido."
+        },
+        "sources": [
+          "src/ui/code/preparation.rs",
+          "src/ui/code/comparison.rs",
+          "src/ui/code.rs",
+          "src/app/tabs.rs"
+        ]
+      },
+      {
+        "id": "reuse-git-comparison-baselines",
+        "category": "changed",
+        "text": {
+          "en": "Git comparisons refresh faster by reusing unchanged previous versions and repository status.",
+          "ru": "Сравнение с Git обновляется быстрее благодаря повторному использованию предыдущих версий и состояния репозитория.",
+          "es": "Las comparaciones de Git se actualizan más rápido al reutilizar versiones anteriores sin cambios y el estado del repositorio."
+        },
+        "sources": ["src/infrastructure/repository/changes.rs", "src/app/changes.rs"]
+      },
+      {
+        "id": "bound-dense-comparison-files",
+        "category": "changed",
+        "text": {
+          "en": "Local files above 100,000 lines open in parts. Server previews and comparisons accept at most 100,000 lines per file.",
+          "ru": "Локальные файлы длиннее 100 000 строк открываются частями. Просмотр и сравнение серверных файлов поддерживают до 100 000 строк на файл.",
+          "es": "Los archivos locales con más de 100 000 líneas se abren por partes. Las vistas y comparaciones del servidor admiten hasta 100 000 líneas por archivo."
+        },
+        "sources": [
+          "src/domain/changes.rs",
+          "src/infrastructure/workspace.rs",
+          "src/modules/deployment/transfer/mod.rs"
+        ]
+      }
+    ]
   }
 ]

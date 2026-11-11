@@ -251,7 +251,16 @@ fn decode(bytes: Vec<u8>) -> Result<String, Error> {
     if bytes.contains(&0) {
         return Err(Error::Binary);
     }
-    String::from_utf8(bytes).map_err(|_| Error::Binary)
+    let text = String::from_utf8(bytes).map_err(|_| Error::Binary)?;
+    if text
+        .lines()
+        .take(crate::domain::changes::PREVIEW_LINES + 1)
+        .count()
+        > crate::domain::changes::PREVIEW_LINES
+    {
+        return Err(Error::TooLarge);
+    }
+    Ok(text)
 }
 
 struct PreviewBuffer(Vec<u8>);
