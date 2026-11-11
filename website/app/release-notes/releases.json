@@ -1457,16 +1457,7 @@
           "es": "Los botones de terminal, Git y Pipelines siguen en vertical al cerrar el panel inferior."
         },
         "sources": ["src/ui/screens/workspace.rs", "src/app/modules/tests.rs"]
-      }
-    ]
-  },
-  {
-    "version": "unreleased",
-    "status": "prepared",
-    "publishedAt": null,
-    "tags": [],
-    "source": null,
-    "items": [
+      },
       {
         "id": "reuse-comparison-syntax",
         "category": "changed",
@@ -1507,5 +1498,13 @@
         ]
       }
     ]
+  },
+  {
+    "version": "unreleased",
+    "status": "prepared",
+    "publishedAt": null,
+    "tags": [],
+    "source": null,
+    "items": []
   }
 ]
