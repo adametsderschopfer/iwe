@@ -1,18 +1,18 @@
-name: Выпуск новой версии
-run-name: Выпуск новой версии · ${{ inputs.bump }}
+name: Release New Version
+run-name: Release New Version · ${{ inputs.bump }}
 
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Как повысить версию
+        description: Version increment
         type: choice
         required: true
-        default: Исправления — patch
+        default: Fixes — patch
         options:
-          - Исправления — patch
-          - Новые возможности — minor
-          - Крупное обновление — major
+          - Fixes — patch
+          - New features — minor
+          - Major update — major
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   prepare:
-    name: Подготовка версии
+    name: Prepare version
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
@@ -41,10 +41,10 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: website/package-lock.json
-      - name: Подготовить форматирование заметок
+      - name: Install release note formatter
         working-directory: website
         run: npm ci
-      - name: Подготовить коммит версии
+      - name: Prepare version commit
         id: version
         env:
           BUMP: ${{ inputs.bump }}
@@ -62,11 +62,11 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_ENV"
           echo "existing=$existing" >> "$GITHUB_ENV"
-      - name: Форматировать заметки
+      - name: Format release notes
         if: env.existing == ''
         working-directory: website
         run: npm exec prettier -- --write app/release-notes/releases.json
-      - name: Сохранить версию
+      - name: Save version
         id: version_commit
         shell: bash
         run: |
@@ -83,19 +83,18 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
   checks:
-    name: Проверка коммита версии
+    name: Check version commit
     needs: prepare
     uses: ./.github/workflows/ci.yml
     with:
       ref: ${{ needs.prepare.outputs.sha }}
 
   release:
-    name: Создание тега и запуск сборки
+    name: Create release tag
     needs: [prepare, checks]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -106,7 +105,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.sha }}
           fetch-depth: 0
-      - name: Создать тег проверенного коммита
+      - name: Tag checked commit
         shell: bash
         run: |
           set -euo pipefail
@@ -116,5 +115,208 @@ jobs:
             git tag "$RELEASE_TAG" "$RELEASE_SHA"
             git push origin "$RELEASE_TAG"
           fi
-      - name: Запустить сборку релиза
-        run: gh workflow run release.yml --ref "$RELEASE_TAG"
+
+  plan:
+    name: Validate version and select platforms
+    needs: [prepare, release]
+    runs-on: ubuntu-24.04
+    outputs:
+      checks: ${{ steps.plan.outputs.checks }}
+      targets: ${{ steps.plan.outputs.targets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - id: plan
+        env:
+          REF_TYPE: tag
+          REF_NAME: ${{ needs.prepare.outputs.tag }}
+        run: python3 .github/scripts/release-plan.py
+
+  build:
+    name: Build application (${{ matrix.platform }})
+    needs: [prepare, plan]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.targets) }}
+    runs-on: ${{ matrix.os }}
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      ASSET_PLATFORM: ${{ matrix.platform }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      IWE_GITHUB_CLIENT_ID: ${{ vars.IWE_GITHUB_CLIENT_ID }}
+      IWE_GITLAB_CLIENT_ID: ${{ vars.IWE_GITLAB_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          target: ${{ matrix.target }}
+      - name: Set macOS deployment target
+        if: runner.os == 'macOS'
+        shell: bash
+        run: echo 'MACOSX_DEPLOYMENT_TARGET=11.0' >> "$GITHUB_ENV"
+      - name: Link the Windows C runtime statically
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo 'RUSTFLAGS=-C target-feature=+crt-static' >> "$GITHUB_ENV"
+      - name: Verify release version
+        shell: bash
+        run: bash .github/scripts/release-version.sh
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Package application
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash .github/scripts/package-release.sh
+      - name: Upload release package
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Upload Windows executable for packaging
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: windows-binary-${{ matrix.platform }}
+          path: target/${{ matrix.target }}/release/iwe.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  windows_package:
+    name: Windows installer (${{ matrix.platform }})
+    needs: [prepare, build]
+    runs-on: windows-2022
+    environment: windows-signing
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            target: x86_64-pc-windows-msvc
+          - platform: windows-x86
+            target: i686-pc-windows-msvc
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      ASSET_PLATFORM: ${{ matrix.platform }}
+      IWE_WINDOWS_SIGNING_ENABLED: ${{ vars.IWE_WINDOWS_SIGNING_ENABLED }}
+      IWE_SIGNING_ENDPOINT: ${{ vars.IWE_SIGNING_ENDPOINT }}
+      IWE_SIGNING_ACCOUNT: ${{ vars.IWE_SIGNING_ACCOUNT }}
+      IWE_SIGNING_PROFILE: ${{ vars.IWE_SIGNING_PROFILE }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-binary-${{ matrix.platform }}
+          path: target/${{ matrix.target }}/release
+      - name: Verify release version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: bash .github/scripts/release-version.sh
+      - name: Prepare installer compiler
+        shell: pwsh
+        run: ./.github/scripts/setup-windows-installer.ps1
+      - name: Log in for Microsoft Artifact Signing
+        if: env.IWE_WINDOWS_SIGNING_ENABLED == 'true'
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.IWE_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.IWE_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.IWE_AZURE_SUBSCRIPTION_ID }}
+      - name: Prepare Microsoft Artifact Signing
+        if: env.IWE_WINDOWS_SIGNING_ENABLED == 'true'
+        shell: pwsh
+        run: ./.github/scripts/setup-windows-signing.ps1
+      - name: Package and verify Windows installer
+        shell: pwsh
+        run: ./.github/scripts/package-windows.ps1
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish release
+    needs: [prepare, build, windows_package]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Sign update manifest
+        env:
+          IWE_UPDATE_SIGNING_KEY: ${{ secrets.IWE_UPDATE_SIGNING_KEY }}
+        run: python3 .github/scripts/sign-updates.py
+      - name: Publish all release and update packages
+        shell: bash
+        run: bash .github/scripts/publish-release.sh
+
+  website_build:
+    name: Build website
+    needs: [prepare, publish]
+    defaults:
+      run:
+        working-directory: website
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Read GitHub Pages configuration
+        id: pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - run: npm ci
+      - name: Generate static website
+        run: npm run generate
+        env:
+          NUXT_APP_BASE_URL: ${{ steps.pages.outputs.base_path || format('/{0}', github.event.repository.name) }}/
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: website/.output/public
+
+  website_deploy:
+    name: Publish GitHub Pages
+    needs: website_build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

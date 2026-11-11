@@ -1,4 +1,4 @@
-name: Проверка кода
+name: Code Checks
 
 on:
   push:
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   plan:
-    name: Выбор платформ
+    name: Select platforms
     runs-on: ubuntu-24.04
     outputs:
       checks: ${{ steps.plan.outputs.checks }}
@@ -36,7 +36,7 @@ jobs:
         run: python3 .github/scripts/release-plan.py
 
   format:
-    name: Форматирование
+    name: Formatting
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,7 +52,7 @@ jobs:
           dprint-version: 0.64.3
 
   security:
-    name: Безопасность зависимостей
+    name: Dependency security
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,7 +67,7 @@ jobs:
         run: cargo audit --file Cargo.lock
 
   release_scripts:
-    name: Проверка скриптов выпуска
+    name: Release script checks
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,7 +76,7 @@ jobs:
       - run: python3 -m unittest discover -s .github/scripts/tests -v
 
   lint:
-    name: Линтер (${{ matrix.os }})
+    name: Lint (${{ matrix.os }})
     needs: plan
     strategy:
       fail-fast: false
@@ -92,7 +92,7 @@ jobs:
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
   typecheck:
-    name: Проверка типов (${{ matrix.os }})
+    name: Type check (${{ matrix.os }})
     needs: plan
     strategy:
       fail-fast: false
@@ -106,7 +106,7 @@ jobs:
       - run: cargo check --locked --all-targets --all-features
 
   unit_tests:
-    name: Модульные тесты (${{ matrix.target }})
+    name: Unit tests (${{ matrix.target }})
     needs: [plan, format, lint, security, typecheck, release_scripts]
     strategy:
       fail-fast: false
@@ -122,7 +122,7 @@ jobs:
       - run: cargo test --locked --all-features --target ${{ matrix.target }} --bin iwe
 
   integration_tests:
-    name: Интеграционные тесты (${{ matrix.os }})
+    name: Integration tests (${{ matrix.os }})
     needs: [plan, format, lint, security, typecheck, release_scripts]
     strategy:
       fail-fast: false
@@ -153,3 +153,107 @@ jobs:
       - name: Run integration tests
         if: steps.integration.outputs.available == 'true'
         run: cargo test --locked --workspace --all-features --test '*'
+
+  website_format:
+    name: Website formatting
+    defaults:
+      run:
+        working-directory: website
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+
+  website_lint:
+    name: Website lint
+    defaults:
+      run:
+        working-directory: website
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+
+  website_typecheck:
+    name: Website type check
+    defaults:
+      run:
+        working-directory: website
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+
+  website_security:
+    name: Website dependency security
+    defaults:
+      run:
+        working-directory: website
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+
+  website_build:
+    name: Build website
+    needs: [website_format, website_lint, website_typecheck, website_security]
+    defaults:
+      run:
+        working-directory: website
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - name: Generate static website
+        run: npm run generate
+        env:
+          NUXT_APP_BASE_URL: ${{ format('/{0}', github.event.repository.name) }}/
+      - name: Verify generated pages
+        run: npm test
+        env:
+          NUXT_APP_BASE_URL: ${{ format('/{0}', github.event.repository.name) }}/
+      - name: Install browser test runtime
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/with-ubuntu-apt.sh" npx playwright install --with-deps chromium
+      - name: Verify scrolling in the browser
+        run: npm run test:browser
+        env:
+          NUXT_APP_BASE_URL: ${{ format('/{0}', github.event.repository.name) }}/

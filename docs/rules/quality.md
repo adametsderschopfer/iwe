@@ -42,9 +42,9 @@ CI runs formatting, lint, type checks, dependency security, and release-script c
 Run checks on main pushes and pull requests. Keep the macOS, Windows, and Linux matrix. Keep unit
 and integration jobs separate. Report absent integration targets explicitly. Manual version
 preparation calls the same checks for its exact version commit. Create its release tag only after
-those checks succeed. Tag workflows run release builds, packaging, and publication without repeating
-code checks. Keep all six release targets. Require every package before publication. Use needs
-dependencies. Do not bypass failures with always() or continue-on-error. See
+those checks succeed. Later jobs in the same version workflow run builds, packaging, and publication
+without repeating code checks. Keep all six release targets. Require every package before
+publication. Use needs dependencies. Do not bypass failures with always() or continue-on-error. See
 [the CI guide](../ci.md) for workflow triggers and recovery.
 
 Run static checks after all edits. Fix failures before committing or pushing. Use `make fmt` to

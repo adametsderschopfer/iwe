@@ -1530,6 +1530,16 @@
           ".github/workflows/release.yml",
           ".github/workflows/website.yml"
         ]
+      },
+      {
+        "id": "combine-release-and-website-workflows",
+        "category": "maintenance",
+        "text": {
+          "en": "Use two English-named workflows for code checks and complete application releases with website publication.",
+          "ru": "Два процесса с английскими названиями выполняют проверки кода и полный выпуск приложения с публикацией сайта.",
+          "es": "Dos flujos con nombres en inglés comprueban el código y publican la aplicación junto con el sitio."
+        },
+        "sources": [".github/workflows/ci.yml", ".github/workflows/bump-version.yml"]
       }
     ]
   }

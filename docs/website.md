@@ -148,26 +148,9 @@ behavior change.
 
 ## Automatic deployment
 
-The [Website workflow](../.github/workflows/website.yml) runs for website changes on `main` and pull
-requests. Maintainers can also start the workflow manually.
-
-The workflow runs these stages:
-
-1. Check formatting, lint, TypeScript types, and dependency advisories in separate jobs.
-2. Generate static files after every check passes.
-3. Verify generated pages, local assets, and browser interactions.
-4. Upload the static files and deploy them from `main`.
-
-Pull requests run checks and generation without deploying. Deployment uses the `github-pages`
-environment. Only the deployment job receives Pages write permission and identity-token permission.
-The workflow pins external actions to commit identifiers.
-
-The build reads the Pages base path through `actions/configure-pages`. Pull requests use the
-repository name as their base path. Nuxt receives this path through `NUXT_APP_BASE_URL`. Generated
-asset URLs must retain that path.
-
-The existing native application workflow remains independent. Website deployment does not publish
-application releases.
+[Code Checks](../.github/workflows/ci.yml) validates the website on main pushes and pull requests.
+[Release New Version](../.github/workflows/bump-version.yml) builds and publishes GitHub Pages after
+application publication. Configure GitHub Pages to use GitHub Actions as its deployment source.
 
 ## Repository configuration
 
@@ -198,8 +181,7 @@ contracts.
 
 ## Release deployment
 
-The release workflow calls the website workflow after successful application release publication.
-Both workflows use the same tag. Main pushes do not deploy the website. Pull requests run website
-checks. Manual workflow runs support deployment recovery. Website failures leave the published
-application release available. Retry the failed website jobs after correcting the deployment
-failure.
+Release New Version builds and publishes the website after successful application release
+publication. Every job checks out the same prepared version commit. Code Checks validates website
+changes on main pushes and pull requests. Retry failed website jobs within the original version run
+after a deployment failure. Website failures leave the published application release available.
