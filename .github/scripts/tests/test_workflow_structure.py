@@ -42,7 +42,7 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("\n  checks:\n", release)
 
 
-    def test_manual_website_build_uses_main_without_publishing(self):
+    def test_manual_website_build_uses_main_and_publishes(self):
         source = (WORKFLOWS / "website-build.yml").read_text()
         triggers = source.split("on:\n", 1)[1].split("permissions:", 1)[0]
         self.assertEqual(triggers.strip(), "workflow_dispatch:")
@@ -50,5 +50,6 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("ref: ${{ github.sha }}", source)
         self.assertIn("npm run generate", source)
         self.assertIn("actions/upload-artifact@", source)
-        self.assertNotIn("actions/deploy-pages@", source)
+        self.assertIn("actions/deploy-pages@", source)
+        self.assertIn("needs: build", source)
         self.assertNotIn("contents: write", source)

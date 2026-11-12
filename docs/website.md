@@ -188,10 +188,11 @@ failure. Website failures leave the published application release available.
 
 ## Manual website build
 
-Open Build Website in GitHub Actions, select main, and click Run workflow. The job builds the main
-commit selected when the run starts. Download website-main-COMMIT from the completed run's
-artifacts. Artifacts expire after 14 days. This workflow does not publish GitHub Pages. Release New
-Version continues to publish the website after application publication.
+Open Build and Publish Website in GitHub Actions, select main, and click Run workflow. The job
+builds the main commit selected when the run starts. Download website-main-COMMIT from the completed
+run's artifacts. Artifacts expire after 14 days. The workflow also publishes GitHub Pages after a
+successful build. Release New Version continues to publish the website after application
+publication.
 
 ## Current download version
 

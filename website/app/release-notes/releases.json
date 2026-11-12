@@ -1573,6 +1573,16 @@
           "website/app/components/DownloadSection.vue",
           ".github/workflows/website-build.yml"
         ]
+      },
+      {
+        "id": "publish-manual-website-build",
+        "category": "maintenance",
+        "text": {
+          "en": "Manual website builds now publish the generated pages.",
+          "ru": "Ручная сборка сайта теперь публикует готовые страницы.",
+          "es": "La compilación manual del sitio ahora publica las páginas generadas."
+        },
+        "sources": [".github/workflows/website-build.yml"]
       }
     ]
   }
