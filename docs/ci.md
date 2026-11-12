@@ -1,12 +1,15 @@
 # Continuous integration
 
-GitHub Actions uses two workflows with English names.
+GitHub Actions uses three workflows with English names.
 
 - **Code Checks** runs application and website checks on main pushes. Application checks include
   formatting, lint, type checks, dependency security, script checks, and tests. Website checks
   include formatting, lint, type checks, dependency security, generation, and browser tests.
 - **Release New Version** manually prepares a version, creates its tag, builds packages, and
   publishes the release. Its final jobs build and publish the website from the same prepared commit.
+
+- **Build Website** manually generates the website from main and uploads a downloadable artifact. It
+  does not publish GitHub Pages or create an application version.
 
 Checks cover macOS, Windows, and Linux. Unit tests and release builds cover six architecture
 targets. Integration discovery runs once per operating system. Formatting and dependency security

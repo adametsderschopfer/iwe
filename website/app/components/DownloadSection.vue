@@ -9,8 +9,8 @@ import {
 } from '~/utils/platform'
 
 withDefaults(defineProps<{ messages: Messages; locale?: Locale }>(), { locale: 'en' })
-const version = '1.0.2'
-const downloadBase = 'https://github.com/adametsderschopfer/iwe-code/releases/download'
+const release = useRuntimeConfig().public.downloadRelease
+const version = release.version
 const platforms = [
   {
     id: 'macos',
@@ -129,7 +129,7 @@ onMounted(async () => {
           <a
             v-for="file in platform.files"
             :key="file.slug"
-            :href="`${downloadBase}/${platform.id}-v${version}/iwe-code-${version}-${file.slug}`"
+            :href="release.downloads[file.slug]"
             :aria-label="`${messages.download.download} IWE Code ${platform.name} ${file.label}`"
             :class="{ 'download-priority': isPriority(platform.id, file.architecture) }"
             >{{ file.label }}<SiteIcon name="download"
@@ -153,7 +153,9 @@ onMounted(async () => {
         </p>
       </ScrollReveal>
     </div>
-    <NuxtLink class="release-link" :to="releaseNotesPath(locale, version)"
+    <NuxtLink
+      class="release-link"
+      :to="release.hasNotes ? releaseNotesPath(locale, version) : release.url"
       >{{ messages.download.release }} <SiteIcon name="arrow"
     /></NuxtLink>
   </section>

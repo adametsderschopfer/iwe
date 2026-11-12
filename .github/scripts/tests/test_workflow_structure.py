@@ -1,4 +1,4 @@
-"""Guard the two-workflow release entry points and pinned source checkout."""
+"""Guard workflow entry points and pinned source checkout."""
 
 from pathlib import Path
 import re
@@ -8,10 +8,10 @@ WORKFLOWS = Path(__file__).resolve().parents[2] / "workflows"
 
 
 class WorkflowStructureTests(unittest.TestCase):
-    def test_only_two_english_workflows_exist(self):
+    def test_expected_english_workflows_exist(self):
         self.assertEqual(
             {path.name for path in WORKFLOWS.glob("*.yml")},
-            {"ci.yml", "bump-version.yml"},
+            {"ci.yml", "bump-version.yml", "website-build.yml"},
         )
         for path in WORKFLOWS.glob("*.yml"):
             self.assertNotRegex(path.read_text(), r"[А-Яа-яЁё]")
@@ -40,3 +40,15 @@ class WorkflowStructureTests(unittest.TestCase):
         release = (WORKFLOWS / "bump-version.yml").read_text()
         self.assertNotIn("./.github/workflows/ci.yml", release)
         self.assertNotIn("\n  checks:\n", release)
+
+
+    def test_manual_website_build_uses_main_without_publishing(self):
+        source = (WORKFLOWS / "website-build.yml").read_text()
+        triggers = source.split("on:\n", 1)[1].split("permissions:", 1)[0]
+        self.assertEqual(triggers.strip(), "workflow_dispatch:")
+        self.assertIn("if: github.ref == 'refs/heads/main'", source)
+        self.assertIn("ref: ${{ github.sha }}", source)
+        self.assertIn("npm run generate", source)
+        self.assertIn("actions/upload-artifact@", source)
+        self.assertNotIn("actions/deploy-pages@", source)
+        self.assertNotIn("contents: write", source)

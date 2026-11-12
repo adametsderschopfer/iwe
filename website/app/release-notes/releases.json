@@ -1559,6 +1559,21 @@
     "publishedAt": null,
     "tags": [],
     "source": null,
-    "items": []
+    "items": [
+      {
+        "id": "refresh-website-downloads-from-published-release",
+        "category": "fixed",
+        "text": {
+          "en": "Website builds automatically show the latest published version and its download links.",
+          "ru": "При сборке сайт автоматически получает последнюю опубликованную версию и ссылки для скачивания.",
+          "es": "Al compilar el sitio se actualizan automáticamente la última versión publicada y sus enlaces de descarga."
+        },
+        "sources": [
+          "website/nuxt.config.ts",
+          "website/app/components/DownloadSection.vue",
+          ".github/workflows/website-build.yml"
+        ]
+      }
+    ]
   }
 ]

@@ -185,3 +185,19 @@ Release New Version builds and publishes the website after successful applicatio
 publication. Every job checks out the same prepared version commit. Code Checks validates website
 changes on main pushes. Retry failed website jobs within the original version run after a deployment
 failure. Website failures leave the published application release available.
+
+## Manual website build
+
+Open Build Website in GitHub Actions, select main, and click Run workflow. The job builds the main
+commit selected when the run starts. Download website-main-COMMIT from the completed run's
+artifacts. Artifacts expire after 14 days. This workflow does not publish GitHub Pages. Release New
+Version continues to publish the website after application publication.
+
+## Current download version
+
+Nuxt loads the latest published stable GitHub release when loading its build configuration. The
+download section uses its version and verified asset URLs for all six supported targets. Missing
+packages or API failures stop the build before deployment. GH_TOKEN authenticates build-time API
+requests in Actions. It never enters public runtime configuration. Local builds can use the public
+API without a token. The website remains static. Each website build refreshes the release data. If
+authored notes for that version are absent, the release link opens the GitHub release.
