@@ -172,6 +172,27 @@ fn settings_content_covers_the_native_titlebar_without_hiding_system_controls() 
     assert!(settings.platform_specific.title_hidden);
 }
 
+#[cfg(target_os = "windows")]
+#[test]
+fn secondary_windows_draw_a_visible_frame() {
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    let _ = app.open_settings();
+    let id = app.windows.settings.unwrap();
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings::default(),
+        settings_settings().size,
+        app.view_window(id),
+    );
+    assert!(
+        ui.find(iced::widget::Id::new("settings-window-frame"))
+            .is_ok()
+    );
+    let frame = theme::window_frame(&iced::Theme::Dark);
+    assert_eq!(frame.border.width, 1.);
+    assert_ne!(frame.border.color, iced::Color::TRANSPARENT);
+    assert!(frame.background.is_some());
+}
+
 #[test]
 fn deployment_editors_fit_the_settings_window_and_keep_keys_inside_connections() {
     use crate::{

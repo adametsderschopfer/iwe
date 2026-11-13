@@ -41,6 +41,7 @@ impl App {
                 || self.project_add.is_some()
                 || self.auth_dialog.is_some()
                 || self.modules.git.git_actions.has_dialog()
+                || self.search_everywhere.dialog.is_some()
                 || space.is_some_and(|index| index >= self.workspace.spaces.len())
                 || (space.is_none() && self.space_draft.is_none())
                 || (space.is_some() && self.space_draft.is_some())

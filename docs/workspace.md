@@ -221,6 +221,26 @@ selects its text. The highlight covers the full row width, including its line nu
 source text or pressing Escape clears the row highlight. Invalid or missing numbers keep the dialog
 open with an explanation. Escape or **Cancel** closes the dialog. Settings lists the shortcut.
 
+Press Shift twice within 300 milliseconds to open **Search everywhere** over the workspace. The
+popup lists files of the selected project and projects from every space. Press Command+F on macOS or
+Ctrl+F on Windows and Linux to open the same popup with all results. Press Shift+Command+O on macOS
+or Ctrl+Shift+N on Windows and Linux to open it with files only. Both shortcuts can change in
+settings. The Go to File shortcut matches JetBrains defaults. The double-Shift opening cannot change
+because shortcut storage holds single combinations only.
+
+Type to filter the list. Matching ignores letter case while the query holds no uppercase letter.
+Characters may skip other characters in between. File matches rank by file name first, then by the
+path relative to the project root. Press Up or Down to move the selection. The list keeps the
+selected result centered while navigating. Press Enter to open the selected file or switch to the
+selected project. Press Tab or click a scope chip to switch between **All**, **Files**, and
+**Projects**. Escape, a backdrop click, or **Cancel** closes the popup. Another open dialog blocks
+the popup, and the popup blocks those dialogs.
+
+Search covers the background directory index, so results respect its limits: up to 4096 directories,
+100 000 entries, and the excluded folders, such as `target` and `node_modules`. Results show at most
+50 files per query. Files come from the selected project only. Selecting a project switches the
+workspace to it. The popup is unavailable in settings and without a selected project.
+
 Side-by-side comparisons use the selected source column, defaulting to the current version when it
 exists. Deleted files default to their previous version. Unified comparisons prefer current source
 line numbers. Large files load preceding parts in the background until the target is found. Only one
@@ -569,7 +589,14 @@ windows for connections and servers. The SFTP key selector opens the shared key 
 contains only **New space**. **Projects** groups projects by their space. An empty **Projects** menu
 shows a disabled **No projects yet** item. Choosing a project brings the workspace window forward.
 The menu follows language and workspace changes. Modal dialogs disable workspace navigation in the
-menu. Windows and Linux retain their existing sidebar controls.
+menu.
+
+On Windows, the workspace header starts with a **File**, **View**, **Deployment**, and **Help** menu
+bar. **File** offers **New space**, **Add project**, **Settings**, and **Exit**. **View** toggles
+the Terminal, Git, and Pipelines panels and lists only available panels. **Deployment** appears
+while the module is enabled and opens the connections and servers windows. **Help** opens the
+settings window on its **About** section. Modal dialogs disable workspace actions in these menus,
+and any other interaction closes an open menu. Linux retains its existing sidebar controls.
 
 Escape dismisses dialogs and context menus, including forms with focused text fields. Escape closes
 the focused settings or deployment window. If a nested dialog is open, Escape dismisses that dialog
@@ -593,10 +620,15 @@ lists the defaults.
 | Group | macOS               | Windows and Linux | Action                          |
 | ----- | ------------------- | ----------------- | ------------------------------- |
 | Code  | Command + L         | Ctrl + G          | Go to a source line             |
+| Code  | Command + F         | Ctrl + F          | Open search everywhere          |
+| Code  | Shift + Command + O | Ctrl + Shift + N  | Open search with files only     |
 | Code  | Command + C         | Ctrl + C          | Copy selected source text       |
 | Code  | Command + A         | Ctrl + A          | Select all source text          |
 | Tabs  | Command + W         | Ctrl + W          | Close the active file tab       |
 | Tabs  | Command + Shift + T | Ctrl + Shift + T  | Reopen the last closed file tab |
+
+Pressing Shift twice within 300 milliseconds also opens search everywhere. This double-press opening
+stays fixed and does not appear in settings.
 
 ## Modules
 

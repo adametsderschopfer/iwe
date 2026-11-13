@@ -23,6 +23,12 @@ Run the same checks locally with `make check` and `make build`. Run `make fmt` t
 Markdown, JSON, and YAML files. Security checks use the complete lockfile and require network access
 to refresh RustSec advisories.
 
+GitHub Actions caches speed up repeated runs. Rust jobs restore the crate registry and compiled
+dependencies. They disable incremental compilation because every run starts from cached artifacts.
+The security job caches the cargo-audit binary. Website jobs cache npm packages and Playwright
+browsers. Release builds set platform link flags before the Rust setup step. This keeps each cache
+tied to one build configuration.
+
 ## Release packages
 
 | Platform | Architecture         | Rust target              | Runner         | Package                     |

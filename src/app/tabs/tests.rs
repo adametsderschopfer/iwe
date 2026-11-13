@@ -1226,7 +1226,7 @@ fn suspended_comparisons_restore_expanded_folds_only_for_matching_content() {
 }
 
 #[test]
-fn restoring_tabs_skips_open_duplicates_and_resets_history_when_projects_change() {
+fn restoring_tabs_skips_open_duplicates_and_projects_keep_their_closure_history() {
     let mut app = app();
     let first = open(&mut app, "first.rs");
     loaded(&mut app, first, "first");
@@ -1247,6 +1247,204 @@ fn restoring_tabs_skips_open_duplicates_and_resets_history_when_projects_change(
     let _ = app.update(Message::ReopenClosedTab);
     assert!(app.preview().path.is_none());
     assert!(app.tabs.closed.is_empty());
+    app.workspace.select_project(0, 0);
+    let _ = app.load_directory();
+    assert_eq!(app.preview().title, "second.rs");
+    assert!(app.preview().loading);
+    assert_eq!(app.tabs.closed.len(), 1);
+    let _ = app.update(Message::ReopenClosedTab);
+    assert_eq!(app.preview().title, "first.rs");
+    assert_eq!(app.preview().document.as_ref().unwrap().text, "first");
+    assert_eq!(app.tabs.files.len(), 2);
+}
+
+#[test]
+fn switching_projects_restores_tabs_documents_positions_and_pending_reads() {
+    let mut app = app();
+    let ready = open(&mut app, "ready.rs");
+    loaded(&mut app, ready, "ready source");
+    let _ = app.update(Message::CodeScrolled {
+        id: ready,
+        x: 21.,
+        y: 64.,
+    });
+    let pending = open(&mut app, "pending.rs");
+    assert!(app.preview().loading);
+    let ready_document = Arc::clone(
+        app.tabs
+            .files
+            .iter()
+            .find(|tab| tab.id == ready)
+            .unwrap()
+            .document
+            .as_ref()
+            .unwrap(),
+    );
+    let _ = app.close_tab(ready);
+    assert_eq!(app.tabs.closed.len(), 1);
+
+    app.workspace
+        .create_space("Other".into(), vec![PathBuf::from("other")]);
+    let _ = app.load_directory();
+    assert!(app.preview().path.is_none());
+    assert!(app.tabs.closed.is_empty());
+    loaded(&mut app, pending, "stale result");
+    assert!(app.preview().path.is_none());
+    assert!(app.preview().document.is_none());
+
+    app.workspace.select_project(0, 0);
+    let _ = app.load_directory();
+    assert_eq!(app.preview().id, pending);
+    assert_eq!(app.preview().title, "pending.rs");
+    assert!(app.preview().loading);
+    assert_eq!(app.tabs.closed.len(), 1);
+    let _ = app.update(Message::FilePrepared(
+        app.generation - 1,
+        pending,
+        Preparation::Text,
+        Ok(Document::new("stale".into(), "rs")),
+    ));
+    assert!(app.preview().loading);
+    assert!(app.preview().document.is_none());
+    loaded(&mut app, pending, "restored source");
+    assert!(!app.preview().loading);
+    assert_eq!(
+        app.preview().document.as_ref().unwrap().text,
+        "restored source"
+    );
+
+    let _ = app.update(Message::ReopenClosedTab);
+    assert_eq!(app.preview().title, "ready.rs");
+    assert_eq!((app.preview().scroll_x, app.preview().scroll_y), (21., 64.));
+    assert!(Arc::ptr_eq(
+        &ready_document,
+        app.preview().document.as_ref().unwrap()
+    ));
+}
+
+#[test]
+fn protected_drafts_travel_with_their_project_when_switches_bypass_the_prompt() {
+    let mut app = app();
+    let id = open(&mut app, "draft.rs");
+    let _ = app.finish_preview(id, Ok(Document::new("draft text".into(), "rs")));
+    let buffer = app.preview_mut().editor.as_mut().unwrap();
+    buffer.saving = true;
+    let document = Arc::clone(app.preview().document.as_ref().unwrap());
+
+    app.workspace
+        .create_space("Other".into(), vec![PathBuf::from("other")]);
+    let _ = app.load_directory();
+    assert!(app.preview().path.is_none());
+    let stashed = app
+        .tabs
+        .stash
+        .iter()
+        .find(|(root, _)| *root == PathBuf::from("project"))
+        .unwrap();
+    assert!(stashed.1.files[0].editor.is_some());
+    assert!(stashed.1.files[0].document.is_some());
+
+    app.workspace.select_project(0, 0);
+    let _ = app.load_directory();
+    assert_eq!(app.preview().id, id);
+    assert_eq!(app.preview().title, "draft.rs");
+    let buffer = app.preview().editor.as_ref().unwrap();
+    assert!(buffer.saving);
+    assert_eq!(buffer.document.text, "draft text");
+    assert!(Arc::ptr_eq(
+        &document,
+        app.preview().document.as_ref().unwrap()
+    ));
+}
+
+#[test]
+fn the_stash_keeps_only_the_four_most_recent_projects() {
+    let mut app = app();
+    let first = open(&mut app, "first.rs");
+    loaded(&mut app, first, "first");
+    for index in 0..5 {
+        app.workspace.create_space(
+            format!("Space {index}"),
+            vec![PathBuf::from(format!("root-{index}"))],
+        );
+        let _ = app.load_directory();
+        let id = open(&mut app, "tab.rs");
+        loaded(&mut app, id, "background source");
+    }
+    assert_eq!(app.tabs.stash.len(), 4);
+    assert!(
+        app.tabs
+            .stash
+            .iter()
+            .all(|(root, _)| *root != PathBuf::from("project"))
+    );
+
+    app.workspace.select_project(3, 0);
+    let _ = app.load_directory();
+    assert_eq!(app.preview().title, "project/tab.rs");
+    assert_eq!(
+        app.preview().document.as_ref().unwrap().text,
+        "background source"
+    );
+    // Restoring a project removes its entry while the departing project joins the stash.
+    assert_eq!(app.tabs.stash.len(), 3);
+
+    app.workspace.select_project(0, 0);
+    let _ = app.load_directory();
+    assert!(app.preview().title.is_empty());
+    assert!(app.preview().path.is_none());
+    assert_eq!(app.tabs.stash.len(), 4);
+}
+
+#[tokio::test]
+async fn stashed_documents_beyond_the_budget_reload_from_disk_on_return() {
+    use iced::futures::StreamExt;
+    use iced_test::runtime::{Action, task};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("large.txt");
+    let content = "stashed line\n".repeat(1_400_000);
+    std::fs::write(&path, &content).unwrap();
+    let mut app = app();
+    let id = open(&mut app, "large.txt");
+    app.preview_mut().source = Some(Source::Working {
+        compare: false,
+        root: directory.path().to_owned(),
+        path: path.clone(),
+    });
+    let _ = app.finish_preview(id, Ok(Document::plain(content.clone())));
+    assert!(app.preview().document.is_some());
+    app.preview_mut().scroll_y = 240.;
+
+    app.workspace
+        .create_space("Other".into(), vec![PathBuf::from("other")]);
+    let _ = app.load_directory();
+    let stashed = app
+        .tabs
+        .stash
+        .iter()
+        .find(|(root, _)| *root == PathBuf::from("project"))
+        .unwrap();
+    let preview = &stashed.1.files[0];
+    assert!(preview.document.is_none());
+    assert!(preview.suspended.is_some());
+    assert!(preview.editor.is_none());
+
+    app.workspace.select_project(0, 0);
+    let mut actions = task::into_stream(app.sync_preview_project()).unwrap();
+    let mut loaded = None;
+    while let Some(action) = actions.next().await {
+        if let Action::Output(Message::FilePrepared(_, _, Preparation::Text, result)) = action {
+            loaded = Some(result.unwrap());
+        }
+    }
+    let loaded = loaded.expect("The restored preview must reread its document");
+    assert!(loaded.page.is_some());
+    assert_eq!(loaded.text, content[..loaded.text.len()]);
+    let _ = app.continue_preview(id, Preparation::Text, Ok(loaded.clone()));
+    let _ = app.finish_preview(id, Ok(loaded));
+    assert!(!app.preview().loading);
+    assert!(app.preview().document.is_some());
+    assert_eq!(app.preview().scroll_y, 240.);
 }
 
 #[test]

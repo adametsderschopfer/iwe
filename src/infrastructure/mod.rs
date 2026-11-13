@@ -6,6 +6,7 @@ mod credentials;
 pub(crate) mod graphics;
 pub(crate) mod http;
 pub(crate) mod locale;
+pub(crate) mod modules;
 #[cfg(target_os = "macos")]
 pub(crate) mod native_menu;
 pub(crate) use crate::modules::pipelines::transport as pipelines;

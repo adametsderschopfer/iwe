@@ -249,3 +249,76 @@ fn escape_dismisses_nested_dialogs_and_shortcut_recording_before_closing_windows
     );
     assert_eq!(app.windows.settings, Some(settings));
 }
+
+fn workspace_app() -> App {
+    let mut app = App::new(Rc::new(I18n::new(Language::English)));
+    app.workspace.spaces = vec![crate::domain::workspace::Space {
+        name: "Work".into(),
+        projects: vec![crate::domain::workspace::Project {
+            name: "Alpha".into(),
+            directory: std::path::PathBuf::from("/tmp/alpha"),
+            pinned: false,
+        }],
+        deployments: Vec::new(),
+    }];
+    app.workspace.select_project(0, 0);
+    app
+}
+
+fn shift(id: window::Id) -> Event {
+    Event::Key(
+        id,
+        keyboard::Event::KeyPressed {
+            key: KeyboardKey::Named(key::Named::Shift),
+            modified_key: KeyboardKey::Named(key::Named::Shift),
+            physical_key: key::Physical::Code(key::Code::ShiftLeft),
+            location: keyboard::Location::Standard,
+            modifiers: Modifiers::SHIFT,
+            repeat: false,
+            text: None,
+        },
+        Status::Ignored,
+    )
+}
+
+#[test]
+fn pressing_shift_twice_within_the_window_opens_search_everywhere() {
+    let mut app = workspace_app();
+    let id = window::Id::unique();
+    app.window_id = Some(id);
+    let _ = app.update_shortcuts(shift(id));
+    let _ = app.update_shortcuts(shift(id));
+    assert!(app.search_everywhere.dialog.is_some());
+    assert_eq!(
+        app.search_everywhere
+            .dialog
+            .as_ref()
+            .map(|dialog| dialog.scope),
+        Some(crate::app::search_everywhere::Scope::All)
+    );
+}
+
+#[test]
+fn spaced_or_interrupted_shift_presses_do_not_open_search_everywhere() {
+    let mut app = workspace_app();
+    let id = window::Id::unique();
+    app.window_id = Some(id);
+
+    let _ = app.update_shortcuts(shift(id));
+    std::thread::sleep(std::time::Duration::from_millis(350));
+    let _ = app.update_shortcuts(shift(id));
+    assert!(app.search_everywhere.dialog.is_none());
+
+    app.shortcuts.last_shift = None;
+    let _ = app.update_shortcuts(shift(id));
+    let _ = app.update_shortcuts(press(id, "a", key::Code::KeyA, Modifiers::NONE));
+    let _ = app.update_shortcuts(shift(id));
+    assert!(app.search_everywhere.dialog.is_none());
+
+    app.shortcuts.last_shift = None;
+    let settings = window::Id::unique();
+    app.windows.settings = Some(settings);
+    let _ = app.update_shortcuts(shift(settings));
+    let _ = app.update_shortcuts(shift(settings));
+    assert!(app.search_everywhere.dialog.is_none());
+}

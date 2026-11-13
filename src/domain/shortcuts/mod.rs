@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) enum Command {
     GoToLine,
+    GoToFile,
+    Search,
     SaveFile,
     Copy,
     SelectAll,
@@ -16,8 +18,10 @@ pub(crate) enum Command {
 }
 
 impl Command {
-    pub(crate) const ALL: [Self; 8] = [
+    pub(crate) const ALL: [Self; 10] = [
         Self::GoToLine,
+        Self::GoToFile,
+        Self::Search,
         Self::SaveFile,
         Self::Copy,
         Self::SelectAll,
@@ -32,6 +36,9 @@ impl Command {
             key: match self {
                 Self::GoToLine if cfg!(target_os = "macos") => "L",
                 Self::GoToLine => "G",
+                Self::GoToFile if cfg!(target_os = "macos") => "O",
+                Self::GoToFile => "N",
+                Self::Search => "F",
                 Self::Copy | Self::DeploymentCompare => "C",
                 Self::SelectAll | Self::DeploymentUpload => "A",
                 Self::SaveFile => "S",
@@ -44,7 +51,7 @@ impl Command {
             alt: false,
             shift: matches!(
                 self,
-                Self::ReopenTab | Self::DeploymentCompare | Self::DeploymentUpload
+                Self::GoToFile | Self::ReopenTab | Self::DeploymentCompare | Self::DeploymentUpload
             ),
         }
     }

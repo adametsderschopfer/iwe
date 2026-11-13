@@ -49,6 +49,7 @@ impl App {
                     && self.space_draft.is_none()
                     && self.project_add.is_none()
                     && self.auth_dialog.is_none()
+                    && self.search_everywhere.dialog.is_none()
                     && !self.modules.git.git_actions.has_dialog()
                     && self.preview().document.is_some()
                     && !self.preview().loading =>

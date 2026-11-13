@@ -10,6 +10,8 @@ pub(crate) mod files;
 pub(crate) use modules::git::git_actions;
 pub(crate) use modules::pipelines::jobs;
 pub(crate) mod line_navigation;
+#[cfg(target_os = "windows")]
+pub(crate) mod menu_bar;
 pub(crate) mod modules;
 #[cfg(target_os = "macos")]
 mod native_menu;
@@ -18,6 +20,7 @@ pub(crate) mod project_add;
 pub(crate) mod project_changes;
 mod repositories;
 mod repository_cache;
+pub(crate) mod search_everywhere;
 pub(crate) mod shortcuts;
 pub(crate) mod spaces;
 pub(crate) mod tabs;
@@ -60,6 +63,8 @@ fn application(
                 Task::batch([
                     open.map(Message::WindowOpened),
                     Task::perform(workspace::load(), Message::Loaded),
+                    modules::external::startup()
+                        .map(|event| Message::Module(modules::Event::External(event))),
                     Task::done(Message::Update(updates::Event::Automatic(
                         updates::Trigger::Periodic,
                     ))),
@@ -181,6 +186,8 @@ pub(crate) struct App {
     pub project_menu: Option<(usize, PathBuf, iced::Point)>,
     pub space_menu: Option<(usize, iced::Point)>,
     pub repository_menu: Option<iced::Point>,
+    #[cfg(target_os = "windows")]
+    pub(crate) menu_bar: Option<(menu_bar::Menu, iced::Point)>,
     pub collapsed_worktree_folders: BTreeSet<String>,
     pub changes: changes::State,
     repository_cache: repository_cache::Cache,
@@ -192,6 +199,7 @@ pub(crate) struct App {
     pub space_draft: Option<spaces::Draft>,
     pub project_add: Option<project_add::Draft>,
     pub line_navigation: Option<line_navigation::Dialog>,
+    pub search_everywhere: search_everywhere::State,
     pub account_username: Option<String>,
     pub disconnecting: bool,
     pub notifications: notifications::State,
@@ -243,6 +251,12 @@ pub(crate) enum Message {
     CloseWindow,
     #[cfg(target_os = "windows")]
     ResizeWindow(window::Direction),
+    #[cfg(target_os = "windows")]
+    OpenMenuBar(menu_bar::Menu, iced::Point),
+    #[cfg(target_os = "windows")]
+    CloseMenuBar,
+    #[cfg(target_os = "windows")]
+    MenuAbout,
     GlassConfigured(bool),
     Loaded(Result<(Workspace, Option<PathBuf>), Failure>),
     Saved(Result<(), Failure>),
@@ -285,6 +299,7 @@ pub(crate) enum Message {
     OpenFile(PathBuf),
     OpenWorkingChange(PathBuf),
     GoToLine(line_navigation::Event),
+    SearchEverywhere(search_everywhere::Event),
     CodeSelection(u64, crate::ui::code::selection::Action),
     ReadFilePart(u64, tabs::PageDirection),
     OpenCommitFile(usize),
@@ -350,7 +365,7 @@ impl App {
         }
     }
 
-    fn new(i18n: Rc<I18n>) -> Self {
+    pub(crate) fn new(i18n: Rc<I18n>) -> Self {
         let mut app = Self {
             i18n,
             workspace: Workspace::default(),
@@ -370,6 +385,8 @@ impl App {
             project_menu: None,
             space_menu: None,
             repository_menu: None,
+            #[cfg(target_os = "windows")]
+            menu_bar: None,
             collapsed_worktree_folders: BTreeSet::new(),
             changes: changes::State::default(),
             repository_cache: repository_cache::Cache::default(),
@@ -381,6 +398,7 @@ impl App {
             space_draft: None,
             project_add: None,
             line_navigation: None,
+            search_everywhere: search_everywhere::State::default(),
             account_username: None,
             disconnecting: false,
             notifications: notifications::State::default(),
@@ -419,6 +437,10 @@ impl App {
     fn update(&mut self, message: Message) -> Task<Message> {
         if self.protect_editor(&message) {
             return self.flush_editor();
+        }
+        #[cfg(target_os = "windows")]
+        if !matches!(message, Message::OpenMenuBar(..)) {
+            self.menu_bar = None;
         }
         if self.editor.pending.is_some() && matches!(message, Message::DismissDialog) {
             return self.update_editor(editor::Event::Cancel);
@@ -472,6 +494,7 @@ impl App {
         if (self.editor.pending.is_some()
             || self.auth_dialog.is_some()
             || self.line_navigation.is_some()
+            || self.search_everywhere.dialog.is_some()
             || self.project_add.is_some()
             || self.space_draft.is_some()
             || self.modules.git.git_actions.has_dialog())
@@ -564,6 +587,7 @@ impl App {
             Message::ProjectChanges(event) => return self.update_project_changes(event),
             Message::Update(event) => return self.update_release(event),
             Message::GoToLine(event) => return self.update_line_navigation(event),
+            Message::SearchEverywhere(event) => return self.update_search_everywhere(event),
             Message::Git(message) => return self.update_git(message),
             Message::BranchSelection(event) => return self.update_branch_selection(event),
             Message::ProjectMenu(space, path, point)
@@ -594,6 +618,25 @@ impl App {
                 self.space_menu = Some((index, point));
             }
             Message::CloseSpaceMenu => self.space_menu = None,
+            #[cfg(target_os = "windows")]
+            Message::OpenMenuBar(menu, point) => {
+                self.space_menu = None;
+                self.project_menu = None;
+                self.files.menu = None;
+                self.modules.git.git_actions.menu = None;
+                self.modules.git.git_actions.bulk.menu = None;
+                self.tabs.menu = None;
+                self.repository_menu = None;
+                self.menu_bar = Some((menu, point));
+            }
+            #[cfg(target_os = "windows")]
+            Message::CloseMenuBar => self.menu_bar = None,
+            #[cfg(target_os = "windows")]
+            Message::MenuAbout if !self.modules.deployment.has_dialog() => {
+                self.shortcuts = shortcuts::State::default();
+                self.settings_tab = SettingsTab::About;
+                return self.update(Message::Navigate(Navigation::Settings));
+            }
             Message::RemoveProjectFromSpace => return self.remove_project_from_space(),
             Message::TogglePinned => {
                 if let Some((space, path, _)) = self.project_menu.take()
@@ -770,6 +813,9 @@ impl App {
                     return Task::none();
                 }
                 if self.space_menu.take().is_some() {
+                    return Task::none();
+                }
+                if self.search_everywhere.dialog.take().is_some() {
                     return Task::none();
                 }
                 if self.line_navigation.take().is_some() {
@@ -1442,6 +1488,24 @@ impl App {
                 ModuleId::Pipelines => self.has_remote(),
                 ModuleId::Deployment => false,
             }
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn menu_actions_enabled(&self) -> bool {
+        self.loaded
+            && self.editor.pending.is_none()
+            && self.space_draft.is_none()
+            && self.project_add.is_none()
+            && self.auth_dialog.is_none()
+            && !self.modules.git.git_actions.has_dialog()
+            && self.line_navigation.is_none()
+            && !self.modules.deployment.has_dialog()
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn main_window_close(&self) -> Option<Message> {
+        self.window_id
+            .map(|id| Message::Window(windows::Event::Close(id)))
     }
 
     fn hide_other_bottom_panels(&mut self, id: ModuleId) {

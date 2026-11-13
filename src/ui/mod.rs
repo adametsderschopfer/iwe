@@ -8,6 +8,7 @@ pub(crate) mod changed_tree;
 pub(crate) mod code;
 pub(crate) mod context_menu;
 pub(crate) mod ellipsis;
+pub(crate) mod external_module_panel;
 pub(crate) mod file_icons;
 pub(crate) mod graph;
 pub(crate) mod icons;

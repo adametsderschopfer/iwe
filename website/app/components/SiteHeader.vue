@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { languages, licensePath, repository, type Locale, type Messages } from '~/i18n'
+import { languages, licensePath, modulesPath, repository, type Locale, type Messages } from '~/i18n'
 import { releaseNotesPath } from '~/release-notes'
 
 const props = withDefaults(
   defineProps<{
     messages: Messages
     locale: Locale
-    section?: 'home' | 'releases' | 'license'
+    section?: 'home' | 'releases' | 'license' | 'modules'
     releaseVersion?: string
   }>(),
   { section: 'home', releaseVersion: undefined },
@@ -38,6 +38,11 @@ const homeHref = computed(() => `${base}${props.locale === 'en' ? '' : `${props.
         :aria-current="section === 'releases' ? 'page' : undefined"
         >{{ messages.releaseNotes.label }}</NuxtLink
       >
+      <NuxtLink
+        :to="modulesPath(locale)"
+        :aria-current="section === 'modules' ? 'page' : undefined"
+        >{{ messages.modules.label }}</NuxtLink
+      >
       <a :href="repository">GitHub <SiteIcon name="arrow" /></a>
     </nav>
     <div class="header-actions">
@@ -50,7 +55,9 @@ const homeHref = computed(() => `${base}${props.locale === 'en' ? '' : `${props.
               ? releaseNotesPath(language.code, releaseVersion)
               : section === 'license'
                 ? licensePath(language.code)
-                : language.path
+                : section === 'modules'
+                  ? modulesPath(language.code)
+                  : language.path
           "
           :lang="language.code"
           :aria-label="language.name"

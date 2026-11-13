@@ -3,7 +3,9 @@
     "version": "0.0.1",
     "status": "released",
     "publishedAt": "2026-11-08T23:44:09Z",
-    "tags": ["0.0.1"],
+    "tags": [
+      "0.0.1"
+    ],
     "source": "d90f9712201afa1f527fb89ba928dc4569783bbb",
     "items": [
       {
@@ -14,7 +16,9 @@
           "ru": "Объединяйте локальные проекты в пространства и просматривайте исходные файлы.",
           "es": "Organiza proyectos locales en espacios y consulta sus archivos."
         },
-        "sources": ["7310761"]
+        "sources": [
+          "7310761"
+        ]
       },
       {
         "id": "initial-git-pipelines",
@@ -24,7 +28,9 @@
           "ru": "Просматривайте историю Git и процессы сборки рядом с исходными файлами.",
           "es": "Consulta el historial de Git y las ejecuciones junto a los archivos del proyecto."
         },
-        "sources": ["7310761"]
+        "sources": [
+          "7310761"
+        ]
       }
     ]
   },
@@ -32,7 +38,9 @@
     "version": "0.1.1",
     "status": "released",
     "publishedAt": "2026-11-09T10:14:04Z",
-    "tags": ["0.1.1"],
+    "tags": [
+      "0.1.1"
+    ],
     "source": "bc0443872c18988c77843f67bcf0d43b2621e468",
     "items": [
       {
@@ -43,7 +51,9 @@
           "ru": "Улучшены управление пространством и сравнение файлов.",
           "es": "Mejoras en los controles del espacio y la comparación de archivos."
         },
-        "sources": ["0591a64"]
+        "sources": [
+          "0591a64"
+        ]
       }
     ]
   },
@@ -51,7 +61,9 @@
     "version": "0.1.2",
     "status": "released",
     "publishedAt": "2026-11-09T12:11:53Z",
-    "tags": ["0.1.2"],
+    "tags": [
+      "0.1.2"
+    ],
     "source": "8d3b50e71eff89dfd844fdf5f06d174983d5bf1e",
     "items": [
       {
@@ -62,7 +74,9 @@
           "ru": "Просматривайте этапы процессов сборки и сводки заданий прямо в списке.",
           "es": "Consulta etapas y resúmenes de tareas directamente en la lista de ejecuciones."
         },
-        "sources": ["837744b"]
+        "sources": [
+          "837744b"
+        ]
       }
     ]
   },
@@ -81,7 +95,9 @@
           "ru": "Улучшены навигация по процессам сборки и разделители пространства.",
           "es": "Mejoras en la navegación de ejecuciones y los separadores del espacio."
         },
-        "sources": ["d66a912"]
+        "sources": [
+          "d66a912"
+        ]
       }
     ]
   },
@@ -100,7 +116,9 @@
           "ru": "Названия веток занимают меньше места в списке.",
           "es": "Los nombres de las ramas ocupan menos espacio en la lista."
         },
-        "sources": ["55d30b3"]
+        "sources": [
+          "55d30b3"
+        ]
       },
       {
         "id": "operation-notifications",
@@ -110,7 +128,9 @@
           "ru": "Результаты действий появляются в уведомлениях поверх пространства.",
           "es": "Los resultados de las operaciones aparecen como notificaciones sobre el espacio."
         },
-        "sources": ["55d30b3"]
+        "sources": [
+          "55d30b3"
+        ]
       }
     ]
   },
@@ -129,7 +149,9 @@
           "ru": "Добавлена поддержка Command+W для закрытия приложения на macOS.",
           "es": "Compatibilidad con Command+W para cerrar la aplicación en macOS."
         },
-        "sources": ["2c50842"]
+        "sources": [
+          "2c50842"
+        ]
       }
     ]
   },
@@ -148,7 +170,9 @@
           "ru": "Сокращены повторные запросы учётных данных и выровнены кнопки управления ветками.",
           "es": "Menos solicitudes repetidas de credenciales y controles de ramas alineados."
         },
-        "sources": ["22a5202"]
+        "sources": [
+          "22a5202"
+        ]
       }
     ]
   },
@@ -167,7 +191,9 @@
           "ru": "Скрывайте панели файлов и изменяйте их ширину, чтобы освободить место для кода.",
           "es": "Oculta los paneles de archivos y ajusta su anchura para dejar más espacio al código."
         },
-        "sources": ["65597a0"]
+        "sources": [
+          "65597a0"
+        ]
       }
     ]
   },
@@ -186,7 +212,9 @@
           "ru": "Просматривайте репозитории из непосредственных поддиректорий проекта в общей истории.",
           "es": "Consulta los repositorios de las subcarpetas directas del proyecto en un historial compartido."
         },
-        "sources": ["6e1035c"]
+        "sources": [
+          "6e1035c"
+        ]
       }
     ]
   },
@@ -205,7 +233,9 @@
           "ru": "Всплывающие подсказки используют одинаковые отступы от элементов интерфейса.",
           "es": "Las ayudas mantienen una separación uniforme respecto a los controles."
         },
-        "sources": ["ca5aa57"]
+        "sources": [
+          "ca5aa57"
+        ]
       }
     ]
   },
@@ -213,7 +243,9 @@
     "version": "0.1.10",
     "status": "released",
     "publishedAt": "2026-11-09T19:36:09Z",
-    "tags": ["0.1.10"],
+    "tags": [
+      "0.1.10"
+    ],
     "source": "8991a80d85a670da67eb3071a5e1f658feb3aea5",
     "items": [
       {
@@ -224,7 +256,9 @@
           "ru": "Проверяйте подписанные обновления, затем скачивайте и устанавливайте их из приложения.",
           "es": "Busca actualizaciones firmadas y descárgalas e instálalas desde la aplicación."
         },
-        "sources": ["cfcf2e6"]
+        "sources": [
+          "cfcf2e6"
+        ]
       },
       {
         "id": "iwe-code-name",
@@ -234,7 +268,9 @@
           "ru": "Приложение теперь называется IWE Code.",
           "es": "La aplicación ahora se llama IWE Code."
         },
-        "sources": ["cfcf2e6"]
+        "sources": [
+          "cfcf2e6"
+        ]
       }
     ]
   },
@@ -242,7 +278,9 @@
     "version": "0.1.11",
     "status": "released",
     "publishedAt": "2026-11-09T20:16:12Z",
-    "tags": ["0.1.11"],
+    "tags": [
+      "0.1.11"
+    ],
     "source": "83aac962e218e508c0497252979e8f796e1a3478",
     "items": [
       {
@@ -253,7 +291,9 @@
           "ru": "Выбор проекта открывает его файлы без отдельной кнопки.",
           "es": "Al seleccionar un proyecto se abren sus archivos sin un botón adicional."
         },
-        "sources": ["83aac96"]
+        "sources": [
+          "83aac96"
+        ]
       }
     ]
   },
@@ -261,7 +301,10 @@
     "version": "0.1.12",
     "status": "released",
     "publishedAt": "2026-11-09T22:13:20Z",
-    "tags": ["macos-v0.1.12", "linux-v0.1.12"],
+    "tags": [
+      "macos-v0.1.12",
+      "linux-v0.1.12"
+    ],
     "source": "e51e946da1e230af3ecfda4b852aef4d8b754d03",
     "items": [
       {
@@ -272,7 +315,10 @@
           "ru": "Открывайте большие исходные файлы по частям и переходите к указанной строке.",
           "es": "Abre archivos grandes por partes y salta a una línea concreta."
         },
-        "sources": ["55d18ea", "68d6f4b"]
+        "sources": [
+          "55d18ea",
+          "68d6f4b"
+        ]
       },
       {
         "id": "source-clipboard",
@@ -282,7 +328,10 @@
           "ru": "Выделяйте исходный текст и копируйте пути файлов через контекстные меню.",
           "es": "Selecciona texto del código y copia rutas de archivos desde los menús contextuales."
         },
-        "sources": ["630541f", "be87735"]
+        "sources": [
+          "630541f",
+          "be87735"
+        ]
       },
       {
         "id": "notification-countdowns",
@@ -292,7 +341,9 @@
           "ru": "Обратный отсчёт уведомления приостанавливается при наведении указателя.",
           "es": "La cuenta atrás de una notificación se pausa al colocar el puntero sobre ella."
         },
-        "sources": ["56a5b72"]
+        "sources": [
+          "56a5b72"
+        ]
       },
       {
         "id": "background-updates",
@@ -302,7 +353,9 @@
           "ru": "Приложение периодически проверяет обновления и повторяет проверку при возвращении фокуса окна.",
           "es": "La aplicación busca actualizaciones periódicamente y cuando su ventana recupera el foco."
         },
-        "sources": ["644bd86"]
+        "sources": [
+          "644bd86"
+        ]
       },
       {
         "id": "project-navigation",
@@ -312,7 +365,10 @@
           "ru": "Открывайте Git через метку ветки и удаляйте проекты через их контекстное меню.",
           "es": "Abre Git desde la etiqueta de la rama y elimina proyectos desde su menú contextual."
         },
-        "sources": ["80aaeec", "4e395be"]
+        "sources": [
+          "80aaeec",
+          "4e395be"
+        ]
       },
       {
         "id": "windows-installer",
@@ -322,7 +378,9 @@
           "ru": "Добавлены установщик Windows и элементы управления окном приложения.",
           "es": "Se añadieron un instalador de Windows y controles de ventana."
         },
-        "sources": ["0bedfbc"]
+        "sources": [
+          "0bedfbc"
+        ]
       },
       {
         "id": "windows-scrollbars",
@@ -332,7 +390,9 @@
           "ru": "Исправлено перекрытие полос прокрутки кода элементами изменения размера окна в Windows.",
           "es": "Corregida la superposición de los controles de tamaño sobre las barras de desplazamiento en Windows."
         },
-        "sources": ["e51e946"]
+        "sources": [
+          "e51e946"
+        ]
       }
     ]
   },
@@ -340,7 +400,9 @@
     "version": "0.1.13",
     "status": "released",
     "publishedAt": "2026-11-10T00:39:11Z",
-    "tags": ["macos-v0.1.13"],
+    "tags": [
+      "macos-v0.1.13"
+    ],
     "source": "a5ad29050c40c076bf296301d2da467e5e39be6a",
     "items": [
       {
@@ -351,7 +413,9 @@
           "ru": "Переход к строке подсвечивает всю строку вместе с её номером.",
           "es": "La navegación a una línea resalta toda la fila, incluido su número."
         },
-        "sources": ["src/ui/code/selection.rs"]
+        "sources": [
+          "src/ui/code/selection.rs"
+        ]
       },
       {
         "id": "collapse-nested-folders",
@@ -361,7 +425,9 @@
           "ru": "Сворачивание директории проекта также сворачивает вложенные директории.",
           "es": "Al contraer una carpeta del proyecto también se contraen sus subcarpetas."
         },
-        "sources": ["src/app/files.rs"]
+        "sources": [
+          "src/app/files.rs"
+        ]
       },
       {
         "id": "shortcut-groups",
@@ -371,7 +437,9 @@
           "ru": "Горячие клавиши в настройках разделены на группы по назначению.",
           "es": "Los atajos de teclado se agrupan por su función en los ajustes."
         },
-        "sources": ["src/ui/screens/settings.rs"]
+        "sources": [
+          "src/ui/screens/settings.rs"
+        ]
       },
       {
         "id": "toast-exit-motion",
@@ -381,7 +449,10 @@
           "ru": "Уведомления уезжают вправо при закрытии, а уведомления выше плавно опускаются.",
           "es": "Las notificaciones salen hacia la derecha y las superiores bajan suavemente."
         },
-        "sources": ["src/app/notifications.rs", "src/ui/notifications/motion.rs"]
+        "sources": [
+          "src/app/notifications.rs",
+          "src/ui/notifications/motion.rs"
+        ]
       },
       {
         "id": "linked-worktree-deletion-error",
@@ -391,7 +462,9 @@
           "ru": "При удалении ветки приложение сообщает, если она открыта в другой рабочей копии.",
           "es": "Al eliminar una rama se indica si está abierta en otra copia de trabajo."
         },
-        "sources": ["src/infrastructure/git/mod.rs"]
+        "sources": [
+          "src/infrastructure/git/mod.rs"
+        ]
       },
       {
         "id": "compact-repository-badges",
@@ -401,7 +474,9 @@
           "ru": "Метки репозиториев соответствуют длине названий и расположены ближе к графу истории.",
           "es": "Las etiquetas de repositorio se ajustan al nombre y quedan más cerca del gráfico del historial."
         },
-        "sources": ["src/ui/screens/git.rs"]
+        "sources": [
+          "src/ui/screens/git.rs"
+        ]
       },
       {
         "id": "separate-settings-window",
@@ -411,7 +486,9 @@
           "ru": "Настройки открываются отдельным окном и используют его при повторном открытии.",
           "es": "Los ajustes se abren en una ventana independiente que se reutiliza al abrirlos de nuevo."
         },
-        "sources": ["src/app/windows.rs"]
+        "sources": [
+          "src/app/windows.rs"
+        ]
       },
       {
         "id": "native-workspace-menu",
@@ -421,7 +498,9 @@
           "ru": "Меню приложения macOS включает настройки, пространства, создание пространства и проекты.",
           "es": "El menú de macOS incluye ajustes, espacios, creación de espacios y proyectos."
         },
-        "sources": ["src/infrastructure/native_menu.rs"]
+        "sources": [
+          "src/infrastructure/native_menu.rs"
+        ]
       },
       {
         "id": "bulk-branch-actions",
@@ -431,7 +510,10 @@
           "ru": "Выбирайте ветки и директории через Command или Ctrl, затем отправляйте, обновляйте или удаляйте выбранные ветки.",
           "es": "Selecciona ramas y carpetas con Command o Ctrl para enviarlas, actualizarlas o eliminarlas."
         },
-        "sources": ["src/app/branch_selection.rs", "src/app/git_actions/bulk.rs"]
+        "sources": [
+          "src/app/branch_selection.rs",
+          "src/app/git_actions/bulk.rs"
+        ]
       },
       {
         "id": "pull-icon-shape",
@@ -441,7 +523,9 @@
           "ru": "Иконка обновления ветки получила отчётливую стрелку, отделённую от линии ветки.",
           "es": "El icono de actualización muestra una flecha clara y separada de la línea de la rama."
         },
-        "sources": ["src/ui/icons.rs"]
+        "sources": [
+          "src/ui/icons.rs"
+        ]
       },
       {
         "id": "website-platform-icons",
@@ -451,7 +535,9 @@
           "ru": "Карточки скачивания используют узнаваемые иконки Apple, Windows и Linux.",
           "es": "Las tarjetas de descarga usan iconos reconocibles de Apple, Windows y Linux."
         },
-        "sources": ["website/app/components/SiteIcon.vue"]
+        "sources": [
+          "website/app/components/SiteIcon.vue"
+        ]
       },
       {
         "id": "website-release-notes",
@@ -461,7 +547,9 @@
           "ru": "На сайте появился раздел релизноутов по версиям на английском, русском и испанском языках.",
           "es": "El sitio incluye notas de versión en inglés, ruso y español."
         },
-        "sources": ["website/app/components/ReleaseNotesPage.vue"]
+        "sources": [
+          "website/app/components/ReleaseNotesPage.vue"
+        ]
       },
       {
         "id": "flexible-file-tabs",
@@ -471,7 +559,10 @@
           "ru": "Вкладки вмещают хэш версии, сокращают длинные имена и показывают скрытые файлы в выпадающем списке.",
           "es": "Las pestañas ajustan el identificador de versión, acortan nombres largos y muestran las ocultas en un menú."
         },
-        "sources": ["src/ui/tab_label/mod.rs", "src/ui/screens/tab_menu.rs"]
+        "sources": [
+          "src/ui/tab_label/mod.rs",
+          "src/ui/screens/tab_menu.rs"
+        ]
       },
       {
         "id": "copy-history-hashes",
@@ -481,7 +572,10 @@
           "ru": "Хэши коммитов отображаются рядом с названиями и копируют полный идентификатор при нажатии.",
           "es": "Los hashes aparecen junto al título del commit y copian el identificador completo al pulsarlos."
         },
-        "sources": ["src/ui/screens/git.rs", "src/app/mod.rs"]
+        "sources": [
+          "src/ui/screens/git.rs",
+          "src/app/mod.rs"
+        ]
       },
       {
         "id": "single-history-tooltip",
@@ -491,7 +585,9 @@
           "ru": "Названия и хэши коммитов показывают отдельные подсказки без наложения.",
           "es": "Los títulos y hashes muestran ayudas independientes sin superponerse."
         },
-        "sources": ["src/ui/screens/git.rs"]
+        "sources": [
+          "src/ui/screens/git.rs"
+        ]
       },
       {
         "id": "source-toolbar-buttons",
@@ -501,7 +597,9 @@
           "ru": "Кнопки просмотра файлов получили скруглённые углы и увеличенные промежутки.",
           "es": "Los botones de vista tienen esquinas redondeadas y una separación más clara."
         },
-        "sources": ["src/ui/screens/diff.rs"]
+        "sources": [
+          "src/ui/screens/diff.rs"
+        ]
       },
       {
         "id": "space-edit-delete",
@@ -511,7 +609,10 @@
           "ru": "Редактируйте и удаляйте пространства через контекстное меню или удаляйте их в окне редактирования.",
           "es": "Edita o elimina espacios desde el menú contextual o elimínalos desde la ventana de edición."
         },
-        "sources": ["src/app/spaces.rs", "src/ui/screens/space_form.rs"]
+        "sources": [
+          "src/app/spaces.rs",
+          "src/ui/screens/space_form.rs"
+        ]
       },
       {
         "id": "project-dirty-indicators",
@@ -521,7 +622,10 @@
           "ru": "Список проектов показывает небольшой индикатор незакоммиченных изменений.",
           "es": "La lista de proyectos indica cuáles contienen cambios sin confirmar."
         },
-        "sources": ["src/app/project_changes/mod.rs", "src/ui/screens/workspace.rs"]
+        "sources": [
+          "src/app/project_changes/mod.rs",
+          "src/ui/screens/workspace.rs"
+        ]
       },
       {
         "id": "fixed-line-number-gutter",
@@ -531,7 +635,9 @@
           "ru": "Номера строк остаются видимыми при горизонтальной прокрутке кода и сравнения файлов.",
           "es": "Los números de línea permanecen visibles al desplazar horizontalmente el código y las comparaciones."
         },
-        "sources": ["src/ui/code/frozen_gutter/mod.rs"]
+        "sources": [
+          "src/ui/code/frozen_gutter/mod.rs"
+        ]
       },
       {
         "id": "settings-sidebar-header",
@@ -541,7 +647,10 @@
           "ru": "Разделы настроек расположены слева; шапка окна macOS исправлена.",
           "es": "Los ajustes muestran las secciones a la izquierda y corrigen la cabecera de macOS."
         },
-        "sources": ["src/ui/screens/settings.rs", "src/app/windows.rs"]
+        "sources": [
+          "src/ui/screens/settings.rs",
+          "src/app/windows.rs"
+        ]
       },
       {
         "id": "space-scrollbar-clearance",
@@ -551,7 +660,9 @@
           "ru": "Полоса прокрутки пространств больше не перекрывает кнопки редактирования.",
           "es": "La barra de desplazamiento de espacios ya no tapa los botones de edición."
         },
-        "sources": ["src/ui/screens/workspace.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs"
+        ]
       },
       {
         "id": "git-side-toolbar",
@@ -561,7 +672,9 @@
           "ru": "Действия Git расположены на вертикальной панели рядом со списком веток.",
           "es": "Las acciones de Git aparecen en la barra vertical junto a la lista de ramas."
         },
-        "sources": ["src/ui/screens/git.rs"]
+        "sources": [
+          "src/ui/screens/git.rs"
+        ]
       },
       {
         "id": "cached-project-history",
@@ -571,7 +684,9 @@
           "ru": "Повторно открытые проекты показывают сохранённую историю Git во время фонового обновления.",
           "es": "Los proyectos reabiertos muestran el historial guardado mientras se actualiza en segundo plano."
         },
-        "sources": ["src/app/repository_cache/mod.rs"]
+        "sources": [
+          "src/app/repository_cache/mod.rs"
+        ]
       },
       {
         "id": "multiple-header-repositories",
@@ -581,7 +696,9 @@
           "ru": "Шапка показывает два репозитория, а остальные репозитории с ветками доступны в выпадающем списке.",
           "es": "La cabecera muestra dos repositorios y agrupa los restantes con sus ramas en un menú."
         },
-        "sources": ["src/ui/screens/header_repositories.rs"]
+        "sources": [
+          "src/ui/screens/header_repositories.rs"
+        ]
       },
       {
         "id": "website-license-page",
@@ -591,7 +708,9 @@
           "ru": "На сайте появилась лицензия приложения с навигацией на трёх языках.",
           "es": "El sitio incluye la licencia de la aplicación con navegación en tres idiomas."
         },
-        "sources": ["website/app/components/LicensePage.vue"]
+        "sources": [
+          "website/app/components/LicensePage.vue"
+        ]
       },
       {
         "id": "updated-product-screenshots",
@@ -601,7 +720,10 @@
           "ru": "Скриншоты сайта показывают актуальные пространство, историю, сравнение файлов и процессы сборки.",
           "es": "Las capturas del sitio muestran el espacio, historial, comparaciones y ejecuciones actuales."
         },
-        "sources": ["website/public/images/workspace-en.webp", "src/app/tests.rs"]
+        "sources": [
+          "website/public/images/workspace-en.webp",
+          "src/app/tests.rs"
+        ]
       }
     ]
   },
@@ -609,7 +731,12 @@
     "version": "0.1.14",
     "status": "released",
     "publishedAt": "2026-11-10T08:24:14Z",
-    "tags": ["macos-v0.1.14", "windows-v0.1.14", "linux-v0.1.14", "v0.1.14"],
+    "tags": [
+      "macos-v0.1.14",
+      "windows-v0.1.14",
+      "linux-v0.1.14",
+      "v0.1.14"
+    ],
     "source": "dff73cb720480042e7346cd8ca2f633cc1b6ef61",
     "items": [
       {
@@ -620,7 +747,9 @@
           "ru": "Исправлены проверки выпуска Windows и Linux: ключи меню macOS включаются только в сборки macOS.",
           "es": "Se corrigen las comprobaciones de Windows y Linux al limitar las claves del menú de macOS a sus compilaciones."
         },
-        "sources": ["src/i18n/mod.rs"]
+        "sources": [
+          "src/i18n/mod.rs"
+        ]
       },
       {
         "id": "shared-latest-summary",
@@ -630,7 +759,10 @@
           "ru": "Общий релиз Latest собирает изменения и ссылки на скачивание после публикации всех платформ.",
           "es": "Una versión Latest compartida reúne cambios y enlaces de descarga cuando termina la publicación de todas las plataformas."
         },
-        "sources": [".github/workflows/release-summary.yml", ".github/scripts/publish-summary.py"]
+        "sources": [
+          ".github/workflows/release-summary.yml",
+          ".github/scripts/publish-summary.py"
+        ]
       }
     ]
   },
@@ -638,7 +770,12 @@
     "version": "0.1.15",
     "status": "released",
     "publishedAt": "2026-11-10T09:16:55Z",
-    "tags": ["macos-v0.1.15", "windows-v0.1.15", "linux-v0.1.15", "v0.1.15"],
+    "tags": [
+      "macos-v0.1.15",
+      "windows-v0.1.15",
+      "linux-v0.1.15",
+      "v0.1.15"
+    ],
     "source": "c3e913b3c837cfc6b7b2eda93cc5a942432b112f",
     "items": [
       {
@@ -663,7 +800,11 @@
           "ru": "После копирования хеша коммита зелёная подсказка подтверждает копирование в течение двух секунд.",
           "es": "Al copiar el hash de un commit, una ayuda verde confirma la copia durante dos segundos."
         },
-        "sources": ["src/app/mod.rs", "src/ui/screens/git.rs", "src/ui/theme/mod.rs"]
+        "sources": [
+          "src/app/mod.rs",
+          "src/ui/screens/git.rs",
+          "src/ui/theme/mod.rs"
+        ]
       },
       {
         "id": "project-source-choice",
@@ -699,7 +840,12 @@
     "version": "0.1.16",
     "status": "released",
     "publishedAt": "2026-11-10T11:27:08Z",
-    "tags": ["macos-v0.1.16", "windows-v0.1.16", "linux-v0.1.16", "v0.1.16"],
+    "tags": [
+      "macos-v0.1.16",
+      "windows-v0.1.16",
+      "linux-v0.1.16",
+      "v0.1.16"
+    ],
     "source": "5aab570ab798eb313e58735950b24d60bab6ef73",
     "items": [
       {
@@ -724,7 +870,10 @@
           "ru": "Заголовок «Пространства» и кнопка добавления остаются видимыми при прокрутке списка проектов.",
           "es": "El título Espacios y el botón para añadir permanecen visibles al desplazar la lista de proyectos."
         },
-        "sources": ["src/ui/screens/workspace.rs", "docs/workspace.md"]
+        "sources": [
+          "src/ui/screens/workspace.rs",
+          "docs/workspace.md"
+        ]
       }
     ]
   },
@@ -770,7 +919,9 @@
     "version": "1.0.0",
     "status": "released",
     "publishedAt": "2026-11-10T19:15:44Z",
-    "tags": ["linux-v1.0.0"],
+    "tags": [
+      "linux-v1.0.0"
+    ],
     "source": "5c8f9bb0fa756d9c829863f1bee586f67f4e5662",
     "items": [
       {
@@ -781,7 +932,10 @@
           "ru": "Просматривайте, сравнивайте, отправляйте и скачивайте файлы проекта через SFTP, FTP и FTPS в панели сервера с изменяемой шириной.",
           "es": "Explora, compara, sube y descarga archivos del proyecto mediante SFTP, FTP y FTPS desde un panel de servidor ajustable."
         },
-        "sources": ["src/modules/deployment/transfer/mod.rs", "src/modules/deployment/view/mod.rs"]
+        "sources": [
+          "src/modules/deployment/transfer/mod.rs",
+          "src/modules/deployment/view/mod.rs"
+        ]
       },
       {
         "id": "deployment-settings",
@@ -848,7 +1002,10 @@
           "ru": "macOS показывает «Пространства», «Проекты», «Настройки» и «Деплоймент» рядом с меню приложения. Пустое меню проектов сообщает об отсутствии проектов.",
           "es": "macOS muestra Espacios, Proyectos, Ajustes y Despliegue junto al menú de la aplicación. El menú informa cuando no hay proyectos."
         },
-        "sources": ["src/infrastructure/native_menu.rs", "src/app/native_menu.rs"]
+        "sources": [
+          "src/infrastructure/native_menu.rs",
+          "src/app/native_menu.rs"
+        ]
       },
       {
         "id": "nested-working-change-folders",
@@ -858,7 +1015,9 @@
           "ru": "Сворачивание директории в рабочих изменениях также сворачивает её вложенные директории, не затрагивая другие репозитории.",
           "es": "Al contraer un directorio en los cambios locales también se contraen sus descendientes sin afectar a otros repositorios."
         },
-        "sources": ["src/app/changes.rs"]
+        "sources": [
+          "src/app/changes.rs"
+        ]
       },
       {
         "id": "clone-destination-placeholder",
@@ -868,7 +1027,9 @@
           "ru": "Клонирование проекта показывает предлагаемую родительскую директорию до ввода адреса репозитория.",
           "es": "La clonación muestra el directorio principal sugerido antes de introducir la URL del repositorio."
         },
-        "sources": ["src/app/project_add/mod.rs"]
+        "sources": [
+          "src/app/project_add/mod.rs"
+        ]
       },
       {
         "id": "russian-directory-terminology",
@@ -878,7 +1039,10 @@
           "ru": "Русские тексты приложения и сайта используют единый термин «директория».",
           "es": "Los textos en ruso de la aplicación y del sitio usan una terminología uniforme para los directorios."
         },
-        "sources": ["locales/ru.ftl", "website/app/i18n/ru.json"]
+        "sources": [
+          "locales/ru.ftl",
+          "website/app/i18n/ru.json"
+        ]
       },
       {
         "id": "bundled-module-structure",
@@ -1003,7 +1167,9 @@
     "version": "1.0.1",
     "status": "released",
     "publishedAt": "2026-11-10T19:51:30Z",
-    "tags": ["linux-v1.0.1"],
+    "tags": [
+      "linux-v1.0.1"
+    ],
     "source": "aeb76a8eea213ac82e379b708d8fc5858b9b5ba6",
     "items": [
       {
@@ -1014,7 +1180,10 @@
           "ru": "Windows поддерживает серверные и приватные ключи Ed25519 для подключений SFTP.",
           "es": "Windows admite claves de servidor y claves privadas Ed25519 para conexiones SFTP."
         },
-        "sources": ["Cargo.toml", "src/modules/deployment/transport/tests.rs"]
+        "sources": [
+          "Cargo.toml",
+          "src/modules/deployment/transport/tests.rs"
+        ]
       },
       {
         "id": "windows-terminal-exit",
@@ -1024,7 +1193,10 @@
           "ru": "Сеансы терминала Windows завершаются после выхода из оболочки и сохраняют последний вывод.",
           "es": "Las sesiones del terminal de Windows finalizan cuando termina el intérprete y conservan la salida final."
         },
-        "sources": ["src/modules/terminal/session/mod.rs", "src/modules/terminal/session/tests.rs"]
+        "sources": [
+          "src/modules/terminal/session/mod.rs",
+          "src/modules/terminal/session/tests.rs"
+        ]
       },
       {
         "id": "windows-terminal-startup",
@@ -1046,7 +1218,12 @@
     "version": "1.0.2",
     "status": "released",
     "publishedAt": "2026-11-10T20:26:38Z",
-    "tags": ["macos-v1.0.2", "windows-v1.0.2", "linux-v1.0.2", "v1.0.2"],
+    "tags": [
+      "macos-v1.0.2",
+      "windows-v1.0.2",
+      "linux-v1.0.2",
+      "v1.0.2"
+    ],
     "source": "37ce657466c37895430f7ce66bb69815b50fbf93",
     "items": [
       {
@@ -1057,7 +1234,9 @@
           "ru": "Тесты терминала проверяют фактическую рабочую папку, когда Windows использует короткие имена каталогов.",
           "es": "Las pruebas del terminal verifican el directorio real cuando Windows utiliza nombres de directorio cortos."
         },
-        "sources": ["src/modules/terminal/session/tests.rs"]
+        "sources": [
+          "src/modules/terminal/session/tests.rs"
+        ]
       }
     ]
   },
@@ -1076,7 +1255,11 @@
           "ru": "Локальные и серверные текстовые файлы сохраняются после паузы при вводе. Редактор показывает номера строк без прежней панели сохранения.",
           "es": "Los archivos locales y remotos se guardan tras una pausa. El editor muestra números de línea sin la antigua barra."
         },
-        "sources": ["src/app/editor/mod.rs", "src/ui/editor/mod.rs", "src/ui/editor/gutter.rs"]
+        "sources": [
+          "src/app/editor/mod.rs",
+          "src/ui/editor/mod.rs",
+          "src/ui/editor/gutter.rs"
+        ]
       },
       {
         "id": "project-file-git-separation",
@@ -1086,7 +1269,10 @@
           "ru": "Открытие файлов проекта больше не запускает сравнение с Git. Кнопки сравнения появляются только для незакоммиченных изменений.",
           "es": "Abrir archivos del proyecto ya no inicia comparaciones de Git. Los controles aparecen solo para cambios sin confirmar."
         },
-        "sources": ["src/app/tabs.rs", "src/ui/screens/workspace.rs"]
+        "sources": [
+          "src/app/tabs.rs",
+          "src/ui/screens/workspace.rs"
+        ]
       },
       {
         "id": "quit-save-decisions-and-escape",
@@ -1096,7 +1282,11 @@
           "ru": "Ошибки сохранения остаются видимыми при выходе из дополнительных окон. Escape закрывает настройки и диалоги деплоймента.",
           "es": "Los errores de guardado permanecen visibles al salir desde ventanas secundarias. Escape cierra ajustes y diálogos de despliegue."
         },
-        "sources": ["src/app/windows.rs", "src/app/mod.rs", "src/app/native_menu/tests.rs"]
+        "sources": [
+          "src/app/windows.rs",
+          "src/app/mod.rs",
+          "src/app/native_menu/tests.rs"
+        ]
       },
       {
         "id": "deployment-window-and-mapping-selection",
@@ -1147,7 +1337,10 @@
           "ru": "Меню сервера открывает локальные файлы и копирует пути. Обновление очищает кэш папок; проверки подключения показывают собственные результаты.",
           "es": "El menú remoto abre copias locales y copia rutas. Actualizar vacía la caché; las pruebas de conexión muestran resultados propios."
         },
-        "sources": ["src/modules/deployment/view/mod.rs", "src/modules/deployment/view/settings.rs"]
+        "sources": [
+          "src/modules/deployment/view/mod.rs",
+          "src/modules/deployment/view/settings.rs"
+        ]
       },
       {
         "id": "deployment-shortcuts-and-compact-status",
@@ -1171,7 +1364,10 @@
           "ru": "Переключатели модулей больше не дублируют подписи «Включён» и «Выключен».",
           "es": "Los interruptores de módulos ya no repiten las etiquetas de activación."
         },
-        "sources": ["src/ui/modules.rs", "src/i18n/mod.rs"]
+        "sources": [
+          "src/ui/modules.rs",
+          "src/i18n/mod.rs"
+        ]
       },
       {
         "id": "editor-first-website",
@@ -1205,7 +1401,10 @@
           "ru": "Выбирайте сервер в компактном меню внутри файла. Стрелки меняют выбор, Enter подтверждает, Escape закрывает меню.",
           "es": "Elige servidores en un menú compacto dentro del archivo. Las flechas seleccionan, Enter confirma y Escape cierra."
         },
-        "sources": ["src/modules/deployment/view/mod.rs", "src/modules/deployment/state/mod.rs"]
+        "sources": [
+          "src/modules/deployment/view/mod.rs",
+          "src/modules/deployment/state/mod.rs"
+        ]
       },
       {
         "id": "deployment-server-terminology",
@@ -1229,7 +1428,11 @@
           "ru": "Escape закрывает диалоги и контекстные меню, даже когда поле ввода активно. Вложенные диалоги закрываются раньше родительского окна.",
           "es": "Escape cierra diálogos y menús contextuales incluso con un campo de texto activo. Los diálogos anidados se cierran primero."
         },
-        "sources": ["src/ui/modal.rs", "src/ui/context_menu/mod.rs", "src/ui/screens/settings.rs"]
+        "sources": [
+          "src/ui/modal.rs",
+          "src/ui/context_menu/mod.rs",
+          "src/ui/screens/settings.rs"
+        ]
       },
       {
         "id": "stable-server-comparison-controls",
@@ -1239,7 +1442,10 @@
           "ru": "Сравнение с сервером сохраняет выбранный вид во время загрузки. Кнопки вида и сворачивания доступны независимо от раздела файлов.",
           "es": "Las comparaciones con servidores conservan el diseño durante la carga. Sus controles de diseño y plegado funcionan en cualquier sección."
         },
-        "sources": ["src/ui/screens/workspace.rs", "src/app/tabs/tests.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs",
+          "src/app/tabs/tests.rs"
+        ]
       },
       {
         "id": "temporary-transfer-results",
@@ -1249,7 +1455,9 @@
           "ru": "Завершённые статусы деплоймента исчезают через пять секунд. Активные операции и раскрытые подробности остаются видимыми.",
           "es": "Los estados de despliegue completados desaparecen tras cinco segundos. Las transferencias activas y los detalles abiertos permanecen visibles."
         },
-        "sources": ["src/modules/deployment/state/mod.rs"]
+        "sources": [
+          "src/modules/deployment/state/mod.rs"
+        ]
       },
       {
         "id": "footer-copy-highlight",
@@ -1259,7 +1467,9 @@
           "ru": "Подсветка копирования пути соответствует ширине текста, а не всей нижней панели.",
           "es": "El resaltado para copiar rutas ocupa solo el ancho del texto, sin llenar la barra inferior."
         },
-        "sources": ["src/ui/screens/workspace.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs"
+        ]
       },
       {
         "id": "scrolled-project-selection",
@@ -1269,7 +1479,10 @@
           "ru": "После прокрутки клик по проекту больше не запускает перетаскивание от небольшого движения мыши. Пространства перетаскиваются только за заголовки.",
           "es": "Tras desplazar la lista, pequeños movimientos del puntero ya no arrastran los proyectos. Los espacios se arrastran desde sus encabezados."
         },
-        "sources": ["src/ui/reorder/mod.rs", "src/ui/reorder/tests.rs"]
+        "sources": [
+          "src/ui/reorder/mod.rs",
+          "src/ui/reorder/tests.rs"
+        ]
       }
     ]
   },
@@ -1288,7 +1501,10 @@
           "ru": "Один релиз на GitHub содержит установочные пакеты и обновления для macOS, Windows и Linux.",
           "es": "Una sola publicación en GitHub incluye instaladores y actualizaciones para macOS, Windows y Linux."
         },
-        "sources": [".github/workflows/ci.yml", ".github/scripts/publish-release.sh"]
+        "sources": [
+          ".github/workflows/ci.yml",
+          ".github/scripts/publish-release.sh"
+        ]
       },
       {
         "id": "separate-deployment-windows",
@@ -1298,7 +1514,10 @@
           "ru": "Подключения и серверы открываются в отдельных окнах. В списке под названием сервера указан его проект.",
           "es": "Las conexiones y los servidores se abren en ventanas separadas. La lista muestra el proyecto debajo de cada servidor."
         },
-        "sources": ["src/app/windows.rs", "src/modules/deployment/view/settings.rs"]
+        "sources": [
+          "src/app/windows.rs",
+          "src/modules/deployment/view/settings.rs"
+        ]
       },
       {
         "id": "server-project-selection",
@@ -1308,7 +1527,10 @@
           "ru": "Просматривайте серверы всех проектов в одном списке. Чтобы перенести сервер, выберите другой проект в его настройках.",
           "es": "Consulta los servidores de todos los proyectos en una lista. Selecciona otro proyecto en la configuración para mover el servidor."
         },
-        "sources": ["src/app/modules/deployment.rs", "src/modules/deployment/view/settings.rs"]
+        "sources": [
+          "src/app/modules/deployment.rs",
+          "src/modules/deployment/view/settings.rs"
+        ]
       },
       {
         "id": "deployment-settings-feedback",
@@ -1318,7 +1540,10 @@
           "ru": "Настройки деплоймента показывают результат проверки рядом с кнопкой. Операции с файлами отображаются в нижней строке рабочей области.",
           "es": "La configuración muestra el resultado de la prueba junto a su botón. Las operaciones con archivos aparecen en la barra de estado."
         },
-        "sources": ["src/modules/deployment/view/settings.rs", "src/ui/screens/workspace.rs"]
+        "sources": [
+          "src/modules/deployment/view/settings.rs",
+          "src/ui/screens/workspace.rs"
+        ]
       },
       {
         "id": "ssh-key-entry",
@@ -1328,7 +1553,9 @@
           "ru": "Добавляйте и выбирайте SSH-ключи в настройках SFTP. Предупреждение над кнопкой «Сохранить» сообщает, что подключения доступны во всех пространствах.",
           "es": "Añade y selecciona claves SSH en la configuración de SFTP. Un aviso sobre Guardar indica que las conexiones están disponibles en todos los espacios."
         },
-        "sources": ["src/modules/deployment/view/settings.rs"]
+        "sources": [
+          "src/modules/deployment/view/settings.rs"
+        ]
       },
       {
         "id": "workspace-boundaries-and-activity",
@@ -1338,7 +1565,10 @@
           "ru": "Границы отделяют область кода от боковых панелей и вкладок файлов. Строка фоновых операций выровнена вправо.",
           "es": "Los bordes separan el área de código de los paneles laterales y las pestañas. Las operaciones en segundo plano se alinean a la derecha."
         },
-        "sources": ["src/ui/screens/workspace.rs", "src/app/windows.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs",
+          "src/app/windows.rs"
+        ]
       },
       {
         "id": "file-tree-hover-and-scroll",
@@ -1348,7 +1578,10 @@
           "ru": "Подсказки следуют за курсором в файлах проекта и незакоммиченных файлах. Горизонтальная прокрутка учитывает ширину видимых строк.",
           "es": "Las ayudas siguen el puntero en los archivos del proyecto y sin confirmar. El desplazamiento horizontal se ajusta al ancho de las filas visibles."
         },
-        "sources": ["src/ui/screens/workspace.rs", "src/ui/changed_tree/mod.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs",
+          "src/ui/changed_tree/mod.rs"
+        ]
       },
       {
         "id": "large-editor-scrollbar",
@@ -1358,7 +1591,9 @@
           "ru": "В больших файлах редактор показывает вертикальный ползунок, который можно перетаскивать.",
           "es": "El editor mantiene visible y arrastrable la barra de desplazamiento vertical en archivos grandes."
         },
-        "sources": ["src/ui/editor/scrollbar.rs"]
+        "sources": [
+          "src/ui/editor/scrollbar.rs"
+        ]
       }
     ]
   },
@@ -1377,7 +1612,11 @@
           "ru": "Терминал, Git и пайплайны используют одну нижнюю панель. При переключении панели сеансы терминала продолжают работать.",
           "es": "Terminal, Git y las ejecuciones comparten un panel inferior. Las sesiones de terminal siguen activas al cambiar de panel."
         },
-        "sources": ["src/ui/screens/workspace.rs", "src/app/mod.rs", "src/app/modules/mod.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs",
+          "src/app/mod.rs",
+          "src/app/modules/mod.rs"
+        ]
       },
       {
         "id": "settings-in-app-menu",
@@ -1387,7 +1626,9 @@
           "ru": "На macOS настройки открываются из меню IWE Code.",
           "es": "En macOS, abre Ajustes desde el menú de IWE Code."
         },
-        "sources": ["src/infrastructure/native_menu.rs"]
+        "sources": [
+          "src/infrastructure/native_menu.rs"
+        ]
       },
       {
         "id": "compact-git-dates",
@@ -1397,7 +1638,9 @@
           "ru": "Даты коммитов помещаются в истории Git при минимальной ширине окна.",
           "es": "Las fechas de los commits caben en el historial de Git con el ancho mínimo de la ventana."
         },
-        "sources": ["src/modules/git/view/mod.rs"]
+        "sources": [
+          "src/modules/git/view/mod.rs"
+        ]
       },
       {
         "id": "release-build-on-tag",
@@ -1407,7 +1650,10 @@
           "ru": "Теги версий запускают сборку пакетов. Пуши в основную ветку запускают проверки и тесты.",
           "es": "Las etiquetas de versión generan los paquetes. Los cambios en la rama principal ejecutan las comprobaciones y pruebas."
         },
-        "sources": [".github/workflows/ci.yml", "docs/ci.md"]
+        "sources": [
+          ".github/workflows/ci.yml",
+          "docs/ci.md"
+        ]
       },
       {
         "id": "aligned-workspace-dividers",
@@ -1417,7 +1663,10 @@
           "ru": "Разделители панели файлов и нижней панели выровнены.",
           "es": "Los separadores de la barra de archivos y la barra inferior quedan alineados."
         },
-        "sources": ["src/ui/screens/workspace.rs", "src/app/modules/tests.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs",
+          "src/app/modules/tests.rs"
+        ]
       }
     ]
   },
@@ -1436,7 +1685,10 @@
           "ru": "IWE Code сохраняет токены входа и пароли серверов в локальных файлах с ограниченным доступом. После обновления войдите снова.",
           "es": "IWE Code guarda los tokens de acceso y las contraseñas de servidores en archivos locales privados. Vuelve a iniciar sesión tras actualizar."
         },
-        "sources": ["docs/authentication.md", "src/infrastructure/secret_files.rs"]
+        "sources": [
+          "docs/authentication.md",
+          "src/infrastructure/secret_files.rs"
+        ]
       },
       {
         "id": "git-actions-without-keychain",
@@ -1446,7 +1698,10 @@
           "ru": "Команды Git fetch, pull и push обходятся без Связки ключей на macOS.",
           "es": "Git fetch, pull y push prescinden del llavero de macOS para autenticarse."
         },
-        "sources": ["docs/git-actions.md", "src/modules/git/transport/mod.rs"]
+        "sources": [
+          "docs/git-actions.md",
+          "src/modules/git/transport/mod.rs"
+        ]
       },
       {
         "id": "vertical-bottom-toolbar",
@@ -1456,7 +1711,10 @@
           "ru": "Кнопки терминала, Git и Pipelines остаются вертикальными после закрытия нижней панели.",
           "es": "Los botones de terminal, Git y Pipelines siguen en vertical al cerrar el panel inferior."
         },
-        "sources": ["src/ui/screens/workspace.rs", "src/app/modules/tests.rs"]
+        "sources": [
+          "src/ui/screens/workspace.rs",
+          "src/app/modules/tests.rs"
+        ]
       },
       {
         "id": "reuse-comparison-syntax",
@@ -1481,7 +1739,10 @@
           "ru": "Сравнение с Git обновляется быстрее благодаря повторному использованию предыдущих версий и состояния репозитория.",
           "es": "Las comparaciones de Git se actualizan más rápido al reutilizar versiones anteriores sin cambios y el estado del repositorio."
         },
-        "sources": ["src/infrastructure/repository/changes.rs", "src/app/changes.rs"]
+        "sources": [
+          "src/infrastructure/repository/changes.rs",
+          "src/app/changes.rs"
+        ]
       },
       {
         "id": "bound-dense-comparison-files",
@@ -1505,7 +1766,9 @@
           "ru": "Сборки Linux и проверки сайта используют резервное зеркало Ubuntu при сбое установки зависимостей.",
           "es": "Las compilaciones de Linux y las comprobaciones del sitio usan un repositorio alternativo de Ubuntu si falla la instalación de dependencias."
         },
-        "sources": [".github/scripts/with-ubuntu-apt.sh"]
+        "sources": [
+          ".github/scripts/with-ubuntu-apt.sh"
+        ]
       }
     ]
   },
@@ -1539,7 +1802,10 @@
           "ru": "Два процесса с английскими названиями выполняют проверки кода и полный выпуск приложения с публикацией сайта.",
           "es": "Dos flujos con nombres en inglés comprueban el código y publican la aplicación junto con el sitio."
         },
-        "sources": [".github/workflows/ci.yml", ".github/workflows/bump-version.yml"]
+        "sources": [
+          ".github/workflows/ci.yml",
+          ".github/workflows/bump-version.yml"
+        ]
       },
       {
         "id": "run-code-checks-only-on-main",
@@ -1549,7 +1815,10 @@
           "ru": "Проверки кода запускаются при отправке в main, а сборка релиза начинается сразу после создания тега версии.",
           "es": "Las comprobaciones se ejecutan al enviar a main y la compilación comienza al crear la etiqueta de versión."
         },
-        "sources": [".github/workflows/ci.yml", ".github/workflows/bump-version.yml"]
+        "sources": [
+          ".github/workflows/ci.yml",
+          ".github/workflows/bump-version.yml"
+        ]
       }
     ]
   },
@@ -1582,7 +1851,9 @@
           "ru": "Ручная сборка сайта теперь публикует готовые страницы.",
           "es": "La compilación manual del sitio ahora publica las páginas generadas."
         },
-        "sources": [".github/workflows/website-build.yml"]
+        "sources": [
+          ".github/workflows/website-build.yml"
+        ]
       },
       {
         "id": "keep-open-tabs-per-project",
@@ -1592,7 +1863,86 @@
           "ru": "При переключении проектов открытые вкладки, позиции прокрутки и история закрытых вкладок сохраняются в памяти до закрытия приложения.",
           "es": "Al cambiar de proyecto, las pestañas abiertas, las posiciones de desplazamiento y el historial de pestañas cerradas se conservan en memoria hasta cerrar la aplicación."
         },
-        "sources": ["src/app/tabs.rs"]
+        "sources": [
+          "src/app/tabs.rs"
+        ]
+      },
+      {
+        "id": "windows-header-menu-bar",
+        "category": "added",
+        "text": {
+          "en": "Windows shows a File, View, Deployment, and Help menu bar in the workspace header.",
+          "ru": "В Windows в шапке рабочего пространства появилось меню «Файл», «Вид», «Деплоймент» и «Справка».",
+          "es": "Windows muestra una barra de menú Archivo, Ver, Despliegue y Ayuda en la cabecera del espacio."
+        },
+        "sources": [
+          "src/app/menu_bar.rs",
+          "src/ui/screens/menu_bar.rs"
+        ]
+      },
+      {
+        "id": "windows-secondary-window-frame",
+        "category": "added",
+        "text": {
+          "en": "Windows settings windows draw a visible border.",
+          "ru": "Окна настроек в Windows получили видимую рамку.",
+          "es": "Las ventanas de ajustes en Windows ahora muestran un borde visible."
+        },
+        "sources": [
+          "src/app/windows.rs",
+          "src/ui/theme/mod.rs"
+        ]
+      },
+      {
+        "id": "install-external-modules",
+        "category": "added",
+        "text": {
+          "en": "Settings → Modules installs external modules from .iwe-module package files after confirming their requested access.",
+          "ru": "«Настройки → Модули» устанавливают внешние модули из пакетов .iwe-module после подтверждения запрошенного доступа.",
+          "es": "Ajustes → Módulos instala módulos externos desde paquetes .iwe-module tras confirmar el acceso solicitado."
+        },
+        "sources": [
+          "src/infrastructure/modules/install.rs"
+        ]
+      },
+      {
+        "id": "external-module-panels",
+        "category": "added",
+        "text": {
+          "en": "External modules show panels in the workspace header, top, left, right, and bottom zones and switch through tabs inside one zone.",
+          "ru": "Внешние модули показывают панели в зонах шапки, сверху, слева, справа и снизу рабочей области и переключаются вкладками внутри зоны.",
+          "es": "Los módulos externos muestran paneles en las zonas de cabecera, arriba, izquierda, derecha y abajo, y se cambian con pestañas dentro de cada zona."
+        },
+        "sources": [
+          "src/ui/external_module_panel.rs"
+        ]
+      },
+      {
+        "id": "module-development-guide",
+        "category": "added",
+        "text": {
+          "en": "The website publishes a module development guide with the package format, protocol, widgets, and permissions.",
+          "ru": "На сайте опубликована инструкция по разработке модулей: формат пакета, протокол, виджеты и права.",
+          "es": "El sitio web publica una guía de desarrollo de módulos con el formato del paquete, el protocolo, los widgets y los permisos."
+        },
+        "sources": [
+          "website/app/components/ModuleDevPage.vue"
+        ]
+      },
+      {
+        "id": "search-everywhere-popup",
+        "category": "added",
+        "text": {
+          "en": "Press Shift twice, Command+F, or Shift+Command+O to search project files and switch projects in one popup. Arrow keys navigate and the list keeps the selected result centered.",
+          "ru": "Нажмите Shift дважды, Command+F или Shift+Command+O, чтобы искать файлы проекта и переключать проекты в одном окне. Стрелки навигации, список держит выбранный результат по центру.",
+          "es": "Pulsa dos veces Shift, Command+F o Shift+Command+O para buscar archivos del proyecto y cambiar de proyecto en una sola ventana. Las flechas navegan y la lista mantiene el resultado seleccionado centrado."
+        },
+        "sources": [
+          "src/domain/search/mod.rs",
+          "src/app/search_everywhere.rs",
+          "src/ui/screens/search_everywhere/mod.rs",
+          "src/app/shortcuts/mod.rs"
+        ]
       }
     ]
   }

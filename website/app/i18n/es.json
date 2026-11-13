@@ -9,7 +9,8 @@
     "download": "Descargar",
     "language": "Idioma",
     "skip": "Saltar al contenido",
-    "home": "Inicio de IWE Code"
+    "home": "Inicio de IWE Code",
+    "modules": "Módulos"
   },
   "hero": {
     "release": "Conoce IWE Code",
@@ -187,5 +188,144 @@
     "description": "IWE Code se distribuye bajo la Apache License, Version 2.0. A continuación se muestra el texto original de la licencia.",
     "fullText": "Texto completo de la licencia",
     "source": "Ver la licencia en GitHub"
+  },
+  "modules": {
+    "label": "Módulos",
+    "metaTitle": "Desarrollo de módulos — IWE Code",
+    "title": "Crea tu propio módulo.",
+    "description": "Amplía IWE Code con módulos externos. Empaqueta un programa, describe su panel en JSON e instálalo desde un archivo.",
+    "intro": "Un módulo externo es un programa aparte que IWE Code ejecuta y con el que habla mediante un protocolo JSON sencillo. Escríbelo en cualquier lenguaje, incluye binarios para tus plataformas e instala el paquete sin recompilar la aplicación.",
+    "conceptTitle": "Cómo funciona",
+    "concept": [
+      "Tu módulo se ejecuta como un proceso propio. IWE Code lo inicia al activar el módulo y lo detiene al desactivarlo o eliminarlo.",
+      "La aplicación y el módulo intercambian un documento JSON por línea a través de la entrada y salida estándar del proceso.",
+      "El módulo describe su panel con un árbol declarativo de widgets. IWE Code dibuja el panel con sus propios componentes nativos.",
+      "El módulo traduce el texto de su panel. La aplicación informa del idioma de la interfaz al iniciar."
+    ],
+    "manifestTitle": "El manifiesto",
+    "manifestIntro": "Cada paquete contiene un archivo manifest.json que describe el módulo.",
+    "manifestFields": [
+      {
+        "field": "id",
+        "description": "Identificador único en minúsculas con guiones, por ejemplo hello-module."
+      },
+      {
+        "field": "name, description",
+        "description": "Textos traducidos. El inglés es obligatorio; el ruso y el español son opcionales."
+      },
+      {
+        "field": "version",
+        "description": "Versión semántica del módulo. Las actualizaciones deben incrementarla."
+      },
+      {
+        "field": "api",
+        "description": "Versión del protocolo. La versión actual es 1."
+      },
+      {
+        "field": "minAppVersion",
+        "description": "Versión mínima de la aplicación que admite el módulo."
+      },
+      {
+        "field": "entry",
+        "description": "Nombre del ejecutable por plataforma, por ejemplo macos-aarch64."
+      },
+      {
+        "field": "permissions",
+        "description": "Acceso declarado: filesystem-read, filesystem-write, network, process."
+      },
+      {
+        "field": "placement",
+        "description": "Zona del espacio de trabajo del panel: header, top, left, right o bottom."
+      }
+    ],
+    "packageTitle": "Estructura del paquete",
+    "packageIntro": "Un paquete es un archivo tar comprimido con gzip y la extensión .iwe-module.",
+    "protocolTitle": "Mensajes del protocolo",
+    "protocolIntro": "Cada mensaje es una línea JSON. Los mensajes desconocidos se ignoran, así que los módulos pueden ser sencillos.",
+    "hostTitle": "De IWE Code al módulo",
+    "hostMessages": [
+      {
+        "name": "initialize",
+        "description": "Se envía una vez al iniciar. Informa de la versión del protocolo, de la aplicación, del idioma de la interfaz y de la ruta de instalación."
+      },
+      {
+        "name": "event",
+        "description": "Informa de una interacción con un widget: un clic, un interruptor o un cambio de texto."
+      },
+      {
+        "name": "shutdown",
+        "description": "Pide al módulo que termine."
+      }
+    ],
+    "moduleTitle": "Del módulo a IWE Code",
+    "moduleMessages": [
+      {
+        "name": "panel",
+        "description": "Sustituye el contenido del panel por un nuevo árbol de widgets."
+      },
+      {
+        "name": "notify",
+        "description": "Muestra un mensaje breve con nivel info, warning o error."
+      }
+    ],
+    "widgetsTitle": "Widgets del panel",
+    "widgetsIntro": "Un panel es un árbol de nodos sencillos. Cada nodo tiene un tipo y sus propios campos.",
+    "widgets": [
+      {
+        "name": "column, row",
+        "description": "Colocan los nodos hijos en vertical u horizontal con un espaciado opcional."
+      },
+      {
+        "name": "text",
+        "description": "Muestra texto con estilo body, heading, caption, muted o danger."
+      },
+      {
+        "name": "button",
+        "description": "Un botón con etiqueta que informa de un clic. Estilos: primary, secondary, danger."
+      },
+      {
+        "name": "text-input",
+        "description": "Un campo de una línea que informa de cambios de valor."
+      },
+      {
+        "name": "checkbox, toggle",
+        "description": "Controles booleanos que informan de su nuevo estado."
+      },
+      {
+        "name": "progress",
+        "description": "Una barra de progreso entre 0 y 1."
+      },
+      {
+        "name": "separator, scroll, spacer",
+        "description": "Nodos auxiliares para separar, desplazar y rellenar espacio."
+      }
+    ],
+    "permissionsTitle": "Permisos",
+    "permissionsIntro": "El manifiesto declara el acceso que necesita el módulo. IWE Code muestra la lista antes de la instalación y pide confirmación. Los módulos se ejecutan con los permisos de tu usuario; IWE Code no los aísla. Instala solo módulos de confianza.",
+    "permissions": [
+      {
+        "name": "filesystem-read",
+        "description": "Leer archivos de tu equipo."
+      },
+      {
+        "name": "filesystem-write",
+        "description": "Modificar archivos de tu equipo."
+      },
+      {
+        "name": "network",
+        "description": "Acceder a la red."
+      },
+      {
+        "name": "process",
+        "description": "Iniciar otros programas."
+      }
+    ],
+    "buildTitle": "Construir un paquete",
+    "buildIntro": "Compila el módulo de referencia, prepara la carpeta del paquete y comprímela. El ejemplo es un módulo completo en Rust que puedes copiar.",
+    "installTitle": "Instalar",
+    "installIntro": "Abre Ajustes → Módulos en IWE Code, elige Instalar desde archivo…, revisa el acceso solicitado y confirma. Las actualizaciones se instalan igual con un número de versión mayor.",
+    "exampleTitle": "Módulo de referencia",
+    "exampleIntro": "El repositorio contiene un ejemplo funcional en examples/hello-module.",
+    "viewExample": "Abrir el ejemplo en GitHub"
   }
 }

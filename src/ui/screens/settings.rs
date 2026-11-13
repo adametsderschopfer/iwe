@@ -160,7 +160,12 @@ fn view_for(app: &App, deployment: Option<bool>) -> Element<'_, Message> {
         ]
         .spacing(0)
         .into(),
-        SettingsTab::Modules => crate::ui::modules::settings(app),
+        SettingsTab::Modules => iced::widget::column![
+            crate::ui::modules::settings(app),
+            crate::ui::modules::external_settings(app),
+        ]
+        .spacing(16)
+        .into(),
         SettingsTab::Connections => crate::modules::deployment::connections_view(
             &app.modules.deployment,
             &app.workspace.deployment,
@@ -184,6 +189,16 @@ fn view_for(app: &App, deployment: Option<bool>) -> Element<'_, Message> {
                         t(Key::GoToLine),
                         t(Key::GoToLineDescription),
                         shortcut_control(app, Command::GoToLine),
+                    ),
+                    setting(
+                        t(Key::GoToFile),
+                        t(Key::GoToFileDescription),
+                        shortcut_control(app, Command::GoToFile),
+                    ),
+                    setting(
+                        t(Key::SearchEverywhere),
+                        t(Key::SearchEverywhereDescription),
+                        shortcut_control(app, Command::Search),
                     ),
                     setting(
                         t(Key::EditorSave),

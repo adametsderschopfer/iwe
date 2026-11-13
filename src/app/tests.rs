@@ -128,11 +128,11 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
             (
                 SettingsTab::Shortcuts,
                 "shortcuts",
-                Key::CloseActiveTabDescription,
+                Key::GoToLineDescription,
             ),
             (SettingsTab::About, "about", Key::AboutDescription),
         ] {
-            let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+            let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 1400.), app.view());
             let bounds = ui
                 .click(iced::widget::Id::from(format!("settings-tab-{id}")))
                 .unwrap()
@@ -143,7 +143,7 @@ fn settings_tabs_switch_sections_without_changing_preferences() {
                 let _ = app.update(message);
             }
             assert_eq!(app.settings_tab, tab);
-            let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 720.), app.view());
+            let mut ui = iced_test::Simulator::with_size(ui_settings(), (1080., 1400.), app.view());
             assert!(
                 ui.find(app.i18n.text(key))
                     .unwrap()

@@ -207,6 +207,7 @@ impl App {
                         self.files.loading.remove(&path);
                         self.tree.entry(path).or_insert(entries);
                     }
+                    self.search_everywhere.tree_changed();
                 }
                 project_index::Event::Directory(path, result) => {
                     self.files.pending.remove(&path);
@@ -237,6 +238,7 @@ impl App {
                             }
                             self.files.errors.remove(&path);
                             self.tree.insert(path, entries);
+                            self.search_everywhere.tree_changed();
                         }
                         Err(error) if self.expanded.contains(&path) => {
                             self.files.errors.insert(path, error);

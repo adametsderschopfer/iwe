@@ -9,7 +9,8 @@
     "download": "Download",
     "language": "Language",
     "skip": "Skip to content",
-    "home": "IWE Code home"
+    "home": "IWE Code home",
+    "modules": "Modules"
   },
   "hero": {
     "release": "Meet IWE Code",
@@ -187,5 +188,144 @@
     "description": "IWE Code is licensed under the Apache License, Version 2.0. Read the original license text below.",
     "fullText": "Full license text",
     "source": "View the license on GitHub"
+  },
+  "modules": {
+    "label": "Modules",
+    "metaTitle": "Module development — IWE Code",
+    "title": "Build your own module.",
+    "description": "Extend IWE Code with external modules. Package a program, describe its panel in JSON, and install it from a file.",
+    "intro": "An external module is a separate program that IWE Code runs and talks to over a simple JSON protocol. Write it in any language, ship binaries for your platforms, and install the package without recompiling the application.",
+    "conceptTitle": "How it works",
+    "concept": [
+      "Your module runs as its own process. IWE Code starts it when you enable the module and stops it when you disable or remove the module.",
+      "The host and the module exchange one JSON document per line through the standard input and output of the process.",
+      "The module describes its panel with a declarative widget tree. IWE Code renders the panel with its own native components.",
+      "The module localizes its own panel text. The host reports the interface language at startup."
+    ],
+    "manifestTitle": "The manifest",
+    "manifestIntro": "Every package contains a manifest.json file that describes the module.",
+    "manifestFields": [
+      {
+        "field": "id",
+        "description": "Unique identifier in lower-case kebab style, for example hello-module."
+      },
+      {
+        "field": "name, description",
+        "description": "Localized texts. English is required; Russian and Spanish are optional."
+      },
+      {
+        "field": "version",
+        "description": "Semantic version of the module. Updates must increase it."
+      },
+      {
+        "field": "api",
+        "description": "Protocol version. The current version is 1."
+      },
+      {
+        "field": "minAppVersion",
+        "description": "Minimum application version the module supports."
+      },
+      {
+        "field": "entry",
+        "description": "Executable file name per platform target, for example macos-aarch64."
+      },
+      {
+        "field": "permissions",
+        "description": "Declared access: filesystem-read, filesystem-write, network, process."
+      },
+      {
+        "field": "placement",
+        "description": "Workspace zone for the panel: header, top, left, right, or bottom."
+      }
+    ],
+    "packageTitle": "Package layout",
+    "packageIntro": "A package is a gzipped tar archive with the .iwe-module extension.",
+    "protocolTitle": "Protocol messages",
+    "protocolIntro": "Every message is a single JSON line. Unknown messages are ignored, so modules can stay simple.",
+    "hostTitle": "From IWE Code to the module",
+    "hostMessages": [
+      {
+        "name": "initialize",
+        "description": "Sent once at startup. Reports the protocol version, application version, interface language, and the installation path."
+      },
+      {
+        "name": "event",
+        "description": "Reports a widget interaction: a click, a toggle, or a text change."
+      },
+      {
+        "name": "shutdown",
+        "description": "Asks the module to exit."
+      }
+    ],
+    "moduleTitle": "From the module to IWE Code",
+    "moduleMessages": [
+      {
+        "name": "panel",
+        "description": "Replaces the panel content with a new widget tree."
+      },
+      {
+        "name": "notify",
+        "description": "Shows a short message with an info, warning, or error level."
+      }
+    ],
+    "widgetsTitle": "Panel widgets",
+    "widgetsIntro": "A panel is a tree of simple nodes. Each node has a type and its own fields.",
+    "widgets": [
+      {
+        "name": "column, row",
+        "description": "Stack child nodes vertically or horizontally with an optional spacing."
+      },
+      {
+        "name": "text",
+        "description": "Show text with a body, heading, caption, muted, or danger style."
+      },
+      {
+        "name": "button",
+        "description": "A labeled button that reports a click. Styles: primary, secondary, danger."
+      },
+      {
+        "name": "text-input",
+        "description": "A single-line input that reports value changes."
+      },
+      {
+        "name": "checkbox, toggle",
+        "description": "Boolean controls that report their new state."
+      },
+      {
+        "name": "progress",
+        "description": "A progress bar between 0 and 1."
+      },
+      {
+        "name": "separator, scroll, spacer",
+        "description": "Layout helpers for dividing, scrolling, and filling space."
+      }
+    ],
+    "permissionsTitle": "Permissions",
+    "permissionsIntro": "The manifest declares the access a module needs. IWE Code shows this list before installation and asks for confirmation. Modules run with your user rights; IWE Code does not sandbox them. Install modules you trust.",
+    "permissions": [
+      {
+        "name": "filesystem-read",
+        "description": "Read files on your computer."
+      },
+      {
+        "name": "filesystem-write",
+        "description": "Change files on your computer."
+      },
+      {
+        "name": "network",
+        "description": "Reach the network."
+      },
+      {
+        "name": "process",
+        "description": "Start other programs."
+      }
+    ],
+    "buildTitle": "Build a package",
+    "buildIntro": "Build the reference module, assemble the package folder, and compress it. The example is a complete Rust module you can copy.",
+    "installTitle": "Install",
+    "installIntro": "Open Settings → Modules in IWE Code, choose Install from file…, review the requested access, and confirm. Updates install the same way with a higher version number.",
+    "exampleTitle": "Reference module",
+    "exampleIntro": "The repository contains a working example under examples/hello-module.",
+    "viewExample": "Open the example on GitHub"
   }
 }

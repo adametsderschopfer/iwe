@@ -6,6 +6,7 @@ use super::{App, Message};
 use crate::modules::ModuleId;
 use iced::{Subscription, Task};
 mod deployment;
+pub(crate) mod external;
 pub(crate) mod git;
 pub(crate) mod pipelines;
 
@@ -15,6 +16,7 @@ pub(crate) struct State {
     pub pipelines: crate::modules::pipelines::State,
     pub terminal: terminal::State,
     pub deployment: crate::modules::deployment::State,
+    pub external: external::State,
 }
 
 #[derive(Debug, Clone)]
@@ -25,12 +27,14 @@ pub(crate) enum Event {
     Pipelines(crate::modules::pipelines::Event),
     Terminal(terminal::Event),
     Deployment(crate::modules::deployment::Event),
+    External(external::Event),
 }
 
 impl App {
     pub(super) fn update_module(&mut self, event: Event) -> Task<Message> {
         match event {
             Event::SetEnabled(id, enabled) => self.set_module_enabled(id, enabled),
+            Event::External(event) => self.update_external(event),
             Event::Git(event) if self.module_enabled(ModuleId::Git) => {
                 self.update(git_event(event))
             }
@@ -89,6 +93,7 @@ impl App {
             } else {
                 Subscription::none()
             },
+            self.external_subscription(),
         ])
     }
 

@@ -84,7 +84,10 @@ impl App {
     }
 
     pub(super) fn update_space(&mut self, message: Message) -> Task<AppMessage> {
-        if self.modules.git.git_actions.has_dialog() || self.project_add.is_some() {
+        if self.modules.git.git_actions.has_dialog()
+            || self.project_add.is_some()
+            || self.search_everywhere.dialog.is_some()
+        {
             return Task::none();
         }
         match message {

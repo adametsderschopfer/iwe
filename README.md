@@ -15,8 +15,11 @@ the bottom left. Preferences persist between launches. English, Russian, and Spa
 are embedded in the executable.
 
 View bundled modules under **Settings → Modules**. The first system module provides an integrated
-terminal for the selected project. System modules are always enabled and cannot be removed. See
-[modules and terminal sessions](docs/modules.md) for controls and limits.
+terminal for the selected project. System modules are always enabled and cannot be removed. Install
+external modules from `.iwe-module` package files in the same place. See
+[modules and terminal sessions](docs/modules.md) for controls and limits, and the module development
+guide on [the website](https://adametsderschopfer.github.io/iwe-code/modules/) for building your
+own.
 
 The Deployment module browses SFTP, FTP, and FTPS servers. Configure shared connections and
 deployment profiles within each space. Compare remote files, upload local files, and download files

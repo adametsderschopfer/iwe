@@ -275,7 +275,8 @@ impl App {
         let content = container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(theme::surface)
+            .id("settings-window-frame")
+            .style(theme::secondary_window)
             .into();
         // Quit decisions must remain reachable when a secondary window covers the workspace.
         crate::ui::editor::overlay(self, content)

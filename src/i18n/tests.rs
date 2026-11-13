@@ -67,6 +67,9 @@ fn all_catalogs_have_the_complete_key_set_and_resolve_without_errors() {
                 Key::GitNewBranchFrom => {
                     args.set("branch", "main");
                 }
+                Key::ConfirmInstallTitle => {
+                    args.set("name", "Sample");
+                }
                 Key::UpdateAvailable => {
                     args.set("version", "0.1.11");
                 }
@@ -113,6 +116,7 @@ fn missing_or_invalid_translations_fall_back_to_english() {
         "greeting = {",
     ] {
         let i18n = I18n {
+            language: Language::Spanish,
             selected: bundle(Language::Spanish, source),
             english: bundle(Language::English, Language::English.source()),
         };
@@ -123,6 +127,7 @@ fn missing_or_invalid_translations_fall_back_to_english() {
 #[test]
 fn unavailable_catalogs_do_not_expose_internal_keys() {
     let i18n = I18n {
+        language: Language::English,
         selected: None,
         english: None,
     };
@@ -143,6 +148,7 @@ fn missing_message_uses_nontechnical_text_in_the_selected_language() {
             .map(|line| format!("{line}\n"))
             .collect();
         let i18n = I18n {
+            language,
             selected: bundle(language, &source),
             english: None,
         };
@@ -203,6 +209,7 @@ fn duplicate_or_invalid_module_catalogs_cannot_replace_shared_messages() {
     assert!(bundle_catalogs(Language::English, &[shared, "app-title = Override"]).is_none());
     assert!(bundle_catalogs(Language::English, &[shared, "broken = {"]).is_none());
     let i18n = I18n {
+        language: Language::Russian,
         selected: bundle(Language::Russian, Language::Russian.source()),
         english: bundle_catalogs(Language::English, &Language::English.sources()),
     };

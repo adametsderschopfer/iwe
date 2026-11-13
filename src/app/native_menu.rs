@@ -48,14 +48,7 @@ impl App {
             services: self.i18n.text(Key::MenuServices),
             quit: self.i18n.text(Key::MenuQuit),
             recording_shortcut: self.shortcuts.recording.is_some(),
-            enabled: self.loaded
-                && self.editor.pending.is_none()
-                && self.space_draft.is_none()
-                && self.project_add.is_none()
-                && self.auth_dialog.is_none()
-                && !self.modules.git.git_actions.has_dialog()
-                && self.line_navigation.is_none()
-                && !self.modules.deployment.has_dialog(),
+            enabled: self.menu_actions_enabled(),
             spaces: self
                 .workspace
                 .spaces

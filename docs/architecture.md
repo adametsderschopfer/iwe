@@ -399,7 +399,18 @@ endpoints independently of Git history. Shared file readers support the editor.
 application messages. `ui/modules.rs` projects the catalog into settings and passes presentation
 values to module views. `Panel::Module` connects module panels to the existing resizable workspace.
 Each bundled module keeps its implementation under `modules/<name>/`. Shared application code
-retains its layers. No external module loader or marketplace exists.
+retains its layers. No module marketplace exists.
+
+External modules install from local `.iwe-module` packages without recompilation. Each module runs
+as a separate process and speaks a line-delimited JSON protocol (`api: 1`) over stdin and stdout.
+`domain/modules.rs` defines the manifest, permissions, placements, and the declarative widget tree.
+`infrastructure/modules/` reads packages, installs versions under the application data directory,
+persists the registry beside `workspace.json`, and runs module processes with bounded worker
+threads. `app/modules/external/` keeps sessions, restart limits, and zone activation. The manifest
+placement maps a module to one workspace zone: header, top, left, right, or bottom. Modules with the
+same zone switch through tabs. `ui/external_module_panel.rs` renders widget trees with shared theme
+components. Permissions are declarative and confirmed at installation. See
+[ADR 0002](adr/0002-external-modules.md) and [modules](modules.md).
 
 The terminal runtime starts only after an explicit open action. `modules/terminal/session/` runs the
 default shell through `portable-pty` on Unix and pinned `xpty` on Windows. Its blocking workers
@@ -431,15 +442,19 @@ window-specific closing and keyboard actions. The Iced daemon opens the workspac
 exits when that window closes. Settings reuses one window and keeps workspace navigation, tabs, and
 scroll positions intact. Deployment reuses each of its two windows. Failed-save quit decisions
 appear above content in every window. macOS and Linux keep native settings window controls. Windows
-uses the existing application caption and resize handles.
+uses the existing application caption and resize handles, and every secondary window draws a
+one-pixel frame around its content through `theme::secondary_window`.
 
 On macOS, `app/native_menu.rs` projects localized workspace data into a native application menu.
 `infrastructure/native_menu.rs` retains Muda menu objects on the AppKit event-loop thread. A guarded
 100-millisecond subscription polls menu actions through Iced window callbacks. Menu installation
 changes only when its projected content changes. Menu replacement rejects obsolete item identifiers.
 Project actions resolve directory paths against the current space, preserving selection after
-project reordering. The native menu dependency applies only to macOS. Other platforms retain their
-sidebar controls.
+project reordering. The native menu dependency applies only to macOS. On Windows, `app/menu_bar.rs`
+keeps the open menu in application state and `ui/screens/menu_bar.rs` renders a File, View,
+Deployment, and Help bar at the left of the workspace header through the shared anchored context
+menus. Opening a menu closes anchored menus, and any message other than opening one closes it. Linux
+retains its sidebar controls.
 
 The display name is IWE Code. Embedded PNG pixels supply Windows and X11 window icons. Windows
 builds embed an ICO resource through `winresource`. macOS bundles include the ICNS icon. Linux
@@ -492,10 +507,18 @@ preference. File panel headings and file tabs share a common bottom edge.
 
 `domain/shortcuts/` stores shortcut overrides and enforces unique effective combinations, including
 defaults. Workspace normalization removes invalid or conflicting stored overrides. `app/shortcuts/`
-records settings input and routes unhandled shortcuts to the correct window. `ui/shortcuts/`
-converts physical keyboard events without coupling stored preferences to Iced. Source selection
-widgets use the same preferences for copy and select-all actions. The macOS menu suspends its
-accelerators while settings records a shortcut.
+records settings input and routes unhandled shortcuts to the correct window. `app/shortcuts/` also
+detects two Shift presses within 300 milliseconds and opens the search-everywhere dialog, because
+stored bindings express single combinations only. `ui/shortcuts/` converts physical keyboard events
+without coupling stored preferences to Iced. Source selection widgets use the same preferences for
+copy and select-all actions. The macOS menu suspends its accelerators while settings records a
+shortcut.
+
+`domain/search/` ranks incremental search queries over file names and project-relative paths with a
+subsequence matcher. `app/search_everywhere/` builds result rows from the background directory tree
+and every space's projects, and activates them by opening files or switching projects. The dialog
+interlocks with the other workspace dialogs like Go to Line. `ui/screens/search_everywhere/` renders
+the popup and routes popup keys before the focused search input.
 
 Terminal, Git, and Pipelines share one optional bottom panel position. The workspace guide lists
 platform-specific keyboard shortcuts. Middle-click closes the targeted tab.

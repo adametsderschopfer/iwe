@@ -13,6 +13,15 @@ pub(crate) enum Language {
 }
 
 impl Language {
+    /// BCP 47 primary code passed to external modules.
+    pub(crate) fn code(self) -> &'static str {
+        match self {
+            Self::English => "en",
+            Self::Russian => "ru",
+            Self::Spanish => "es",
+        }
+    }
+
     pub(crate) fn select(explicit: Option<&str>, system: Option<&str>) -> Self {
         let locale = explicit
             .filter(|value| !value.trim().is_empty())
@@ -185,6 +194,35 @@ message_keys! {
     Modules => "modules",
     ModulesDescription => "modules-description",
     SystemModule => "system-module",
+    ExternalModule => "external-module",
+    ExternalModules => "external-modules",
+    NoExternalModules => "no-external-modules",
+    InstallModule => "install-module",
+    InstallingModule => "installing-module",
+    RemoveModule => "remove-module",
+    ConfirmInstallTitle => "confirm-install-title",
+    ConfirmInstallDescription => "confirm-install-description",
+    ModulePermissions => "module-permissions",
+    PermissionFilesystemRead => "permission-filesystem-read",
+    PermissionFilesystemWrite => "permission-filesystem-write",
+    PermissionNetwork => "permission-network",
+    PermissionProcess => "permission-process",
+    PlacementHeader => "placement-header",
+    PlacementTop => "placement-top",
+    PlacementLeft => "placement-left",
+    PlacementRight => "placement-right",
+    PlacementBottom => "placement-bottom",
+    ModuleRegistryLoadFailed => "module-registry-load-failed",
+    ModuleInstallFailed => "module-install-failed",
+    ModuleInstalled => "module-installed",
+    ModuleRemoveFailed => "module-remove-failed",
+    ModuleStartFailed => "module-start-failed",
+    ModulePackageTooLarge => "module-package-too-large",
+    ModuleUnsupportedTarget => "module-unsupported-target",
+    ModuleIncompatible => "module-incompatible",
+    ModuleOlderVersion => "module-older-version",
+    ModuleCrashed => "module-crashed",
+    ModuleMessage => "module-message",
     Terminal => "terminal",
     TerminalStarting => "terminal-starting",
     TerminalExited => "terminal-exited",
@@ -267,6 +305,19 @@ message_keys! {
     ProjectRepositories => "project-repositories",
     GoToLine => "go-to-line",
     GoToLineDescription => "go-to-line-description",
+    GoToFile => "go-to-file",
+    GoToFileDescription => "go-to-file-description",
+    SearchEverywhere => "search-everywhere",
+    SearchEverywhereDescription => "search-everywhere-description",
+    SearchPlaceholder => "search-placeholder",
+    SearchStart => "search-start",
+    SearchNoResults => "search-no-results",
+    SearchScopeAll => "search-scope-all",
+    SearchScopeFiles => "search-scope-files",
+    SearchScopeProjects => "search-scope-projects",
+    SearchGroupFiles => "search-group-files",
+    SearchGroupProjects => "search-group-projects",
+    SearchHint => "search-hint",
     LineNumber => "line-number",
     InvalidLineNumber => "invalid-line-number",
     LineNumberNotFound => "line-number-not-found",
@@ -289,6 +340,14 @@ message_keys! {
     RestoreWindow => "restore-window",
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     CloseWindow => "close-window",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    MenuFile => "menu-file",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    MenuView => "menu-view",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    MenuHelp => "menu-help",
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    MenuExit => "menu-exit",
     NoWorkingChanges => "no-working-changes",
     FileCount => "file-count",
     Projects => "projects",
@@ -495,6 +554,7 @@ message_keys! {
 }
 
 pub(crate) struct I18n {
+    language: Language,
     selected: Option<FluentBundle<FluentResource>>,
     english: Option<FluentBundle<FluentResource>>,
 }
@@ -502,9 +562,14 @@ pub(crate) struct I18n {
 impl I18n {
     pub(crate) fn new(language: Language) -> Self {
         Self {
+            language,
             selected: bundle_catalogs(language, &language.sources()),
             english: bundle_catalogs(Language::English, &Language::English.sources()),
         }
+    }
+
+    pub(crate) fn language(&self) -> Language {
+        self.language
     }
 
     pub(crate) fn text(&self, key: Key) -> String {

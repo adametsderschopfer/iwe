@@ -27,7 +27,47 @@ loading history or branches. Disabling Git stops status polling and new working-
 Normal local file viewing remains available. Disabling Pipelines stops run and job polling,
 including pipeline status updates in Git history.
 
-The application has no module store, external installation, or external module loader.
+The application has no module store. Users install external modules from local package files.
+
+## External modules
+
+External modules add capabilities without recompiling the application. A module is a separate
+operating-system process. The host exchanges one JSON document per line with the process over stdin
+and stdout. The protocol version is `api: 1`. See [ADR 0002](adr/0002-external-modules.md) for the
+decision record and the module development guide on the website for the protocol and package
+reference.
+
+A package is a gzipped tar archive with the `.iwe-module` extension. It contains `manifest.json`,
+one executable per platform under `binaries/<target>/`, and optional `assets`. The manifest declares
+the identifier, localized name and description, semantic version, protocol version, minimum
+application version, entry names, permissions, and the panel placement. Package files are limited to
+128 MiB. Updates must increase the module version.
+
+**Settings → Modules → Install from file…** reads the package, shows the requested access, and asks
+for confirmation. Installation stores files under `modules/<id>/<version>` in the application data
+directory and records the module in `modules.json` next to `workspace.json`. The `IWE_DATA_DIR`
+environment variable redirects both locations, as everywhere else.
+
+Permissions are declarative: `filesystem-read`, `filesystem-write`, `network`, and `process`. The
+application shows them before installation and requires confirmation. Module processes run with
+normal user rights; the application does not sandbox them.
+
+The manifest placement selects the workspace zone for the module panel: header, top, left, right, or
+bottom. Several modules in one zone switch through tabs. Modules describe panels as a declarative
+widget tree of native components. The application renders these trees and never runs module code in
+the interface process. Modules localize their own panel text; the host passes the interface language
+during initialization.
+
+A module process runs while its module stays enabled. It starts on application start or activation
+and stops on deactivation, removal, or shutdown. A crashed module restarts at most three times per
+session. After that the application disables the module and reports it. Removal stops the process,
+deletes the module directory, and drops the registry record. System modules stay bundled and cannot
+be removed.
+
+The reference implementation lives in `examples/hello-module`. Integration tests exercise the
+protocol against `tests/bin/iwe-test-module.rs`. Package reading, installation, updates, removal,
+and the registry have unit tests under `src/infrastructure/modules/`. Host state and zone
+coordination live under `src/app/modules/external/`.
 
 ## Deployment
 

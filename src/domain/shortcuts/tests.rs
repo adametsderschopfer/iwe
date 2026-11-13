@@ -91,6 +91,20 @@ fn loading_conflicts_restores_unique_effective_bindings() {
 }
 
 #[test]
+fn go_to_file_defaults_follow_jetbrains_platform_keys() {
+    let binding = Command::GoToFile.default_binding();
+    assert_eq!(
+        binding.key,
+        if cfg!(target_os = "macos") { "O" } else { "N" }
+    );
+    assert!(binding.shift);
+    assert!(!binding.alt);
+    assert_eq!(binding.super_key, cfg!(target_os = "macos"));
+    assert_eq!(binding.control, !cfg!(target_os = "macos"));
+    assert_eq!(Shortcuts::default().binding(Command::GoToFile), binding);
+}
+
+#[test]
 fn deployment_defaults_use_shift_and_preserve_custom_assignments() {
     let mut shortcuts = Shortcuts::default();
     for (command, key) in [

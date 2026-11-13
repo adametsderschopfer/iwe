@@ -283,3 +283,44 @@ for (const { language, route } of locales) {
     )
   })
 }
+
+for (const { language, route } of locales) {
+  test(`${language} module guide documents the package format and protocol`, () => {
+    const html = readPage(`${route}modules/`)
+    const catalog = readCatalog(language)
+    assert.equal(elements(html, 'html')[0]?.lang, language)
+    assert.equal(elements(html, 'h1').length, 1)
+    assert.ok(decode(html).includes(catalog.modules.title))
+    const visibleText = decode(
+      html
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]*>/g, ' '),
+    ).replace(/\s+/g, ' ')
+    for (const key of ['conceptTitle', 'manifestTitle', 'protocolTitle', 'permissionsTitle']) {
+      assert.ok(visibleText.includes(catalog.modules[key]), `Missing module section: ${key}`)
+    }
+    for (const entry of catalog.modules.manifestFields) {
+      assert.ok(visibleText.includes(entry.field), `Missing manifest field: ${entry.field}`)
+    }
+    const code = decode(html.match(/<pre\b[^>]*>([\s\S]*?)<\/pre>/gi)?.join(' ') ?? '')
+    assert.ok(code.includes('"id": "hello-module"'), 'The guide must show a manifest example')
+    assert.ok(code.includes('"type":"initialize"'), 'The guide must show protocol examples')
+    assert.ok(code.includes('.iwe-module') || code.includes('iwe-module'), 'Guide covers packages')
+    const links = elements(html, 'link')
+    assert.equal(
+      links.find((link) => link.rel === 'canonical')?.href,
+      new URL(`${route}modules/`, siteURL).href,
+    )
+    for (const locale of locales) {
+      assert.equal(
+        links.find((link) => link.hreflang === locale.language)?.href,
+        new URL(`${locale.route}modules/`, siteURL).href,
+      )
+    }
+    for (const anchor of elements(html, 'a')) {
+      const url = new URL(anchor.href, new URL(`${baseURL}${route}modules/`, localOrigin))
+      if (url.origin === localOrigin) staticTarget(url)
+    }
+  })
+}

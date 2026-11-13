@@ -70,6 +70,7 @@ export default defineNuxtConfig({
         ...['', '/ru', '/es'].flatMap((locale) => [
           `${locale}/releases/`,
           `${locale}/license/`,
+          `${locale}/modules/`,
           ...releaseNotes
             .filter((release) => release.items.length > 0)
             .map((release) => `${locale}/releases/${release.version}/`),

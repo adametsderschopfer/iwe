@@ -163,6 +163,12 @@ pub(crate) const FILE_TAB_TOOL_GAP: f32 = 6.0;
 pub(crate) const TAB_MENU_WIDTH: f32 = 380.0;
 pub(crate) const TAB_MENU_ROW_HEIGHT: f32 = 36.0;
 pub(crate) const TAB_MENU_MAX_HEIGHT: f32 = 324.0;
+pub(crate) const SEARCH_OVERLAY_WIDTH: f32 = 640.0;
+pub(crate) const SEARCH_OVERLAY_TOP_INSET: f32 = 96.0;
+pub(crate) const SEARCH_RESULTS_HEIGHT: f32 = 336.0;
+pub(crate) const SEARCH_ROW_HEIGHT: f32 = 40.0;
+pub(crate) const SEARCH_ROW_SPACING: f32 = 2.0;
+pub(crate) const SEARCH_GROUP_HEIGHT: f32 = 32.0;
 pub(crate) const FILE_TREE_ROW_HEIGHT: f32 = 24.0;
 pub(crate) const FILE_TREE_TEXT_SIZE: f32 = 14.0;
 pub(crate) const FILE_TREE_INDENT: f32 = 20.0;
@@ -355,6 +361,36 @@ pub(crate) fn separator(theme: &Theme) -> container::Style {
         ..Default::default()
     }
 }
+
+#[cfg(target_os = "windows")]
+pub(crate) fn menu_title(open: bool) -> impl Fn(&Theme) -> container::Style {
+    move |theme| container::Style {
+        background: open.then_some(SELECTED.resolve(theme).into()),
+        text_color: Some(TEXT.resolve(theme)),
+        border: Border {
+            radius: 8.0.into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn window_frame(theme: &Theme) -> container::Style {
+    container::Style {
+        border: Border {
+            color: LINE.resolve(theme),
+            width: 1.,
+            ..Default::default()
+        },
+        ..surface(theme)
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) use surface as secondary_window;
+#[cfg(target_os = "windows")]
+pub(crate) use window_frame as secondary_window;
 
 pub(crate) fn notification_progress(
     theme: &Theme,

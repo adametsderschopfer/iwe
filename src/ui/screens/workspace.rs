@@ -2,11 +2,12 @@ use super::{auth, diff, git, git_actions, pipelines, settings, unified};
 use crate::ui::tooltip;
 use crate::{
     app::{App, Message, Navigation, Panel, error_key},
+    domain::modules::Placement,
     domain::workspace::{DiffView, Preferences},
     i18n::{FluentArgs, Key},
     modules::ModuleId,
     ui::{
-        changed_tree, code, context_menu, file_icons,
+        changed_tree, code, context_menu, external_module_panel, file_icons,
         icons::{Icon, icon, sized_icon},
         reorder, resize, tab_label, theme,
     },
@@ -19,6 +20,11 @@ use iced::{
     },
 };
 use std::path::Path;
+
+/// Height of the top and bottom external module zones.
+const EXTERNAL_ZONE_HEIGHT: f32 = 220.;
+/// Width of the left and right external module zones.
+const EXTERNAL_ZONE_WIDTH: f32 = 320.;
 
 pub(crate) fn view(app: &App) -> Element<'_, Message> {
     let content: Element<'_, Message> = if app.navigation == Navigation::Settings {
@@ -60,20 +66,48 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
                 .style(theme::separator)
                 .height(Length::Fill)
         ];
+        if !app.external_zone_modules(Placement::Bottom).is_empty() {
+            body = body.push(divider()).push(
+                container(external_module_panel::zone_panel(app, Placement::Bottom))
+                    .height(EXTERNAL_ZONE_HEIGHT)
+                    .width(Length::Fill)
+                    .clip(true),
+            );
+        }
         if app.workspace.directory().is_some() {
             body = body.push(footer(app));
         }
         body.into()
     };
     let main = column![content].height(Length::Fill).width(Length::Fill);
+    let mut workspace = column![header(app)];
+    if !app.external_zone_modules(Placement::Top).is_empty() {
+        workspace = workspace.push(divider()).push(
+            container(external_module_panel::zone_panel(app, Placement::Top))
+                .height(EXTERNAL_ZONE_HEIGHT)
+                .width(Length::Fill)
+                .clip(true),
+        );
+    }
+    workspace = workspace.push(divider()).push(main);
+    let mut center = row![workspace.width(Length::Fill)];
+    if !app.external_zone_modules(Placement::Left).is_empty() {
+        center = row![
+            container(external_module_panel::zone_panel(app, Placement::Left))
+                .width(EXTERNAL_ZONE_WIDTH)
+                .height(Length::Fill)
+                .clip(true),
+            vertical_divider(),
+            center,
+        ]
+        .width(Length::Fill);
+    }
     let base = container(row![
         column![sidebar_header(), sidebar(app)]
             .width(theme::SIDEBAR_WIDTH)
             .height(Length::Fill),
         vertical_divider(),
-        column![header(app), divider(), main]
-            .width(Length::Fill)
-            .height(Length::Fill),
+        center.height(Length::Fill),
     ])
     .width(Length::Fill)
     .height(Length::Fill)
@@ -129,6 +163,7 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         ),
     );
     let base = super::project_add::overlay(app, base);
+    let base = super::search_everywhere::overlay(app, base);
     let base = super::line_navigation::overlay(app, base);
     let base = crate::ui::notifications::overlay(
         &app.notifications,
@@ -137,7 +172,10 @@ pub(crate) fn view(app: &App) -> Element<'_, Message> {
         Message::Notification,
     );
     #[cfg(target_os = "windows")]
-    let base = crate::ui::window_chrome::overlay(app, base);
+    let base = {
+        let base = super::menu_bar::overlay(app, base);
+        crate::ui::window_chrome::overlay(app, base)
+    };
     crate::ui::editor::overlay(app, base)
 }
 
@@ -170,8 +208,22 @@ fn header(app: &App) -> Element<'_, Message> {
     ]
     .spacing(12)
     .align_y(Alignment::Center);
+    #[cfg(target_os = "windows")]
+    {
+        heading = Row::with_children([super::menu_bar::header_prefix(app)])
+            .spacing(12)
+            .align_y(Alignment::Center)
+            .push(heading);
+    }
     if !is_settings && app.repository.is_some() {
         heading = heading.push(super::header_repositories::controls(app));
+    }
+    if !is_settings
+        && !app
+            .external_zone_modules(crate::domain::modules::Placement::Header)
+            .is_empty()
+    {
+        heading = heading.push(external_module_panel::header_panel(app));
     }
     let action = if is_settings {
         icon_button(
@@ -587,10 +639,11 @@ fn deployment_content(app: &App, width: f32) -> Element<'_, Message> {
     .padding(theme::FILE_PANEL_TOOL_INSET)
     .height(Length::Fill)
     .style(theme::sidebar);
-    let content = row![
+    let mut children: Vec<Element<'_, Message>> = vec![
         container(project_content(app, (width - reserved).max(0.)))
             .width(Length::Fill)
-            .height(Length::Fill),
+            .height(Length::Fill)
+            .into(),
         vertical_divider(),
         container(
             crate::modules::deployment::panel(
@@ -598,18 +651,30 @@ fn deployment_content(app: &App, width: f32) -> Element<'_, Message> {
                 &app.workspace.deployment,
                 app.deployment_profiles(),
                 app.workspace.directory().map(std::path::PathBuf::as_path),
-                &app.i18n
+                &app.i18n,
             )
-            .map(deployment_message)
+            .map(deployment_message),
         )
         .id("deployment-panel")
         .width(if visible { panel_width } else { 0. })
         .height(Length::Fill)
-        .clip(true),
-        tools,
-    ]
-    .width(Length::Fill)
-    .height(Length::Fill);
+        .clip(true)
+        .into(),
+    ];
+    if !app.external_zone_modules(Placement::Right).is_empty() {
+        children.push(vertical_divider());
+        children.push(
+            container(external_module_panel::zone_panel(app, Placement::Right))
+                .width(EXTERNAL_ZONE_WIDTH)
+                .height(Length::Fill)
+                .clip(true)
+                .into(),
+        );
+    }
+    children.push(tools.into());
+    let content = Row::with_children(children)
+        .width(Length::Fill)
+        .height(Length::Fill);
     resize::right(
         content.into(),
         visible.then_some(panel_width),

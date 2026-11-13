@@ -1,17 +1,22 @@
 //! Record settings shortcuts and route unhandled keyboard events by window.
 
-use super::{App, Message, Navigation, SettingsTab, line_navigation};
+use super::{App, Message, Navigation, SettingsTab, line_navigation, search_everywhere};
 use crate::{
     domain::shortcuts::{Command, Rejection},
     i18n::Key,
     ui::shortcuts,
 };
 use iced::{Task, event::Status, keyboard, window};
+use std::time::{Duration, Instant};
+
+/// Maximum delay between two Shift presses that opens search everywhere.
+const DOUBLE_PRESS_WINDOW: Duration = Duration::from_millis(300);
 
 #[derive(Default)]
 pub(crate) struct State {
     pub recording: Option<Command>,
     pub error: Option<Key>,
+    last_shift: Option<Instant>,
 }
 
 #[derive(Debug, Clone)]
@@ -25,6 +30,12 @@ pub(crate) fn command_message(command: Command) -> Option<Message> {
     match command {
         Command::SaveFile => Some(Message::Editor(super::editor::Event::Save)),
         Command::GoToLine => Some(Message::GoToLine(line_navigation::Event::Open)),
+        Command::GoToFile => Some(Message::SearchEverywhere(search_everywhere::Event::Open(
+            search_everywhere::Scope::Files,
+        ))),
+        Command::Search => Some(Message::SearchEverywhere(search_everywhere::Event::Open(
+            search_everywhere::Scope::All,
+        ))),
         Command::CloseTab => Some(Message::CloseActiveTab),
         Command::ReopenTab => Some(Message::ReopenClosedTab),
         Command::Copy | Command::SelectAll => None,
@@ -116,6 +127,25 @@ impl App {
                 }
                 if status == Status::Captured {
                     return Task::none();
+                }
+                if matches!(key, keyboard::Key::Named(keyboard::key::Named::Shift)) {
+                    let now = Instant::now();
+                    let pressed_twice = self.shortcuts.last_shift.is_some_and(|previous| {
+                        now.duration_since(previous) <= DOUBLE_PRESS_WINDOW
+                    });
+                    if pressed_twice {
+                        self.shortcuts.last_shift = None;
+                        if !settings && self.window_id == Some(id) {
+                            let message = Message::SearchEverywhere(
+                                search_everywhere::Event::Open(search_everywhere::Scope::All),
+                            );
+                            return self.update(Message::WindowShortcut(id, Box::new(message)));
+                        }
+                    } else {
+                        self.shortcuts.last_shift = Some(now);
+                    }
+                } else {
+                    self.shortcuts.last_shift = None;
                 }
                 let message = key_message(
                     &key,

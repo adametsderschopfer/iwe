@@ -7,6 +7,7 @@ description = "A native workspace for projects, source code, Git history, and pi
 license = "Apache-2.0"
 repository = "https://github.com/adametsderschopfer/iwe-code"
 publish = false
+default-run = "iwe"
 
 [dependencies]
 base64 = "0.22"
@@ -30,7 +31,7 @@ url = "2"
 sys-locale = "0.3.2"
 unic-langid = { version = "0.9.6", features = ["macros"] }
 similar = { version = "3.2.1", default-features = false, features = ["text", "std"] }
-semver = "1"
+semver = { version = "1", features = ["serde"] }
 ed25519-dalek = "2.2"
 tar = "0.4"
 flate2 = "1"
@@ -54,6 +55,14 @@ xpty = "=0.3.6"
 
 [target.'cfg(unix)'.dependencies]
 portable-pty = "0.9.0"
+
+[[bin]]
+name = "iwe-test-module"
+path = "tests/bin/iwe-test-module.rs"
+required-features = ["test-module"]
+
+[features]
+test-module = []
 
 [dev-dependencies]
 rcgen = "0.14.10"

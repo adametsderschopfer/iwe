@@ -39,6 +39,7 @@ pub(crate) enum Icon {
     Pin,
     Refresh,
     Close,
+    Search,
     #[cfg(target_os = "windows")]
     Minimize,
     #[cfg(target_os = "windows")]
@@ -260,6 +261,10 @@ impl Drawing {
             Icon::Close => {
                 line(&[(5., 5.), (15., 15.)]);
                 line(&[(5., 15.), (15., 5.)]);
+            }
+            Icon::Search => {
+                line(&[(12.5, 12.5), (17., 17.)]);
+                frame.stroke(&Path::circle(Point::new(8.5, 8.5), 5.), stroke);
             }
             #[cfg(target_os = "windows")]
             Icon::Minimize => line(&[(4., 10.), (16., 10.)]),
