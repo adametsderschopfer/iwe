@@ -3,7 +3,7 @@
 use crate::{
     app::{
         App, Message,
-        search_everywhere::{Event, INPUT_ID, RESULTS_ID, Row, Scope},
+        search_everywhere::{Event, INPUT_ID, RESULTS_ID, Row, Scope, visible_window},
     },
     i18n::Key,
     ui::{context_menu, ellipsis, file_icons, icons, theme},
@@ -37,7 +37,9 @@ pub(super) fn overlay<'a>(app: &'a App, base: Element<'a, Message>) -> Element<'
     } else {
         let mut files_header = false;
         let mut projects_header = false;
-        for (index, entry) in dialog.rows.iter().enumerate() {
+        let visible = visible_window(dialog.rows.len(), dialog.selection);
+        for (offset, entry) in dialog.rows[visible.clone()].iter().enumerate() {
+            let index = visible.start + offset;
             match entry {
                 Row::File {
                     name,

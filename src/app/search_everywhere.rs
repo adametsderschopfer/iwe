@@ -137,7 +137,6 @@ impl App {
                 return self.refresh_search_rows();
             }
             Event::Moved(forward) => {
-                let mut scroll = Task::none();
                 if let Some(dialog) = self.search_everywhere.dialog.as_mut()
                     && !dialog.rows.is_empty()
                 {
@@ -147,9 +146,7 @@ impl App {
                     } else {
                         (dialog.selection + length - 1) % length
                     };
-                    scroll = selection_scroll(&dialog.rows, dialog.selection);
                 }
-                return scroll;
             }
             Event::Activate(index) => {
                 if let Some(dialog) = self.search_everywhere.dialog.as_mut()
@@ -186,10 +183,7 @@ impl App {
         };
         dialog.rows = collect_rows(dialog.scope, &dialog.query, &state.files, &self.workspace);
         dialog.selection = 0;
-        operation::scroll_to(
-            iced::widget::Id::new(RESULTS_ID),
-            operation::AbsoluteOffset { x: 0., y: 0. },
-        )
+        Task::none()
     }
 
     fn collect_file_candidates(&self) -> Vec<FileCandidate> {
@@ -221,37 +215,14 @@ impl App {
     }
 }
 
-/// Vertical scroll offset that keeps the selected row centered in the results list.
+/// Range of result rows rendered around the selected row.
 ///
-/// The offset mirrors the rendered column: a fixed-height group header precedes each
-/// group, and rows follow at a fixed pitch.
-fn selection_offset(rows: &[Row], selection: usize) -> Option<f32> {
-    if selection >= rows.len() {
-        return None;
-    }
-    let pitch = theme::SEARCH_ROW_HEIGHT + theme::SEARCH_ROW_SPACING;
-    let mut offset = 0.;
-    let mut group: Option<bool> = None;
-    for (index, row) in rows.iter().enumerate() {
-        let is_file = matches!(row, Row::File { .. });
-        if group != Some(is_file) {
-            group = Some(is_file);
-            offset += theme::SEARCH_GROUP_HEIGHT + theme::SEARCH_ROW_SPACING;
-        }
-        if index == selection {
-            break;
-        }
-        offset += pitch;
-    }
-    Some((offset + theme::SEARCH_ROW_HEIGHT / 2. - theme::SEARCH_RESULTS_HEIGHT / 2.).max(0.))
-}
-
-fn selection_scroll(rows: &[Row], selection: usize) -> Task<Message> {
-    let offset = selection_offset(rows, selection).unwrap_or(0.);
-    operation::scroll_to(
-        iced::widget::Id::new(RESULTS_ID),
-        operation::AbsoluteOffset { x: 0., y: offset },
-    )
+/// The selected row stays near the vertical center of the results area.
+pub(crate) fn visible_window(length: usize, selection: usize) -> std::ops::Range<usize> {
+    let start = selection.saturating_sub(theme::SEARCH_WINDOW_CENTER);
+    let end = (start + theme::SEARCH_WINDOW_ROWS).min(length);
+    let start = end.saturating_sub(theme::SEARCH_WINDOW_ROWS);
+    start..end
 }
 
 fn collect_rows(

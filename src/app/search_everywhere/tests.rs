@@ -194,34 +194,10 @@ fn tree_changes_refresh_candidates_on_the_next_query() {
 }
 
 #[test]
-fn selection_offsets_keep_the_selected_row_centered() {
-    let pitch = theme::SEARCH_ROW_HEIGHT + theme::SEARCH_ROW_SPACING;
-    let group = theme::SEARCH_GROUP_HEIGHT + theme::SEARCH_ROW_SPACING;
-    let file = |name: &str| Row::File {
-        name: name.into(),
-        directory: String::new(),
-        path: PathBuf::from(format!("/tmp/alpha/{name}")),
-    };
-    let project = || Row::Project {
-        space: 0,
-        project: 0,
-    };
-    // Two groups: headers precede each group once.
-    let rows = vec![file("a.rs"), file("b.rs"), project()];
-    let top = 2. * group + 2. * pitch;
-    assert_eq!(
-        selection_offset(&rows, 2),
-        Some((top + theme::SEARCH_ROW_HEIGHT / 2. - theme::SEARCH_RESULTS_HEIGHT / 2.).max(0.))
-    );
-    // Near the start of the list the offset clamps to the top.
-    assert_eq!(selection_offset(&rows, 0), Some(0.));
-    // A projects-only list has a single header.
-    let rows = vec![project(), project()];
-    let top = group + pitch;
-    assert_eq!(
-        selection_offset(&rows, 1),
-        Some((top + theme::SEARCH_ROW_HEIGHT / 2. - theme::SEARCH_RESULTS_HEIGHT / 2.).max(0.))
-    );
-    assert_eq!(selection_offset(&rows, 5), None);
-    assert_eq!(selection_offset(&[], 0), None);
+fn visible_windows_center_the_selected_row() {
+    let length = 30;
+    assert_eq!(visible_window(length, 0), 0..theme::SEARCH_WINDOW_ROWS);
+    assert_eq!(visible_window(length, 15), 12..20);
+    assert_eq!(visible_window(length, 29), 22..30);
+    assert_eq!(visible_window(3, 2), 0..3);
 }
