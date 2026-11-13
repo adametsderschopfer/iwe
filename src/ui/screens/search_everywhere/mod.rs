@@ -190,15 +190,14 @@ fn file_row<'a>(
                 .style(theme::MUTED.text()),
         );
     }
-    container(
-        button(label)
+    row_button(
+        container(label)
             .width(Length::Fill)
-            .height(Length::Fixed(theme::SEARCH_ROW_HEIGHT))
-            .padding([0, 10])
-            .style(move |theme, status| theme::action(index == selection)(theme, status))
-            .on_press(Message::SearchEverywhere(Event::Activate(index))),
+            .height(Length::Fill)
+            .align_y(Alignment::Center),
+        index,
+        selection,
     )
-    .id(format!("search-everywhere-row-{index}"))
     .into()
 }
 
@@ -232,8 +231,25 @@ fn project_row<'a>(
     ]
     .spacing(10)
     .align_y(Alignment::Center);
+    row_button(
+        container(label)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_y(Alignment::Center),
+        index,
+        selection,
+    )
+    .into()
+}
+
+/// A fixed-height search result button with vertically centered content.
+fn row_button<'a>(
+    content: impl Into<Element<'a, Message>>,
+    index: usize,
+    selection: usize,
+) -> container::Container<'a, Message, iced::Theme, iced::Renderer> {
     container(
-        button(label)
+        button(content)
             .width(Length::Fill)
             .height(Length::Fixed(theme::SEARCH_ROW_HEIGHT))
             .padding([0, 10])
@@ -241,7 +257,6 @@ fn project_row<'a>(
             .on_press(Message::SearchEverywhere(Event::Activate(index))),
     )
     .id(format!("search-everywhere-row-{index}"))
-    .into()
 }
 
 fn scope_chip<'a>(app: &'a App, scope: Scope, active: Scope) -> Element<'a, Message> {
