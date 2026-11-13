@@ -1583,6 +1583,16 @@
           "es": "La compilación manual del sitio ahora publica las páginas generadas."
         },
         "sources": [".github/workflows/website-build.yml"]
+      },
+      {
+        "id": "keep-open-tabs-per-project",
+        "category": "added",
+        "text": {
+          "en": "Switching projects keeps each project's open tabs, scroll positions, and closed-tab history in memory until the application closes.",
+          "ru": "При переключении проектов открытые вкладки, позиции прокрутки и история закрытых вкладок сохраняются в памяти до закрытия приложения.",
+          "es": "Al cambiar de proyecto, las pestañas abiertas, las posiciones de desplazamiento y el historial de pestañas cerradas se conservan en memoria hasta cerrar la aplicación."
+        },
+        "sources": ["src/app/tabs.rs"]
       }
     ]
   }

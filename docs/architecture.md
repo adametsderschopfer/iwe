@@ -226,16 +226,21 @@ tabs or replaced projects.
 File tabs own separate source documents, loading states, and scroll offsets. Selecting tabs reuses
 documents without copying their contents. Stable request identifiers route background results to
 their original tabs. Closed tabs reject pending results. Project generations isolate refreshed and
-replaced projects. Refresh preserves current tabs and restarts their pending reads. Inactive working
-files refresh when selected. Commit tabs retain their original revision and comparison source.
+replaced projects. Refresh preserves current tabs and restarts their pending reads. Switching
+projects moves the open tabs, closure history, and active tab into an in-memory stash keyed by the
+project root. The stash retains the four most recent roots and restores their state when a project
+returns. Restored previews restart suspended, failed, and pending reads under fresh generations.
+Closing the application discards the stash. Inactive working files refresh when selected. Commit
+tabs retain their original revision and comparison source.
 
-Closed-tab documents share a 16 MiB memory budget, with recent documents retained first. The last 20
-closures keep their source identity, offsets, part cursors, and compact folding state. Eviction
-releases prepared text and folding projections. Background reopening reads original files or Git
-revisions rather than additional source snapshots. Matching fingerprints restore expanded blocks.
-Changed large files restart at the first part. Document preparation measures owned buffer capacities
-off the interface thread. The budget excludes allocator overhead, active tabs, and renderer
-resources.
+Closed-tab documents share a 16 MiB memory budget, with recent documents retained first. Stashed
+projects reuse the same suspension under one 16 MiB budget each. Protected editors never suspend
+because they hold the only copy of unsaved text. The last 20 closures keep their source identity,
+offsets, part cursors, and compact folding state. Eviction releases prepared text and folding
+projections. Background reopening reads original files or Git revisions rather than additional
+source snapshots. Matching fingerprints restore expanded blocks. Changed large files restart at the
+first part. Document preparation measures owned buffer capacities off the interface thread. The
+budget excludes allocator overhead, active tabs, and renderer resources.
 
 File icons and interface icons retain canvas geometry between draws. Icon identity, resolved color,
 appearance, and dimensions invalidate the relevant cache. Widget removal releases its geometry.

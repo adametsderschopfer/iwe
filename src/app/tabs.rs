@@ -1,4 +1,5 @@
-//! Keep opened source files and their scroll positions in memory.
+//! Keep opened source files and their scroll positions in memory. Switching projects
+//! keeps each project's tabs and closure history in a bounded in-memory stash.
 
 use super::{App, Message};
 #[cfg(test)]
@@ -14,9 +15,15 @@ use crate::{
     ui::code::{Document, comparison::Side, folding::Folding, syntax_for},
 };
 use iced::{Task, widget::operation};
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 const CLOSED_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
+const STASHED_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
+const STASHED_PROJECTS: usize = 4;
 
 #[derive(Debug, Clone)]
 enum Source {
@@ -243,12 +250,20 @@ struct Suspended {
     folding: Folding,
 }
 
+/// Tab state kept for a background project until the application closes.
+struct Stashed {
+    files: Vec<Preview>,
+    closed: Vec<Preview>,
+    active: usize,
+}
+
 pub(crate) struct State {
     pub files: Vec<Preview>,
     pub menu: Option<iced::Point>,
     closed: Vec<Preview>,
     active: usize,
     root: Option<PathBuf>,
+    stash: VecDeque<(PathBuf, Stashed)>,
 }
 
 impl Default for State {
@@ -260,33 +275,89 @@ impl Default for State {
             closed: Vec::new(),
             active: 0,
             root: None,
+            stash: VecDeque::new(),
         }
     }
 }
 
 impl State {
     fn trim_closed_documents(&mut self, budget: usize) {
-        let mut retained = 0;
-        for preview in self.closed.iter_mut().rev() {
-            let Some(document) = &preview.document else {
-                continue;
-            };
-            let bytes = document.memory_bytes();
-            if bytes <= budget - retained {
-                retained += bytes;
-            } else {
-                let mut folding = std::mem::take(&mut preview.folding);
-                folding.release_layout();
-                preview.suspended = Some(Suspended {
-                    page: document.page,
-                    fingerprint: document.fingerprint,
-                    folding,
-                });
-                preview.document = None;
-                preview.editor = None;
-            }
+        trim_documents(self.closed.iter_mut(), budget, false);
+    }
+
+    fn keeps_project_state(&self) -> bool {
+        self.files.iter().any(|preview| preview.source.is_some()) || !self.closed.is_empty()
+    }
+
+    fn stash_project(&mut self, root: PathBuf) {
+        let mut stashed = Stashed {
+            files: std::mem::take(&mut self.files),
+            closed: std::mem::take(&mut self.closed),
+            active: self.active,
+        };
+        // Drafts keep their only copy. Open tabs retain memory before closures.
+        let retained = trim_documents(stashed.files.iter_mut(), STASHED_DOCUMENT_BYTES, true);
+        trim_documents(
+            stashed.closed.iter_mut(),
+            STASHED_DOCUMENT_BYTES - retained,
+            false,
+        );
+        self.stash.retain(|(path, _)| *path != root);
+        self.stash.push_back((root, stashed));
+        while self.stash.len() > STASHED_PROJECTS {
+            self.stash.pop_front();
         }
     }
+
+    fn restore_project(&mut self, root: &Path) -> Option<Stashed> {
+        let index = self.stash.iter().position(|(path, _)| path == root)?;
+        self.stash.remove(index).map(|(_, stashed)| stashed)
+    }
+}
+
+/// Suspend the heaviest documents beyond `budget`, newest first, and report the
+/// retained bytes. `keep_drafts` never suspends protected editors because they hold
+/// the only copy of unsaved text.
+fn trim_documents<'a>(
+    previews: impl DoubleEndedIterator<Item = &'a mut Preview>,
+    budget: usize,
+    keep_drafts: bool,
+) -> usize {
+    let mut retained = 0;
+    for preview in previews.rev() {
+        if keep_drafts
+            && preview
+                .editor
+                .as_ref()
+                .is_some_and(super::editor::Buffer::protected)
+        {
+            continue;
+        }
+        let Some(document) = &preview.document else {
+            continue;
+        };
+        let bytes = document.memory_bytes();
+        if bytes <= budget - retained {
+            retained += bytes;
+        } else {
+            suspend_preview(preview);
+        }
+    }
+    retained
+}
+
+fn suspend_preview(preview: &mut Preview) {
+    let Some(document) = preview.document.take() else {
+        return;
+    };
+    let mut folding = std::mem::take(&mut preview.folding);
+    folding.release_layout();
+    preview.suspended = Some(Suspended {
+        page: document.page,
+        fingerprint: document.fingerprint,
+        folding,
+    });
+    preview.editor = None;
 }
 
 impl App {
@@ -1007,26 +1078,50 @@ impl App {
 
     pub(super) fn sync_preview_project(&mut self) -> Task<Message> {
         let root = self.workspace.directory().cloned();
+        let mut restored = false;
         if self.tabs.root != root {
-            let drafts: Vec<_> = self
-                .tabs
-                .files
-                .drain(..)
-                .filter(|tab| {
-                    tab.editor
-                        .as_ref()
-                        .is_some_and(super::editor::Buffer::protected)
-                })
-                .collect();
+            if let Some(previous) = self.tabs.root.take()
+                && self.tabs.keeps_project_state()
+            {
+                self.tabs.stash_project(previous);
+            }
+            let stashed = root
+                .as_deref()
+                .and_then(|root| self.tabs.restore_project(root));
+            let stash = std::mem::take(&mut self.tabs.stash);
             self.tabs = State {
                 root,
+                stash,
                 ..State::default()
             };
-            // Keep drafts if an asynchronous project update bypassed a navigation prompt.
-            if !drafts.is_empty() {
-                self.tabs.files = drafts;
+            if let Some(stashed) = stashed {
+                self.tabs.files = stashed.files;
+                self.tabs.closed = stashed.closed;
+                self.tabs.active = stashed.active;
+                restored = true;
             }
-            return Task::none();
+        }
+        if restored {
+            let resuming: Vec<_> = self
+                .tabs
+                .files
+                .iter()
+                .filter(|preview| {
+                    preview.loading
+                        || preview.source.is_some()
+                            && (preview.document.is_none() || preview.error.is_some())
+                })
+                .map(|preview| preview.id)
+                .collect();
+            let reads: Vec<_> = resuming
+                .into_iter()
+                .filter_map(|id| self.resume_preview(id))
+                .collect();
+            return Task::batch(
+                reads
+                    .into_iter()
+                    .chain([self.restore_preview_scroll(), self.reveal_tab()]),
+            );
         }
         for preview in &mut self.tabs.files {
             if preview.loading {
@@ -1045,6 +1140,45 @@ impl App {
                     .map(|source| self.read_preview(preview.id, source))
             });
         Task::batch(reads.chain([self.restore_preview_scroll(), self.reveal_tab()]))
+    }
+
+    /// Restart the background read of a restored preview that was still loading, was
+    /// suspended, or failed before its project moved to the background.
+    fn resume_preview(&mut self, id: u64) -> Option<Task<Message>> {
+        let (source, resume_page) = {
+            let preview = self.preview_for_request(id)?;
+            let source = preview.source.clone()?;
+            let settled = !preview.loading && preview.document.is_some() && preview.error.is_none();
+            if settled {
+                return None;
+            }
+            preview.loading = true;
+            preview.preparation = Preparation::Text;
+            preview.error = None;
+            let page = if preview.document.is_none() {
+                preview
+                    .document
+                    .as_ref()
+                    .and_then(|document| document.page)
+                    .or_else(|| {
+                        preview
+                            .suspended
+                            .as_ref()
+                            .and_then(|suspended| suspended.page)
+                    })
+            } else {
+                None
+            };
+            (source, page)
+        };
+        if let Some(page) = resume_page {
+            let (generation, request) = (self.generation, id);
+            return Some(Task::perform(
+                source.read_page(page.cursor, page.version),
+                move |result| Message::FilePrepared(generation, request, Preparation::Text, result),
+            ));
+        }
+        Some(self.read_preview(id, source))
     }
 
     pub(super) fn restore_preview_scroll(&self) -> Task<Message> {

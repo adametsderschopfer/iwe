@@ -275,8 +275,10 @@ budget. Older documents leave memory when that budget fills. Reopening them read
 or Git revision on a background worker. Large files retain their current part. Unchanged documents
 restore expanded blocks. Changed files rebuild their blocks, and changed large files restart at the
 first part. Working files refresh after restoration. Settings lists both shortcuts. Refresh keeps
-tabs and closure history for the current project. Changing projects clears both. Closing the
-application clears this memory.
+tabs and closure history for the current project. Switching projects keeps each project's open tabs,
+scroll positions, and closure history in memory for the current session. The four most recent
+projects retain this state. Documents beyond a 16 MiB budget per background project reload from disk
+on return. Closing the application clears this memory.
 
 The bottom bar shows the active file's full path. Clicking the path copies it to the clipboard. When
 no file is open, the bar shows the project path. Revision identifiers remain in commit tabs.
